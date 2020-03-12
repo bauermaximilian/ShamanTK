@@ -25,7 +25,7 @@ For every development with _Eterra_, you will need to add a reference to the bas
 
 Every application derived from the `EterraApplicationBase` class is initialized and started with an `IPlatformProvider` instance - these are provided by the available _platform modules_ for the _Eterra Framework_ in the `Eterra.Platforms` namespace, outsourced into the seperate project solution you can find [here](https://github.com/bauermaximilian/Eterra.Platforms). Depending on what operating system and device your application should run on, you need to reference the right project from that solution.
 
-A detailed demonstration on how this works and what functionality the _Eterra Framework_ provides can be found in this mildly entertaining _Eterra Demo_ project you can find [here](https://github.com/bauermaximilian/Eterra).
+A detailed demonstration on how this works and what functionality the _Eterra Framework_ provides can be found in this mildly entertaining _Eterra Demo_ project you can find [here](https://github.com/bauermaximilian/Eterra.Demo).
 
 ## License
 
