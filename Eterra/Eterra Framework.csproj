@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{9B9BB34B-8F8E-454C-8219-5E554EB35FDE}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Eterra</RootNamespace>
+    <AssemblyName>Eterra</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <LangVersion>latest</LangVersion>
+    <CodeAnalysisRuleSet>ManagedMinimumRules.ruleset</CodeAnalysisRuleSet>
+    <DocumentationFile>
+    </DocumentationFile>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Release\Eterra.xml</DocumentationFile>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Common\Angle.cs" />
+    <Compile Include="Common\AnimationPlayer.cs" />
+    <Compile Include="Common\AnimationPlayerLayer.cs" />
+    <Compile Include="Common\Bone.cs" />
+    <Compile Include="Common\CharSet.cs" />
+    <Compile Include="Common\ColliderPrimitive.cs" />
+    <Compile Include="Common\DeformerAnimationPlayer.cs" />
+    <Compile Include="Common\Deformer.cs" />
+    <Compile Include="Common\Dynamics.cs" />
+    <Compile Include="Common\FaceCollection.cs" />
+    <Compile Include="Common\FontRasterizationParameters.cs" />
+    <Compile Include="Common\MathHelper.cs" />
+    <Compile Include="Common\PlatformComponents.cs" />
+    <Compile Include="Common\Size.cs" />
+    <Compile Include="Common\VertexCollection.cs" />
+    <Compile Include="Controls\ControlsDummy.cs" />
+    <Compile Include="EterraApplicationBase.cs" />
+    <Compile Include="Graphics\RenderParameters.cs" />
+    <Compile Include="Graphics\GraphicsManager.cs" />
+    <Compile Include="Graphics\IRenderContext.cs" />
+    <Compile Include="Graphics\IRenderContextPhong.cs" />
+    <Compile Include="IPlatformProvider.cs" />
+    <Compile Include="IO\SoundDataStream.cs" />
+    <Compile Include="Log.cs" />
+    <Compile Include="Common\Entity.cs" />
+    <Compile Include="Common\EntityParameters.cs" />
+    <Compile Include="Common\InterpolatorProvider.cs" />
+    <Compile Include="Common\IAnimation.cs" />
+    <Compile Include="Common\Marker.cs" />
+    <Compile Include="Common\Scene.cs" />
+    <Compile Include="Common\StringExtension.cs" />
+    <Compile Include="Graphics\ShadingMode.cs" />
+    <Compile Include="Graphics\SpriteFont.cs" />
+    <Compile Include="Graphics\SpriteTextFormat.cs" />
+    <Compile Include="Common\SyncTask.cs" />
+    <Compile Include="Common\GlyphMapping.cs" />
+    <Compile Include="Common\IInterpolator.cs" />
+    <Compile Include="Common\Light.cs" />
+    <Compile Include="Common\Node.cs" />
+    <Compile Include="Common\Skeleton.cs" />
+    <Compile Include="Common\SyncTaskCompletedEventArgs.cs" />
+    <Compile Include="Common\SyncTaskScheduler.cs" />
+    <Compile Include="Controls\ControlsManager.cs" />
+    <Compile Include="Controls\ControlEnums.cs" />
+    <Compile Include="Graphics\Camera.cs" />
+    <Compile Include="Common\DeformerAttachments.cs" />
+    <Compile Include="Graphics\IGraphics.cs" />
+    <Compile Include="Graphics\SpriteText.cs" />
+    <Compile Include="IO\MeshData.cs" />
+    <Compile Include="Graphics\MeshBuffer.cs" />
+    <Compile Include="Graphics\TextureBuffer.cs" />
+    <Compile Include="IO\FileSystemPath.cs" />
+    <Compile Include="IO\IFileSystem.cs" />
+    <Compile Include="IO\IResourceFormatHandler.cs" />
+    <Compile Include="IO\FileSystem.cs" />
+    <Compile Include="IO\NativeFormatHandler.cs" />
+    <Compile Include="IO\ReadOnlyFileSystem.cs" />
+    <Compile Include="IO\ResourceManager.cs" />
+    <Compile Include="IO\ResourcePath.cs" />
+    <Compile Include="IO\ResourceQuery.cs" />
+    <Compile Include="IO\BasicFormatsHandler.cs" />
+    <Compile Include="IO\SpriteFontData.cs" />
+    <Compile Include="IO\StreamExtension.cs" />
+    <Compile Include="IO\ZipFileSystem.cs" />
+    <Compile Include="Common\Keyframe.cs" />
+    <Compile Include="Common\Timeline.cs" />
+    <Compile Include="Common\DisposableBase.cs" />
+    <Compile Include="IO\TextureData.cs" />
+    <Compile Include="IO\TextureDataGenerators.cs" />
+    <Compile Include="Sound\SoundDummy.cs" />
+    <Compile Include="Sound\SoundManager.cs" />
+    <Compile Include="Sound\SoundSource.cs" />
+    <Compile Include="Graphics\RenderTextureBuffer.cs" />
+    <Compile Include="Common\Color.cs" />
+    <Compile Include="Controls\ControlMapping.cs" />
+    <Compile Include="Common\Face.cs" />
+    <Compile Include="Controls\IControls.cs" />
+    <Compile Include="Sound\ISound.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Common\MemoryPointer.cs" />
+    <Compile Include="Common\Rectangle.cs" />
+    <Compile Include="Common\TimelineLayer.cs" />
+    <Compile Include="Common\Vertex.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

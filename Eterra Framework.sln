@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29728.190
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eterra Framework", "Eterra\Eterra Framework.csproj", "{9B9BB34B-8F8E-454C-8219-5E554EB35FDE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{88E323C4-2A04-4D05-AB6D-D77E263F8CDD}"
+	ProjectSection(SolutionItems) = preProject
+		ABOUT.txt = ABOUT.txt
+		LICENSE.txt = LICENSE.txt
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9B9BB34B-8F8E-454C-8219-5E554EB35FDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B9BB34B-8F8E-454C-8219-5E554EB35FDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B9BB34B-8F8E-454C-8219-5E554EB35FDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B9BB34B-8F8E-454C-8219-5E554EB35FDE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BBAA67BC-AA72-4D43-BFB2-2F3DED8A5347}
+	EndGlobalSection
+EndGlobal
