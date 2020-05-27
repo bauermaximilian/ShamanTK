@@ -39,6 +39,13 @@ namespace Eterra.Graphics
         public int FaceCount { get; }
 
         /// <summary>
+        /// Gets the current <see cref="Common.VertexPropertyDataFormat"/>,
+        /// which defines how the <see cref="VertexPropertyData"/> of the
+        /// uploaded <see cref="Vertex"/> data is interpreted.
+        /// </summary>
+        public VertexPropertyDataFormat VertexPropertyDataFormat { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="MeshBuffer"/>
         /// base class.
         /// </summary>
@@ -48,18 +55,34 @@ namespace Eterra.Graphics
         /// <param name="faceCount">
         /// The amount of faces stored in the <see cref="MeshBuffer"/>
         /// </param>
+        /// <param name="vertexPropertyDataFormat">
+        /// The format of the <see cref="VertexPropertyData"/> in every
+        /// <see cref="Vertex"/> uploaded to the new <see cref="MeshBuffer"/>.
+        /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="vertexCount"/> is less than 3
+        /// Is thrown when <paramref name="vertexCount"/> is less than 1
         /// or when <paramref name="faceCount"/> is less than 1.
         /// </exception>
-        protected MeshBuffer(int vertexCount, int faceCount)
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="vertexPropertyDataFormat"/> is
+        /// invalid.
+        /// </exception>
+        protected MeshBuffer(int vertexCount, int faceCount,
+            VertexPropertyDataFormat vertexPropertyDataFormat)
             : base(Math.Max(1, vertexCount * Vertex.Size 
                 + faceCount * Face.Size))
         {
-            if (vertexCount < 3)
-                throw new ArgumentOutOfRangeException("vertexCount");
+            if (vertexCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(vertexCount));
             if (faceCount < 1)
-                throw new ArgumentOutOfRangeException("faceCount");
+                throw new ArgumentOutOfRangeException(nameof(faceCount));
+
+            if (!Enum.IsDefined(typeof(VertexPropertyDataFormat),
+                vertexPropertyDataFormat))
+                throw new ArgumentException("The specified vertex property " +
+                    "data format is invalid.");
+
+            VertexPropertyDataFormat = vertexPropertyDataFormat;
 
             VertexCount = vertexCount;
             FaceCount = faceCount;
@@ -97,6 +120,12 @@ namespace Eterra.Graphics
         /// or when the sum of <paramref name="offset"/> and 
         /// <paramref name="count"/> is greater than <see cref="VertexCount"/>.
         /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when the <see cref="MeshData.VertexPropertyDataFormat"/>
+        /// of the specified <paramref name="source"/> is different from the
+        /// <see cref="VertexPropertyDataFormat"/> of this 
+        /// <see cref="MeshBuffer"/> instance.
+        /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// Is thrown when the current <see cref="MeshBuffer"/> was disposed
         /// and can't be used anymore.
@@ -120,6 +149,11 @@ namespace Eterra.Graphics
                 throw new ArgumentException("The vertex count of the " +
                     "specified mesh data source doesn't match the vertex " +
                     "count of the current buffer.");
+
+            if (source.VertexPropertyDataFormat != VertexPropertyDataFormat)
+                throw new FormatException("The vertex property data format " +
+                    "of the specified source doesn't match to the format " +
+                    "of the current buffer instance.");
         }
 
         /// <summary>
@@ -148,6 +182,12 @@ namespace Eterra.Graphics
         /// <paramref name="count"/> is less than/equal to 0, 
         /// or when the sum of <paramref name="offset"/> and 
         /// <paramref name="count"/> is greater than <see cref="VertexCount"/>.
+        /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when the <see cref="MeshData.VertexPropertyDataFormat"/>
+        /// of the specified <paramref name="source"/> is different from the
+        /// <see cref="VertexPropertyDataFormat"/> of this 
+        /// <see cref="MeshBuffer"/> instance.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// Is thrown when the current <see cref="MeshBuffer"/> was disposed
@@ -191,6 +231,12 @@ namespace Eterra.Graphics
         /// Is thrown when <paramref name="currentOffset"/> is less than 0 or 
         /// greater than/equal to <see cref="VertexCount"/>, or when 
         /// <paramref name="count"/> is less than/equal to 0.
+        /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when the <see cref="MeshData.VertexPropertyDataFormat"/>
+        /// of the specified <paramref name="source"/> is different from the
+        /// <see cref="VertexPropertyDataFormat"/> of this 
+        /// <see cref="MeshBuffer"/> instance.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// Is thrown when the current <see cref="MeshBuffer"/> was disposed
@@ -344,6 +390,12 @@ namespace Eterra.Graphics
         /// Is thrown when <paramref name="currentOffset"/> is less than 0 or 
         /// greater than/equal to <see cref="FaceCount"/>, or when 
         /// <paramref name="countMax"/> is less than/equal to 0.
+        /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when the <see cref="MeshData.VertexPropertyDataFormat"/>
+        /// of the specified <paramref name="source"/> is different from the
+        /// <see cref="VertexPropertyDataFormat"/> of this 
+        /// <see cref="MeshBuffer"/> instance.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// Is thrown when the current <see cref="MeshBuffer"/> was disposed

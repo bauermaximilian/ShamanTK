@@ -390,8 +390,8 @@ namespace Eterra.IO
         {
             public class BufferGenerator
             {
-                private const int VertexBufferSize = 32;
-                private const int FaceBufferSize = 128;
+                private const int VertexBufferSize = 1024;
+                private const int FaceBufferSize = 1024;
 
                 private MeshBuffer buffer;
                 private int currentVertexOffset = 0,
@@ -407,7 +407,8 @@ namespace Eterra.IO
 
                     if (buffer == null)
                         buffer = graphics.CreateMeshBuffer(
-                            data.VertexCount, data.FaceCount);
+                            data.VertexCount, data.FaceCount,
+                            data.VertexPropertyDataFormat);
                     else if (currentVertexOffset < data.VertexCount)
                         buffer.UploadVertices(data, ref currentVertexOffset,
                             VertexBufferSize);
@@ -428,6 +429,10 @@ namespace Eterra.IO
 
             public MeshTask(MeshData data, ResourceManager resourceManager)
                 : base(() => data, resourceManager) { }
+
+            public MeshTask(Func<MeshData> meshDataGenerator,
+                ResourceManager resourceManager)
+                : base(meshDataGenerator, resourceManager) { }
 
             protected override MeshBuffer ContinueBufferGeneration(
                 MeshData data)
@@ -974,6 +979,40 @@ namespace Eterra.IO
                 throw new ArgumentNullException(nameof(data));
 
             SyncTask<MeshBuffer> task = new MeshTask(data, this);
+            loadingTasks.Enqueue(task);
+            return task;
+        }
+
+        /// <summary>
+        /// Begins loading a mesh into graphic memory, which can be used for 
+        /// drawing on the <see cref="Canvas"/> in the <see cref="Redraw"/>
+        /// event once the loading process is finished.
+        /// </summary>
+        /// <param name="dataGenerator">
+        /// A delegate to a method that returns a valid <see cref="MeshData"/>
+        /// instance to be buffered. This delegate will be executed in a 
+        /// seperate thread.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="SyncTask{MeshBuffer}"/> instance, which is 
+        /// managed by the current <see cref="EterraApp"/>.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="dataGenerator"/> is null.
+        /// </exception>
+        /// <remarks>
+        /// The task isn't started instantly, but at the end 
+        /// of the current <see cref="Update"/> cycle (after the 
+        /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
+        /// events and property changes occur in the same thread as the
+        /// events of this <see cref="EterraApp"/>.
+        /// </remarks>
+        public SyncTask<MeshBuffer> LoadMesh(Func<MeshData> dataGenerator)
+        {
+            if (dataGenerator == null)
+                throw new ArgumentNullException(nameof(dataGenerator));
+
+            SyncTask<MeshBuffer> task = new MeshTask(dataGenerator, this);
             loadingTasks.Enqueue(task);
             return task;
         }

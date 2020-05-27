@@ -113,9 +113,9 @@ namespace Eterra.IO
 
         /// <summary>
         /// Reads a <see cref="byte"/> array from the current stream and 
-        /// advances the position within the stream by the length of the 
-        /// buffer, which is specified by a single <see cref="uint"/> before
-        /// the beginning of the <see cref="byte"/> buffer in the stream.
+        /// advances the position within the stream by the size of a single 
+        /// <see cref="uint"/> and the length of the buffer, which is 
+        /// specified by that <see cref="uint"/>.
         /// </summary>
         /// <param name="stream">The stream to operate on.</param>
         /// <returns>A new <see cref="byte"/> array instance.</returns>
@@ -229,7 +229,11 @@ namespace Eterra.IO
         /// Calculates the amount of bytes required by a string written with 
         /// <see cref="WriteStringFixed(Stream, string)"/>.
         /// </summary>
-        /// <param name="stream">The stream to operate on.</param>
+        /// <param name="stream">
+        /// The stream isn't actually used for anything, it's just provided
+        /// as parameter so that this method actually appears as extension
+        /// method as well.
+        /// </param>
         /// <param name="s">
         /// The string to be used for calculation.
         /// </param>
@@ -239,9 +243,10 @@ namespace Eterra.IO
         /// <returns>
         /// A new <see cref="uint"/>.
         /// </returns>
-        public static uint GetStringFixedSize(this Stream stream,
-            string s)
+        public static uint GetStringFixedSize(this Stream stream, string s)
         {
+            if (stream == null)
+                throw new ArgumentNullException(nameof(stream));
             return GetStringFixedSize(s);
         }
 
@@ -490,7 +495,7 @@ namespace Eterra.IO
         }
 
         /// <summary>
-        /// Reads a single <see cref="int"/> from the current stream and and 
+        /// Reads a single <see cref="int"/> from the current stream and 
         /// advances the position within the stream by the size of an 
         /// <see cref="int"/>.
         /// </summary>
@@ -522,6 +527,81 @@ namespace Eterra.IO
             if (stream.Read(buffer, 0, buffer.Length) == buffer.Length)
                 return BitConverter.ToInt32(buffer, 0);
             else throw endOfStreamException;
+        }
+
+        /// <summary>
+        /// Reads a single enum value of type <typeparamref name="EnumT"/>
+        /// from the current stream and advances the position within the
+        /// stream by the size of an <see cref="int"/>.
+        /// This method only supports enums using an <see cref="int"/> as
+        /// base value type.
+        /// </summary>
+        /// <typeparam name="EnumT">
+        /// The enum type as which the parsed <see cref="int"/> should be 
+        /// casted.
+        /// </typeparam>
+        /// <param name="stream">The stream to operate on.</param>
+        /// <param name="checkIfValueDefined">
+        /// <c>true</c> to check if the value is a defined element of the
+        /// <typeparamref name="EnumT"/> enum, <c>false</c> to skip that
+        /// check (e.g. for flags).
+        /// </param>
+        /// <returns>
+        /// A new <typeparamref name="EnumT"/> value.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="stream"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <typeparamref name="EnumT"/> is no valid enum type.
+        /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when the read <see cref="int"/> couldn't be casted into
+        /// a valid (and defined, depending on 
+        /// <paramref name="checkIfValueDefined"/>) 
+        /// <typeparamref name="EnumT"/> instance.
+        /// </exception>
+        /// <exception cref="EndOfStreamException">
+        /// Is thrown when the end of the stream was reached before the
+        /// block of bytes required for initializing the object instance could
+        /// be read completely.
+        /// </exception>
+        /// <exception cref="IOException">
+        /// Is thrown when an I/O error occurs.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when <see cref="Stream.CanRead"/> is <c>false</c>.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// Is thrown when <paramref name="stream"/> was disposed.
+        /// </exception>
+        public static EnumT ReadEnum<EnumT>(this Stream stream, 
+            bool checkIfValueDefined = true)
+            where EnumT : struct, IConvertible
+        {
+            if (!typeof(EnumT).IsEnum)
+                throw new ArgumentException("EnumT is no 'enum' type.");
+
+            object enumInt;
+
+            byte[] buffer = new byte[sizeof(int)];
+            if (stream.Read(buffer, 0, buffer.Length) == buffer.Length)
+                enumInt = BitConverter.ToInt32(buffer, 0);
+            else throw endOfStreamException;
+
+            try
+            {
+                EnumT enumValue = (EnumT)enumInt;
+                if (checkIfValueDefined ||
+                    Enum.IsDefined(typeof(EnumT), enumValue))
+                    return enumValue;
+                else throw new InvalidCastException();
+            }
+            catch
+            {
+                throw new FormatException("The value is no valid " +
+                    typeof(EnumT).Name + " enum value.");
+            }
         }
 
         /// <summary>
@@ -792,7 +872,7 @@ namespace Eterra.IO
         /// </summary>
         /// <param name="stream">The stream to operate on.</param>
         /// <param name="buffer">
-        /// The byte array to be written.
+        /// The byte array to be written. Can be empty.
         /// </param>
         /// <param name="prependBufferSize">
         /// <c>true</c> to prepend a single <see cref="uint"/> before the
@@ -825,7 +905,7 @@ namespace Eterra.IO
 
             if (prependBufferSize)
                 stream.WriteUnsignedInteger((uint)buffer.Length);
-            stream.Write(buffer, 0, buffer.Length);
+            if (buffer.Length > 0) stream.Write(buffer, 0, buffer.Length);
         }
 
         /// <summary>
@@ -1133,6 +1213,48 @@ namespace Eterra.IO
                 throw new ArgumentNullException(nameof(stream));
 
             byte[] buffer = BitConverter.GetBytes(value);
+            stream.Write(buffer, 0, buffer.Length);
+        }
+
+        /// <summary>
+        /// Writes a single <typeparamref name="EnumT"/> value to the current 
+        /// stream and and advances the current position within this stream by 
+        /// the number of bytes of a <see cref="int"/>.
+        /// This method only supports enums using an <see cref="int"/> as
+        /// base value type.
+        /// </summary>
+        /// <typeparam name="EnumT">
+        /// The enum type which should be converted to and written as an 
+        /// <see cref="int"/> into the stream.
+        /// </typeparam>
+        /// <param name="stream">The stream to operate on.</param>
+        /// <param name="value">
+        /// The value to be written to the current stream.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="stream"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <typeparamref name="EnumT"/> is no valid enum type.
+        /// </exception>
+        /// <exception cref="IOException">
+        /// Is thrown when an I/O error occurs.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when <see cref="Stream.CanWrite"/> is <c>false</c>.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// Is thrown when <paramref name="stream"/> was disposed.
+        /// </exception>
+        public static void WriteEnum<EnumT>(this Stream stream, EnumT value)
+            where EnumT : struct, IConvertible
+        {
+            if (stream == null)
+                throw new ArgumentNullException(nameof(stream));
+
+            int intValue = (int)((object)value);
+
+            byte[] buffer = BitConverter.GetBytes(intValue);
             stream.Write(buffer, 0, buffer.Length);
         }
 

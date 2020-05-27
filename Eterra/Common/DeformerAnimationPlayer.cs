@@ -515,8 +515,8 @@ namespace Eterra.Common
         /// </remarks>
         public Deformer GetCurrentDeformer()
         {
-            Matrix4x4[] deformers = new Matrix4x4[Math.Min(
-                Deformer.MaximumSize, animationHierarchy.HighestIndex + 1)];
+            Matrix4x4[] deformers = 
+                new Matrix4x4[animationHierarchy.HighestIndex + 1];
 
             CalculateAbsoluteTransformation(Matrix4x4.Identity,
                 animationHierarchy, deformers);

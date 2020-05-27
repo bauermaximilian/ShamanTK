@@ -98,48 +98,53 @@ namespace Eterra.Common
         /// <summary>
         /// Initializes a new <see cref="DeformerAttachments"/> instance.
         /// </summary>
-        /// <param name="index1">
+        /// <param name="attachmentOneIndex">
         /// The deformer index of the first attachment.
         /// </param>
-        /// <param name="weight1">
+        /// <param name="attachmentOneWeight">
         /// The weight of the first attachment.
         /// </param>
-        /// <param name="index2">
+        /// <param name="attachmentTwoIndex">
         /// The deformer index of the second attachment.
         /// </param>
-        /// <param name="weight2">
+        /// <param name="attachmentTwoWeight">
         /// The weight of the second attachment.
         /// </param>
-        /// <param name="index3">
+        /// <param name="attachmentThreeIndex">
         /// The deformer index of the third attachment.
         /// </param>
-        /// <param name="weight3">
+        /// <param name="attachmentThreeWeight">
         /// The weight of the third attachment.
         /// </param>
-        /// <param name="index4">
+        /// <param name="attachmentFourIndex">
         /// The deformer index of the fourth attachment.
         /// </param>
-        /// <param name="weight4">
+        /// <param name="attachmentFourWeight">
         /// The weight of the fourth attachment.
         /// </param>
-        public DeformerAttachments(byte index1, byte weight1, byte index2, 
-            byte weight2, byte index3, byte weight3, byte index4, byte weight4)
+        public DeformerAttachments(
+            byte attachmentOneIndex, byte attachmentOneWeight, 
+            byte attachmentTwoIndex, byte attachmentTwoWeight,
+            byte attachmentThreeIndex, byte attachmentThreeWeight, 
+            byte attachmentFourIndex, byte attachmentFourWeight)
         {
-            AttachmentOneIndex = index1;
-            AttachmentTwoIndex = index2;
-            AttachmentThreeIndex = index3;
-            AttachmentFourIndex = index4;
+            AttachmentOneIndex = attachmentOneIndex;
+            AttachmentTwoIndex = attachmentTwoIndex;
+            AttachmentThreeIndex = attachmentThreeIndex;
+            AttachmentFourIndex = attachmentFourIndex;
 
-            AttachmentOneWeight = weight1;
-            AttachmentTwoWeight = weight2;
-            AttachmentThreeWeight = weight3;
-            AttachmentFourWeight = weight4;
+            AttachmentOneWeight = attachmentOneWeight;
+            AttachmentTwoWeight = attachmentTwoWeight;
+            AttachmentThreeWeight = attachmentThreeWeight;
+            AttachmentFourWeight = attachmentFourWeight;
         }
 
         /// <summary>
-        /// Initializes a new <see cref="DeformerAttachments"/> instance.
+        /// Initializes a new <see cref="DeformerAttachments"/> instance from
+        /// a collection where the attachment IDs and weights are stored as
+        /// tuples.
         /// </summary>
-        /// <param name="attachments">
+        /// <param name="attachmentList">
         /// A collection of attachments as tuples, where the first item of each
         /// tuple is the deformer index and the second item the weight.
         /// </param>
@@ -150,67 +155,95 @@ namespace Eterra.Common
         /// more than four elements.
         /// </param>
         /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="attachments"/> is null.
+        /// Is thrown when <paramref name="attachmentList"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when <paramref name="attachments"/> contained more than
+        /// Is thrown when <paramref name="attachmentList"/> contained more than
         /// four elements and <paramref name="ignoreOvermuch"/> 
         /// is <c>false</c>.
         /// </exception>
-        public DeformerAttachments(IList<Tuple<byte, byte>> attachments,
-            bool ignoreOvermuch)
+        public static DeformerAttachments FromList(
+            IList<Tuple<byte, byte>> attachmentList, bool ignoreOvermuch)
         {
-            if (attachments == null)
-                throw new ArgumentNullException(nameof(attachments));
+            if (attachmentList == null)
+                throw new ArgumentNullException(nameof(attachmentList));
 
-            if (attachments.Count > 0)
-            {
-                AttachmentOneIndex = attachments[0].Item1;
-                AttachmentOneWeight = attachments[0].Item2;
-            }
-            else
-            {
-                AttachmentOneIndex = 0;
-                AttachmentOneWeight = 0;
-            }
+            byte attachmentOneIndex = 0, attachmentOneWeight = 0,
+                attachmentTwoIndex = 0, attachmentTwoWeight = 0,
+                attachmentThreeIndex = 0, attachmentThreeWeight = 0,
+                attachmentFourIndex = 0, attachmentFourWeight = 0;
 
-            if (attachments.Count > 1)
+            if (attachmentList.Count > 0)
             {
-                AttachmentTwoIndex = attachments[1].Item1;
-                AttachmentTwoWeight = attachments[1].Item2;
-            }
-            else
-            {
-                AttachmentTwoIndex = 0;
-                AttachmentTwoWeight = 0;
+                attachmentOneIndex = attachmentList[0].Item1;
+                attachmentOneWeight = attachmentList[0].Item2;
             }
 
-            if (attachments.Count > 2)
+            if (attachmentList.Count > 1)
             {
-                AttachmentThreeIndex = attachments[2].Item1;
-                AttachmentThreeWeight = attachments[2].Item2;
-            }
-            else
-            {
-                AttachmentThreeIndex = 0;
-                AttachmentThreeWeight = 0;
+                attachmentTwoIndex = attachmentList[1].Item1;
+                attachmentTwoWeight = attachmentList[1].Item2;
             }
 
-            if (attachments.Count > 3)
+            if (attachmentList.Count > 2)
             {
-                AttachmentFourIndex = attachments[3].Item1;
-                AttachmentFourWeight = attachments[3].Item2;
-            }
-            else
-            {
-                AttachmentFourIndex = 0;
-                AttachmentFourWeight = 0;
+                attachmentThreeIndex = attachmentList[2].Item1;
+                attachmentThreeWeight = attachmentList[2].Item2;
             }
 
-            if (attachments.Count > 4 && !ignoreOvermuch)
+            if (attachmentList.Count > 3)
+            {
+                attachmentFourIndex = attachmentList[3].Item1;
+                attachmentFourWeight = attachmentList[3].Item2;
+            }
+
+            if (attachmentList.Count > 4 && !ignoreOvermuch)
                 throw new ArgumentException("The specified attachment " +
                     "collection contains more than the maximum of four " +
                     "supported elements.");
+
+            return new DeformerAttachments(
+                attachmentOneIndex, attachmentOneWeight,
+                attachmentTwoIndex, attachmentTwoWeight,
+                attachmentThreeIndex, attachmentThreeWeight,
+                attachmentFourIndex, attachmentFourWeight);
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="DeformerAttachments"/> instance by 
+        /// using the first 4 property bytes as attachment indicies and the 
+        /// last 4 property bytes as attachment weights.
+        /// </summary>
+        /// <param name="properties">
+        /// The properties instance from the parent <see cref="Vertex"/>.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="DeformerAttachments"/> instance.
+        /// </returns>
+        public static DeformerAttachments FromVertexProperties(
+            VertexPropertyData properties)
+        {
+            return new DeformerAttachments(properties.P1, properties.P5,
+                properties.P2, properties.P6, properties.P3, properties.P7,
+                properties.P4, properties.P8);
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="VertexPropertyData"/> instance from the
+        /// current <see cref="DeformerAttachments"/> instance by putting the
+        /// attachment indicies into the first 4 bytes of the resulting
+        /// <see cref="VertexPropertyData"/> instance and the attachment 
+        /// weights into the following, last 4 bytes.
+        /// </summary>
+        /// <returns>
+        /// A new <see cref="VertexPropertyData"/> instance.
+        /// </returns>
+        public VertexPropertyData ToVertexPropertyData()
+        {
+            return new VertexPropertyData(AttachmentOneIndex,
+                AttachmentTwoIndex, AttachmentThreeIndex, AttachmentFourIndex,
+                AttachmentOneWeight, AttachmentTwoWeight,
+                AttachmentThreeWeight, AttachmentFourWeight);
         }
 
         /// <summary>

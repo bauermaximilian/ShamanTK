@@ -27,21 +27,21 @@ namespace Eterra.Graphics
     /// Performs all operations to completely draw the content of
     /// a canvas as part of the applications' redraw cycle.
     /// </summary>
-    /// <typeparam name="CanvasT">
+    /// <typeparam name="RenderContextT">
     /// The type derived from <see cref="IRenderContext"/> the provided
     /// canvas instance will have.
     /// </typeparam>
-    /// <param name="canvas">
+    /// <param name="context">
     /// The canvas instance which provides the drawing capabilities.
     /// </param>
     /// <exception cref="ArgumentNullException">
-    /// Is thrown when <paramref name="canvas"/> is null.
+    /// Is thrown when <paramref name="context"/> is null.
     /// </exception>
     /// <exception cref="Exception">
     /// Is thrown when the redraw fails.
     /// </exception>
-    public delegate void RenderTask<CanvasT>(CanvasT canvas)
-        where CanvasT : IRenderContext;
+    public delegate void RenderTask<RenderContextT>(RenderContextT context)
+        where RenderContextT : IRenderContext;
 
     /// <summary>
     /// Provides a method that handles a recurring event in the
@@ -93,6 +93,38 @@ namespace Eterra.Graphics
         /// </summary>
         Fullscreen
     }
+
+    /// <summary>
+    /// Describes the various limits of an <see cref="IGraphics"/> 
+    /// implementation running on a specific platform.
+    /// </summary>
+    public enum PlatformLimit
+    {
+        /// <summary>
+        /// The maximum size (width or height) of a <see cref="IGraphics"/>
+        /// instance in pixels.
+        /// </summary>
+        GraphicsSize,
+        /// <summary>
+        /// The maximum size (width or height) of textures supported by the
+        /// current platform in pixels.
+        /// </summary>
+        TextureSize,
+        /// <summary>
+        /// The maximum size (width or height) of textures supported by the
+        /// current platform in pixels.
+        /// </summary>
+        RenderBufferSize,
+        /// <summary>
+        /// The maximum amount of elements in a <see cref="Deformer"/>
+        /// instance.
+        /// </summary>
+        DeformerSize,
+        /// <summary>
+        /// The maximum amount of lights that can be active at once.
+        /// </summary>
+        LightCount
+    }
     #endregion
 
     /// <summary>
@@ -103,16 +135,15 @@ namespace Eterra.Graphics
     public interface IGraphics : IDisposable
     {
         /// <summary>
-        /// Gets or sets the <see cref="Engine.Graphics.Size"/> of the 
-        /// current graphics window or screen in pixels. Setting this value
-        /// only has an effect when the current <see cref="Mode"/> is
+        /// Gets or sets the dimensions of the current graphics window or 
+        /// screen in pixels. Setting this value only has an effect when the 
+        /// current <see cref="Mode"/> is
         /// <see cref="WindowMode.NormalBorderless"/>,
         /// <see cref="WindowMode.NormalFixed"/> or
-        /// <see cref="WindowMode.NormalScalable"/>.
+        /// <see cref="WindowMode.NormalScalable"/> and is ignored otherwise.
         /// </summary>
         /// <exception cref="ArgumentException">
-        /// Is thrown when the resolution is invalid for the current graphics
-        /// unit.
+        /// Is thrown when the resolution is invalid in the current context.
         /// </exception>
         Size Size { get; set; }
 
@@ -202,6 +233,28 @@ namespace Eterra.Graphics
         void Close();
 
         /// <summary>
+        /// Retrieves the current limit for various values that can vary
+        /// on different platforms or implementations of a 
+        /// <see cref="IGraphics"/> unit.
+        /// </summary>
+        /// <param name="limit">
+        /// The limit to be queried.
+        /// </param>
+        /// <param name="value">
+        /// The value of the limit, if the current platform and implementation
+        /// supports querying that limit, or 0.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if the value of the requested platform limit was
+        /// successfully retrieved into the <paramref name="value"/> parameter,
+        /// <c>false</c> otherwise.
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="limit"/> is invalid.
+        /// </exception>
+        bool TryGetPlatformLimit(PlatformLimit limit, out int value);
+
+        /// <summary>
         /// Performs a rendering operation to a 
         /// <see cref="RenderTextureBuffer"/> created by the current
         /// <see cref="GraphicsManager"/> instance.
@@ -271,12 +324,20 @@ namespace Eterra.Graphics
         /// <param name="faceCount">
         /// The amount of faces of the new <see cref="MeshBuffer"/>.
         /// </param>
+        /// <param name="vertexPropertyDataFormat">
+        /// The format of the <see cref="VertexPropertyData"/> in every
+        /// <see cref="Vertex"/> uploaded to the new <see cref="MeshBuffer"/>.
+        /// </param>
         /// <returns>
         /// A new instance of the <see cref="MeshBuffer"/> class.
         /// </returns>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="vertexCount"/> is less than 3
+        /// Is thrown when <paramref name="vertexCount"/> is less than 1
         /// or when <paramref name="faceCount"/> is less than 1.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="vertexPropertyDataFormat"/> is
+        /// invalid.
         /// </exception>
         /// <exception cref="OutOfMemoryException">
         /// Is thrown when there's not enough graphics memory left to create 
@@ -289,7 +350,8 @@ namespace Eterra.Graphics
         /// <see cref="MeshBuffer"/> instance before the buffer is used to 
         /// produce defined results.
         /// </remarks>
-        MeshBuffer CreateMeshBuffer(int vertexCount, int faceCount);
+        MeshBuffer CreateMeshBuffer(int vertexCount, int faceCount,
+            VertexPropertyDataFormat vertexPropertyDataFormat);
 
         /// <summary>
         /// Creates a new <see cref="TextureBuffer"/> instance.

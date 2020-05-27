@@ -32,8 +32,20 @@ namespace Eterra
     /// access to various functions for rendering graphics, playing back sound, 
     /// handling user input and importing/exporting resources.
     /// </summary>
-    public abstract class EterraApplicationBase
+    public abstract class EterraApplicationBase : IDisposable
     {
+        private static readonly InvalidOperationException 
+            notInitializedException = new InvalidOperationException("The " +
+                "unit can't be accessed before the application was " +
+                "initialized - the first possibility to access the unit is " +
+                "in the 'Load' method.");
+
+        private static readonly InvalidOperationException 
+            alreadyDisposedException = new InvalidOperationException("The " +
+                "unit can't be accessed after the application was closed - " +
+                "the last possibility to access the unit is in the " +
+                "'Unload' method.");
+
         /// <summary>
         /// Defines the target frequency of updates per second.
         /// </summary>
@@ -52,15 +64,16 @@ namespace Eterra
         /// </summary>
         /// <exception cref="InvalidOperationException">
         /// Is thrown when this property is accessed before the application
-        /// was successfully initialized and started.
+        /// was successfully initialized or when the application was already
+        /// closed and disposed.
         /// </exception>
         protected ResourceManager Resources
         {
             get
             {
-                return resources ?? throw new InvalidOperationException(
-                    "The resource unit was accessed before the application " +
-                    "was successfully initialized.");
+                if (!IsInitialized) throw notInitializedException;
+                else if (IsDisposed) throw alreadyDisposedException;
+                else return resources;
             }
         }
         private ResourceManager resources;
@@ -73,15 +86,16 @@ namespace Eterra
         /// </summary>
         /// <exception cref="InvalidOperationException">
         /// Is thrown when this property is accessed before the application
-        /// was successfully initialized and started.
+        /// was successfully initialized or when the application was already
+        /// closed and disposed.
         /// </exception>
         protected ControlsManager Controls
         {
             get
             {
-                return controls ?? throw new InvalidOperationException(
-                    "The controls unit was accessed before the application " +
-                    "was successfully initialized.");
+                if (!IsInitialized) throw notInitializedException;
+                else if (IsDisposed) throw alreadyDisposedException;
+                else return controls;
             }
         }
         private ControlsManager controls;
@@ -94,15 +108,16 @@ namespace Eterra
         /// </summary>
         /// <exception cref="InvalidOperationException">
         /// Is thrown when this property is accessed before the application
-        /// was successfully initialized and started.
+        /// was successfully initialized or when the application was already
+        /// closed and disposed.
         /// </exception>
         protected GraphicsManager Graphics
         {
             get
             {
-                return graphics ?? throw new InvalidOperationException(
-                    "The graphics unit was accessed before the application " +
-                    "was successfully initialized.");
+                if (!IsInitialized) throw notInitializedException;
+                else if (IsDisposed) throw alreadyDisposedException;
+                else return graphics;
             }
         }
         private GraphicsManager graphics;
@@ -114,15 +129,16 @@ namespace Eterra
         /// </summary>
         /// <exception cref="InvalidOperationException">
         /// Is thrown when this property is accessed before the application
-        /// was successfully initialized and started.
+        /// was successfully initialized or when the application was already
+        /// closed and disposed.
         /// </exception>
         protected SoundManager Sound
         {
             get
             {
-                return sound ?? throw new InvalidOperationException(
-                    "The sound unit was accessed before the application " +
-                    "was successfully initialized.");
+                if (!IsInitialized) throw notInitializedException;
+                else if (IsDisposed) throw alreadyDisposedException;
+                else return sound;
             }
         }
         private SoundManager sound;
@@ -132,11 +148,21 @@ namespace Eterra
         /// <see cref="EterraApplicationBase"/> instance is initialized and the 
         /// <see cref="Graphics"/>, <see cref="Sound"/>, <see cref="Controls"/>
         /// and <see cref="Resources"/> properties are accessible and non-null
-        /// (<c>true</c>) or if the application hasn't been started yet
-        /// or has been stopped already (<c>false</c>).
+        /// (<c>true</c>) or if the application hasn't been started yet 
+        /// (<c>false</c>). Also check the <see cref="IsDisposed"/> property
+        /// to verify that the application hasn't been closed yet - or use the
+        /// <see cref="IsRunning"/> property instead.
         /// </summary>
-        public bool IsInitialized => graphics != null && sound != null &&
-            controls != null && resources != null;
+        public bool IsInitialized { get; private set; }
+
+        /// <summary>
+        /// Gets a value indicating whether this 
+        /// <see cref="EterraApplicationBase"/> instance was closed/disposed 
+        /// and can no longer be used (<c>true</c>) or not (<c>false</c>).
+        /// Also check the <see cref="IsInitialized"/> property - or use the
+        /// <see cref="IsRunning"/> property instead.
+        /// </summary>
+        public bool IsDisposed { get; private set; }
 
         /// <summary>
         /// Gets a value indicating whether this 
@@ -145,7 +171,7 @@ namespace Eterra
         /// and regularily updating and redrawing itself (<c>true</c>) or if 
         /// it wasn't started (yet) or has been stopped already (<c>false</c>).
         /// </summary>
-        public bool IsRunning => IsInitialized &&
+        public bool IsRunning => IsInitialized && !IsDisposed &&
             graphics.Graphics.IsRunning;
 
         /// <summary>
@@ -276,6 +302,9 @@ namespace Eterra
 
             if (IsRunning) throw new InvalidOperationException("The " +
                 "application is already running.");
+            else if (IsDisposed) throw new InvalidOperationException("The " +
+                "application was closed/disposed before and can no longer " +
+                "be used.");
             else
             {
                 Log.Information("Initializing application platform...");
@@ -294,20 +323,22 @@ namespace Eterra
 
                 graphics = new GraphicsManager(platform.Graphics);
 
-                Graphics.Graphics.Initialized += OnInitialized;
-                Graphics.Graphics.Closing += OnClosed;
-                Graphics.Graphics.Redraw += OnRedraw;
-                Graphics.Graphics.Update += OnUpdate;
+                graphics.Graphics.Initialized += OnInitialized;
+                graphics.Graphics.Closing += OnClosed;
+                graphics.Graphics.Redraw += OnRedraw;
+                graphics.Graphics.Update += OnUpdate;
 
                 controls = new ControlsManager(platform.Controls ??
                     new ControlsDummy());
                 sound = new SoundManager(platform.Sound ?? new SoundDummy());
                 resources = new ResourceManager(fileSystem,
-                    platform.ResourceFormatHandlers, Graphics.Graphics,
-                    Sound.Sound);
+                    platform.ResourceFormatHandlers, graphics.Graphics,
+                    sound.Sound);
 
-                Graphics.Title = Assembly.GetCallingAssembly().GetName().Name
+                graphics.Title = Assembly.GetCallingAssembly().GetName().Name
                     + " Application Launcher";
+
+                IsInitialized = true;
 
                 Log.Information("Initialisation of application platform " +
                     "completed in "
@@ -328,7 +359,7 @@ namespace Eterra
         protected void Close()
         {
             if (!IsRunning) throw new InvalidOperationException("The " +
-                "platform is not running.");
+                "platform is not running and can't be closed.");
             else
             {
                 graphics.Graphics.Close();
@@ -344,6 +375,8 @@ namespace Eterra
 
                 resources.Dispose();
                 resources = null;
+
+                IsDisposed = true;
             }
         }
 
@@ -383,6 +416,8 @@ namespace Eterra
 
         private void OnUpdate(IGraphics source, TimeSpan delta)
         {
+            if (IsDisposed) return;
+
             try { Controls.Update(delta); }
             catch (Exception exc)
             {
@@ -404,6 +439,8 @@ namespace Eterra
 
         private void OnRedraw(IGraphics source, TimeSpan delta)
         {
+            if (IsDisposed) return;
+
             DateTime eventStart = DateTime.Now;
 
             try { Redraw(delta); }
@@ -412,6 +449,7 @@ namespace Eterra
                 Log.Error(new ApplicationException("The main application " +
                     "failed unexpectedly while redrawing itself.", exc));
                 Close();
+                return;
             }
 
             //Continue the task scheduler with the time remaining after the
@@ -424,6 +462,14 @@ namespace Eterra
                     TimeSpan.FromMilliseconds(1);
 
             Resources.ContinueTasks(remaining);
+        }
+
+        /// <summary>
+        /// Closes the application and releases all associated resources.
+        /// </summary>
+        public void Dispose()
+        {
+            if (!IsDisposed) Close();
         }
     }
 }

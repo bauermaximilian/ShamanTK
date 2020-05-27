@@ -141,39 +141,6 @@ namespace Eterra.Common
 
         /// <summary>
         /// Creates a new <see cref="ColliderPrimitive"/> instance with the
-        /// <see cref="Type"/> <see cref="ColliderPrimitiveType.Box"/>, which
-        /// contains all vertices from a specified <see cref="MeshData"/>
-        /// instance.
-        /// </summary>
-        /// <param name="meshData">
-        /// The <see cref="MeshData"/> instance, which vertices will define the
-        /// dimensions of the new <see cref="ColliderPrimitive"/> instance.
-        /// </param>
-        /// <returns>A new <see cref="ColliderPrimitive"/> instance.</returns>
-        /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="meshData"/> is null.
-        /// </exception>
-        public static ColliderPrimitive CreateBox(MeshData meshData)
-        {
-            if (meshData == null)
-                throw new ArgumentNullException(nameof(meshData));
-
-            float width = 0, height = 0, depth = 0;
-
-            for (int i = 0; i < meshData.VertexCount; i++)
-            {
-                Vector3 position = meshData.GetVertex(i).Position;
-                width = Math.Max(Math.Abs(position.X), width);
-                height = Math.Max(Math.Abs(position.Y), height);
-                depth = Math.Max(Math.Abs(position.Z), depth);
-            }
-
-            return new ColliderPrimitive(width, height, depth, 
-                ColliderPrimitiveType.Box);
-        }
-
-        /// <summary>
-        /// Creates a new <see cref="ColliderPrimitive"/> instance with the
         /// <see cref="Type"/> <see cref="ColliderPrimitiveType.Sphere"/>.
         /// </summary>
         /// <param name="radius">The diameter of the shape (XZ-axis).</param>

@@ -45,8 +45,8 @@ namespace Eterra
         /// </summary>
         public class EventArgs : System.EventArgs
         {
-            private static Regex wordWrapRegex = new Regex("[^\\s]+");
-            private static Regex lineBreakRegex = new Regex(".+");
+            private static readonly Regex wordWrapRegex = new Regex("[^\\s]+");
+            private static readonly Regex lineBreakRegex = new Regex(".+");
 
             /// <summary>
             /// Gets the level of the log message.
@@ -225,7 +225,7 @@ namespace Eterra
         /// the <see cref="Thread.CurrentThread"/>.
         /// </summary>
         /// <remarks>
-        /// Under certain circumstanges, some exception messages might still
+        /// Under certain circumstances, some exception messages might still
         /// be displayed in the system culture - this is not a bug, but a 
         /// limitation of the .NET framework.
         /// </remarks>

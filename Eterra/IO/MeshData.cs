@@ -18,6 +18,7 @@
 */
 
 using Eterra.Common;
+using Eterra.Graphics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,28 +34,20 @@ namespace Eterra.IO
         #region Internally used Mesh implementation.
         internal class MemoryMesh : MeshData
         {
-            private VertexCollection vertexData;
+            private Vertex[] vertexData;
 
-            private FaceCollection faceData;
+            private Face[] faceData;
 
-            public MemoryMesh(VertexCollection vertexData, 
-                FaceCollection faceData, Skeleton skeleton) 
-                : base(vertexData?.Count ?? 3, faceData?.Count ?? 1, skeleton)
+            public MemoryMesh(Vertex[] vertexData, Face[] faceData,
+                VertexPropertyDataFormat vertexPropertyDataFormat,
+                Skeleton skeleton) 
+                : base(vertexData?.Length ?? 3, faceData?.Length ?? 1,
+                      vertexPropertyDataFormat, skeleton)
             {
-                this.vertexData = vertexData 
+                this.vertexData = vertexData
                     ?? throw new ArgumentNullException(nameof(vertexData));
-                this.faceData = faceData 
+                this.faceData = faceData
                     ?? throw new ArgumentNullException(nameof(faceData));
-            }
-
-            public override Vertex GetVertex(int index)
-            {
-                ThrowIfDisposed();
-
-                if (index < 0 || index > VertexCount)
-                    throw new ArgumentOutOfRangeException(nameof(index));
-
-                return vertexData[index];
             }
 
             public override Vertex[] GetVertices(int index, int length)
@@ -64,19 +57,8 @@ namespace Eterra.IO
                 ValidateVertexRange(index, length);
 
                 Vertex[] output = new Vertex[length];
-                Array.ConstrainedCopy(vertexData.BaseData, index, output, 0, 
-                    length);
+                Array.ConstrainedCopy(vertexData, index, output, 0, length);
                 return output;
-            }
-
-            public override Face GetFace(int index)
-            {
-                ThrowIfDisposed();
-
-                if (index < 0 || index > FaceCount)
-                    throw new ArgumentOutOfRangeException(nameof(index));
-
-                return faceData[index];
             }
 
             public override Face[] GetFaces(int index, int length)
@@ -86,8 +68,7 @@ namespace Eterra.IO
                 ValidateFaceRange(index, length);
 
                 Face[] output = new Face[length];
-                Array.ConstrainedCopy(faceData.BaseArray, index, output, 0, 
-                    length);
+                Array.ConstrainedCopy(faceData, index, output, 0, length);
                 return output;
             }
 
@@ -125,9 +106,29 @@ namespace Eterra.IO
         public int FaceCount { get; }
 
         /// <summary>
-        /// Gets the <see cref="Skeleton"/> of the mesh.
+        /// Gets the <see cref="Common.Skeleton"/> of the mesh or null, if 
+        /// either the current <see cref="MeshData"/> instance doesn't contain
+        /// any deformer attachments (as specified by 
+        /// <see cref="VertexPropertyDataFormat"/>) or when the 
+        /// <see cref="Deformer"/>s are created manually.
         /// </summary>
         public Skeleton Skeleton { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the current <see cref="MeshData"/>
+        /// instance contains a <see cref="Common.Skeleton"/> that can be used 
+        /// to put any existing <see cref="DeformerAttachments"/> in the
+        /// <see cref="VertexPropertyData"/> of the vertices in a hierarchical 
+        /// relationship (<c>true</c>) or not (<c>false</c>).
+        /// </summary>
+        public bool HasSkeleton => Skeleton != null;
+
+        /// <summary>
+        /// Gets the current <see cref="Common.VertexPropertyDataFormat"/>,
+        /// which defines how the <see cref="VertexPropertyData"/> of the
+        /// contained <see cref="Vertex"/> data is interpreted.
+        /// </summary>
+        public VertexPropertyDataFormat VertexPropertyDataFormat { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MeshData"/> class.
@@ -139,52 +140,67 @@ namespace Eterra.IO
         /// <param name="faceCount">
         /// The amount of faces the current mesh holds. Must be greater than 0.
         /// </param>
-        /// <param name="skeleton">
-        /// The skeleton of the mesh or <see cref="Skeleton.Empty"/> if the
-        /// mesh shouldn't have any skeleton information. Must be read-only.
+        /// <param name="vertexPropertyDataFormat">
+        /// Specifies the format of the <see cref="VertexPropertyData"/> of
+        /// the <see cref="Vertex"/> instances in the new 
+        /// <see cref="MeshData"/> instance. 
+        /// Can be <see cref="VertexPropertyDataFormat.None"/> if the
+        /// <see cref="VertexPropertyData"/> doesn't contain any meaningful
+        /// data.
         /// </param>
-        /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="skeleton"/> is null.
-        /// </exception>
+        /// <param name="skeleton">
+        /// A <see cref="Common.Skeleton"/> instance. Can be null.
+        /// See <see cref="Skeleton"/> and <see cref="HasSkeleton"/> for more 
+        /// information.
+        /// </param>
         /// <exception cref="ArgumentException">
-        /// Is thrown when <see cref="Skeleton.IsReadOnly"/> of 
-        /// <paramref name="skeleton"/> is <c>false</c>.
+        /// Is thrown when <paramref name="vertexCount"/> is less than 1,
+        /// when <paramref name="faceCount"/> is less than 1, or when
+        /// <paramref name="vertexPropertyDataFormat"/> is invalid.
         /// </exception>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="vertexCount"/> is less than 3
-        /// or when <paramref name="faceCount"/> is less than 1.
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when no value for <paramref name="skeleton"/> is 
+        /// provided, but the <paramref name="vertexPropertyDataFormat"/> is
+        /// <see cref="VertexPropertyDataFormat.DeformerAttachments"/>.
         /// </exception>
-        protected MeshData (int vertexCount, int faceCount, Skeleton skeleton)
+        protected MeshData(int vertexCount, int faceCount,
+            VertexPropertyDataFormat vertexPropertyDataFormat,
+            Skeleton skeleton)
         {
-            if (vertexCount < 3)
-                throw new ArgumentOutOfRangeException(nameof(vertexCount));
+            if (vertexCount < 1)
+                throw new ArgumentException("The amount of vertices in a " +
+                    "mesh must not be less than 1.");
             if (faceCount < 1)
-                throw new ArgumentOutOfRangeException(nameof(faceCount));
-
-            Skeleton = skeleton ??
-                throw new ArgumentNullException(nameof(skeleton));
-            if (!skeleton.IsReadOnly)
-                throw new ArgumentException("The specified skeleton isn't " +
-                    "read-only and can't be used.");
+                throw new ArgumentException("The amount of faces in a " +
+                    "mesh must not be less than 1.");
+            if (!Enum.IsDefined(typeof(VertexPropertyDataFormat),
+                vertexPropertyDataFormat))
+                throw new ArgumentException("The specified vertex property " +
+                    "data format is invalid.");
 
             VertexCount = vertexCount;
             FaceCount = faceCount;
-        }
 
-        /// <summary>
-        /// Gets a single vertex from the <see cref="MeshData"/>.
-        /// </summary>
-        /// <param name="index">The index of the vertex.</param>
-        /// <returns>A <see cref="Vertex"/> instance.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="index"/> is less than 0
-        /// or equal to/greater than <see cref="VertexCount"/>.
-        /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// Is thrown when the object data was disposed and can't be accessed
-        /// anymore.
-        /// </exception>
-        public abstract Vertex GetVertex(int index);
+            if (skeleton != null)
+            {
+                if (!skeleton.IsReadOnly)
+                    throw new ArgumentException("The specified skeleton " +
+                        "isn't read-only and can't be used like that.");
+                else Skeleton = skeleton;
+            }
+            else
+            {
+                Skeleton = null;
+                if (vertexPropertyDataFormat ==
+                    VertexPropertyDataFormat.DeformerAttachments)
+                    throw new NotSupportedException("A skeleton must be " +
+                        "provided for the vertex property data format '" +
+                        nameof(VertexPropertyDataFormat.DeformerAttachments) +
+                        "'.");
+            }
+
+            VertexPropertyDataFormat = vertexPropertyDataFormat;
+        }
 
         /// <summary>
         /// Gets multiple vertices in a specific range from 
@@ -217,36 +233,7 @@ namespace Eterra.IO
         /// Is thrown when the object data was disposed and can't be accessed
         /// anymore.
         /// </exception>
-        public virtual Vertex[] GetVertices(int index, int length)
-        {
-            ValidateVertexRange(index, length);
-
-            Vertex[] vertices = new Vertex[length];
-
-            try
-            {
-                for (int i = 0; i < length; i++)
-                    vertices[i] = GetVertex(index + i);
-            }
-            catch (ObjectDisposedException) { throw; }
-
-            return vertices;
-        }
-
-        /// <summary>
-        /// Gets a single face from the <see cref="MeshData"/>.
-        /// </summary>
-        /// <param name="index">The index of the face.</param>
-        /// <returns>A <see cref="Face"/> instance.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="index"/> is less than 0
-        /// or equal to/greater than <see cref="FaceCount"/>.
-        /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// Is thrown when the object data was disposed and can't be accessed
-        /// anymore.
-        /// </exception>
-        public abstract Face GetFace(int index);
+        public abstract Vertex[] GetVertices(int index, int length);
 
         /// <summary>
         /// Gets multiple faces in a specific range from 
@@ -279,20 +266,7 @@ namespace Eterra.IO
         /// Is thrown when the object data was disposed and can't be accessed
         /// anymore.
         /// </exception>
-        public virtual Face[] GetFaces(int index, int length)
-        {
-            ValidateFaceRange(index, length);
-
-            Face[] faces = new Face[length];
-            try
-            {
-                for (int i = 0; i < length; i++)
-                    faces[i] = GetFace(index + i);
-            }
-            catch (ObjectDisposedException) { throw; }
-
-            return faces;
-        }
+        public abstract Face[] GetFaces(int index, int length);
 
         /// <summary>
         /// Validates a vertex range and throws an exception if the range 
@@ -349,81 +323,121 @@ namespace Eterra.IO
         }
 
         /// <summary>
-        /// Initializes a new <see cref="MeshData"/> instance with existing 
+        /// Creates a new <see cref="MeshData"/> instance from existing 
         /// mesh data.
         /// </summary>
-        /// <param name="vertexCount">
-        /// The amount of vertices in the source (and the new) mesh.
-        /// </param>
-        /// <param name="faceCount">
-        /// The amount of faces in the source (and the new) mesh.
-        /// </param>
-        /// <param name="vertexRetriever">
-        /// A method which gets a specific <see cref="Vertex"/> of the source
-        /// mesh.
-        /// </param>
-        /// <param name="faceRetriever">
-        /// A method which gets a specific <see cref="Face"/> of the source
-        /// mesh.
-        /// </param>
+        /// <param name="vertices">The vertices of the mesh.</param>
+        /// <param name="faces">The faces of the mesh.</param>
+        /// <returns>
+        /// A new instance of the <see cref="MeshData"/> class.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="vertices"/> or
+        /// <paramref name="faces"/> are null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="vertices"/> or
+        /// <paramref name="faces"/> are empty.
+        /// </exception>
+        public static MeshData Create(Vertex[] vertices, Face[] faces)
+        {
+            try
+            {
+                return new MemoryMesh(vertices, faces,
+                    VertexPropertyDataFormat.None, null);
+            }
+            catch (ArgumentNullException) { throw; }
+            catch (ArgumentException) { throw; }
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="MeshData"/> instance from existing 
+        /// mesh data.
+        /// </summary>
+        /// <param name="vertices">The vertices of the mesh.</param>
+        /// <param name="faces">The faces of the mesh.</param>
         /// <param name="skeleton">
-        /// The skeleton of the mesh or <see cref="Skeleton.Empty"/> if the
-        /// mesh shouldn't have any skeleton information. Must be read-only.
-        /// </param>
-        /// <param name="bufferData">
-        /// <c>true</c> to create a complete copy of the mesh data and store 
-        /// it in the new <see cref="MeshData"/> instance (needs more 
-        /// memory and longer to initialize, but has a predictable, constant 
-        /// and higher GPU transfer speed and reliability), 
-        /// <c>false</c> to create a wrapper around the specified delegates
-        /// and redirect all mesh data requests of the new 
-        /// <see cref="MeshData"/> (<see cref="GetFace(int)"/>, 
-        /// <see cref="GetVertex(int)"/>...) to the specified 
-        /// <paramref name="vertexRetriever"/>/<paramref name="faceRetriever"/> 
-        /// (faster initialisation of the texture and less memory usage, but 
-        /// less predictability on speed during GPU transfer).
-        /// If the specified delegates access the data of an object 
-        /// implementing <see cref="IDisposable"/>, it is highly recommended 
-        /// to specifiy <c>true</c> as parameter value.
+        /// The skeleton of the mesh, which - in combination with the
+        /// <see cref="VertexPropertyData"/> of the vertices, which will be
+        /// interpreted as <see cref="DeformerAttachments"/> - can be used to
+        /// deform the mesh when rendering.
+        /// See <see cref="Skeleton"/> for more information.
         /// </param>
         /// <returns>
         /// A new instance of the <see cref="MeshData"/> class.
         /// </returns>
         /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="vertexRetriever"/>,
-        /// <paramref name="faceRetriever"/> or
-        /// <paramref name="skeleton"/> are null.
+        /// Is thrown when <paramref name="vertices"/>,
+        /// <paramref name="faces"/> or <paramref name="skeleton"/> are null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when the <paramref name="vertexCount"/> is less than 3
-        /// or greater than <see cref="MaxVertices"/>, when 
-        /// <paramref name="faceCount"/> is less than 1 or greater than
-        /// <see cref="MaxFaces"/>, when the specified 
-        /// <paramref name="vertexCount"/> or <paramref name="faceCount"/> 
-        /// exceeded the dimensions accessible by the 
-        /// <paramref name="vertexRetriever"/> or the 
-        /// <paramref name="faceRetriever"/>, or when 
-        /// <see cref="Skeleton.IsReadOnly"/> of <paramref name="skeleton"/> 
-        /// is <c>false</c>.
+        /// Is thrown when <paramref name="vertices"/> or
+        /// <paramref name="faces"/> are empty, or when 
+        /// <see cref="Node{T}.IsReadOnly"/> of <paramref name="skeleton"/> is
+        /// <c>false</c>.
         /// </exception>
-        public static MeshData Create(VertexCollection vertices,
-            FaceCollection faces, Skeleton skeleton)
+        public static MeshData Create(Vertex[] vertices, Face[] faces, 
+            Skeleton skeleton)
         {
-            if (vertices == null)
-                throw new ArgumentNullException(nameof(vertices));
-            if (faces == null)
-                throw new ArgumentNullException(nameof(faces));
-            if (skeleton == null)
-                throw new ArgumentNullException(nameof(skeleton));
+            try
+            {
+                return new MemoryMesh(vertices, faces,
+                    VertexPropertyDataFormat.DeformerAttachments, skeleton);
+            }
+            catch (ArgumentNullException) { throw; }
+            catch (ArgumentException) { throw; }
+        }
 
-            if (vertices.Count < 3)
-                throw new ArgumentException("The vertex count was " +
-                    "less than 3, which is too low.");
-            if (faces.Count < 1)
-                throw new ArgumentException("The face count was " +
-                    "less than 1, which is too low.");
+        /// <summary>
+        /// Creates a new <see cref="MeshData"/> instance from existing 
+        /// mesh data.
+        /// </summary>
+        /// <param name="vertices">The vertices of the mesh.</param>
+        /// <param name="faces">The faces of the mesh.</param>
+        /// <param name="vertexPropertyDataFormat">
+        /// The format of the <see cref="VertexPropertyData"/> of the
+        /// specified <paramref name="vertices"/>. 
+        /// To create a <see cref="MeshData"/> instance that supports 
+        /// deforming, use the method 
+        /// <see cref="Create(Vertex[], Face[], Skeleton)"/> instead, or an
+        /// <see cref="NotSupportedException"/> will be thrown.
+        /// </param>
+        /// <returns>
+        /// A new instance of the <see cref="MeshData"/> class.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="vertices"/> or
+        /// <paramref name="faces"/> are null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="vertices"/> or
+        /// <paramref name="faces"/> are empty, or when
+        /// <paramref name="vertexColorPrimary"/> or 
+        /// <paramref name="vertexColorSecondary"/> are invalid.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when <paramref name="vertexPropertyDataFormat"/> is
+        /// <see cref="VertexPropertyDataFormat.DeformerAttachments"/>.
+        /// This is not supported by this method - the overload
+        /// <see cref="Create(Vertex[], Face[], Skeleton)"/> should be used 
+        /// for this instead.
+        /// </exception>
+        public static MeshData Create(Vertex[] vertices, Face[] faces,
+            VertexPropertyDataFormat vertexPropertyDataFormat)
+        {
+            if (vertexPropertyDataFormat ==
+                VertexPropertyDataFormat.DeformerAttachments)
+                throw new NotSupportedException("A mesh data instance " +
+                    "with deformer attachments can not be created without " +
+                    "a skeleton.");
 
-            return new MemoryMesh(vertices, faces, skeleton);
+            try
+            {
+                return new MemoryMesh(vertices, faces, 
+                    vertexPropertyDataFormat, null);
+            }
+            catch (ArgumentNullException) { throw; }
+            catch (ArgumentException) { throw; }
         }
 
         /// <summary>
@@ -447,7 +461,7 @@ namespace Eterra.IO
         /// Is thrown when <paramref name="stream"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when <see cref="StreamWrapper.CanRead"/> of 
+        /// Is thrown when <see cref="Stream.CanRead"/> of 
         /// <paramref name="stream"/> is <c>false</c>.
         /// </exception>
         /// <exception cref="FormatException">
@@ -463,8 +477,7 @@ namespace Eterra.IO
         /// <exception cref="ObjectDisposedException">
         /// Is thrown when <paramref name="stream"/> was disposed.
         /// </exception>
-        internal static MeshData Load(Stream stream, 
-            bool expectFormatHeader)
+        internal static MeshData Load(Stream stream, bool expectFormatHeader)
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
@@ -484,35 +497,39 @@ namespace Eterra.IO
             uint vertexCount = stream.ReadUnsignedInteger();
             uint faceCount = stream.ReadUnsignedInteger();
 
-            if (vertexCount < 3) throw new FormatException("The vertex " +
-                "count was less than 3, which is too low.");
+            if (vertexCount < 1) throw new FormatException("The vertex " +
+                "count was less than 1, which is too low.");
             if (faceCount < 1) throw new FormatException("The face " +
                 "count was less than 1, which is too low.");
-            /*if (vertexCount > MaxVertices) throw new FormatException(
-                "The vertex count was larger than " + MaxVertices +
-                ", which is too high.");
-            if (faceCount > MaxFaces) throw new FormatException(
-                "The face count was larger than " + MaxFaces +
-                ", which is too high.");*/
 
-            Vertex[] vertexArray = new Vertex[vertexCount];
-            Face[] faceArray = new Face[faceCount];
+            Vertex[] vertices = new Vertex[vertexCount];
+            Face[] faces = new Face[faceCount];
 
-            for (int i = 0; i < vertexArray.Length; i++)
-                vertexArray[i] = stream.Read<Vertex>();
+            for (int i = 0; i < vertices.Length; i++)
+                vertices[i] = stream.Read<Vertex>();
 
-            for (int i = 0; i < faceArray.Length; i++)
-                faceArray[i] = stream.Read<Face>();
+            for (int i = 0; i < faces.Length; i++)
+                faces[i] = stream.Read<Face>();
 
-            uint skeletonBufferSize = stream.ReadUnsignedInteger();
-            byte[] skeletonBuffer = stream.ReadBuffer(skeletonBufferSize);
+            VertexPropertyDataFormat vertexPropertyDataFormat = 
+                stream.ReadEnum<VertexPropertyDataFormat>();
 
-            VertexCollection vertices = new VertexCollection(vertexArray, 
-                false);
-            FaceCollection faces = new FaceCollection(faceArray, false);
-            Skeleton skeleton = Skeleton.FromBuffer(skeletonBuffer);
+            Skeleton skeleton = null;
 
-            return new MemoryMesh(vertices, faces, skeleton.ToReadOnly(false));
+            byte[] skeletonBuffer = stream.ReadBuffer();
+
+            if (skeletonBuffer.Length > 0)
+                skeleton = Skeleton.FromBuffer(skeletonBuffer).ToReadOnly(
+                    false);
+
+            if (skeleton == null && vertexPropertyDataFormat ==
+                VertexPropertyDataFormat.DeformerAttachments)
+                throw new FormatException("The vertex property format '" +
+                    nameof(VertexPropertyDataFormat.DeformerAttachments) +
+                    "' requires a skeleton to be valid.");
+
+            return new MemoryMesh(vertices, faces, vertexPropertyDataFormat,
+                skeleton);
         }
 
         /// <summary>
@@ -540,6 +557,12 @@ namespace Eterra.IO
         /// <exception cref="ObjectDisposedException">
         /// Is thrown when <paramref name="stream"/> was disposed.
         /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when the <see cref="VertexPropertyDataFormat"/> is 
+        /// specified as 
+        /// <see cref="VertexPropertyDataFormat.DeformerAttachments"/>, but
+        /// <see cref="HasSkeleton"/> is <c>false</c>.
+        /// </exception>
         internal void Save(Stream stream, bool includeFormatHeader)
         {
             if (stream == null)
@@ -547,6 +570,13 @@ namespace Eterra.IO
             if (!stream.CanWrite)
                 throw new ArgumentException("The specified stream is not " +
                     "writable.");
+            if (!HasSkeleton && VertexPropertyDataFormat ==
+                VertexPropertyDataFormat.DeformerAttachments)
+                throw new NotSupportedException("A mesh without a skeleton " +
+                    "can't be exported to have the vertex property data " +
+                    "format '" +
+                    nameof(VertexPropertyDataFormat.DeformerAttachments) +
+                    "'.");
 
             if (includeFormatHeader)
                 NativeFormatHandler.WriteEntryHeader(ResourceType.Mesh,
@@ -555,11 +585,17 @@ namespace Eterra.IO
             stream.WriteUnsignedInteger((uint)VertexCount);
             stream.WriteUnsignedInteger((uint)FaceCount);
             for (int i = 0; i < VertexCount; i++)
-                stream.Write(GetVertex(i));
+                stream.Write(GetVertices(i, 1)[0]);
             for (int i = 0; i < FaceCount; i++)
-                stream.Write(GetFace(i));
+                stream.Write(GetFaces(i, 1)[0]);
 
-            stream.WriteBuffer(Skeleton.ToBuffer(), true);
+            stream.WriteEnum(VertexPropertyDataFormat);
+
+            byte[] skeletonBuffer;
+            if (HasSkeleton) skeletonBuffer = Skeleton.ToBuffer();
+            else skeletonBuffer = new byte[0];
+
+            stream.WriteBuffer(skeletonBuffer, true);
         }
 
         /// <summary>
@@ -635,9 +671,8 @@ namespace Eterra.IO
             CreatePlane(bottomLeft, topLeft, bottomRight, out _,
                 Vector2.Zero, Vector2.One, vertices, faces);
 
-            return new MemoryMesh(new VertexCollection(vertices.ToArray(),
-                false), new FaceCollection(faces.ToArray(), false),
-                Skeleton.Empty);
+            return new MemoryMesh(vertices.ToArray(), faces.ToArray(),
+                VertexPropertyDataFormat.None, null);
         }
 
         /// <summary>
@@ -751,9 +786,8 @@ namespace Eterra.IO
                 seperateUvSides ? seperatedUvSectionSize : singleUvSectionSize,
                 vertices, faces);
 
-            return new MemoryMesh(new VertexCollection(vertices.ToArray(),
-                false), new FaceCollection(faces.ToArray(), false),
-                Skeleton.Empty);
+            return new MemoryMesh(vertices.ToArray(), faces.ToArray(),
+                VertexPropertyDataFormat.None, null);
         }
 
         private static void CreatePlane(Vector3 bottomLeftMesh,

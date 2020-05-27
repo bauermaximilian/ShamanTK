@@ -180,7 +180,7 @@ namespace Eterra.Common
             //90° will be returned as 90° even if the maximum is 90°.
             //In the different use cases of this method, results with that 
             //rule did make more sense to me. But I'm not a mathematican, so...
-            double limitedValue = 0;
+            double limitedValue;
             if (rangeTurns < 0 && turn != -1)
                 limitedValue = range - (Math.Abs(turn) * range);
             else limitedValue = Math.Abs(turn) * range;
@@ -191,7 +191,7 @@ namespace Eterra.Common
             if (allowNegative)
             {
                 limitedValue -= maximum;
-                rangeTurns = Radians / maximum;
+                //rangeTurns = Radians / maximum;
             }
 
             return (float)limitedValue;

@@ -40,12 +40,6 @@ namespace Eterra.Common
         public static Deformer Empty { get; } = new Deformer(new Matrix4x4[0]);
 
         /// <summary>
-        /// Defines the maximum amount of <see cref="Matrix4x4"/> instances
-        /// one <see cref="Deformer"/> instance can hold.
-        /// </summary>
-        public const int MaximumSize = 128;
-
-        /// <summary>
         /// Gets the amount of <see cref="Matrix4x4"/> instances in the current
         /// <see cref="Deformer"/> instance.
         /// </summary>
@@ -77,10 +71,6 @@ namespace Eterra.Common
         /// </param>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="deformers"/> is null.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when the length of <paramref name="deformers"/> is 
-        /// greater than <see cref="MaximumSize"/>.
         /// </exception>
         /// <exception cref="RankException">
         /// Is thrown when the rank of <paramref name="deformers"/> is not 1.
@@ -116,10 +106,6 @@ namespace Eterra.Common
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="deformers"/> is null.
         /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when the length of <paramref name="deformers"/> is 
-        /// greater than <see cref="MaximumSize"/>.
-        /// </exception>
         /// <exception cref="RankException">
         /// Is thrown when the rank of <paramref name="deformers"/> is not 1.
         /// </exception>
@@ -148,10 +134,6 @@ namespace Eterra.Common
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="deformers"/> is null.
         /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when the length of <paramref name="deformers"/> is 
-        /// greater than <see cref="MaximumSize"/>.
-        /// </exception>
         /// <exception cref="RankException">
         /// Is thrown when the rank of <paramref name="deformers"/> is not 1.
         /// </exception>
@@ -162,9 +144,6 @@ namespace Eterra.Common
             if (deformers.Rank != 1)
                 throw new RankException("The deformer array must not have " +
                     "more than one dimension.");
-            if (deformers.Length > MaximumSize)
-                throw new ArgumentException("The deformer array is larger " +
-                    "than the supported maximum size of " + MaximumSize + ".");
         }
 
         /// <summary>

@@ -27,15 +27,8 @@ namespace Eterra.Common
 {
     /// <summary>
     /// Represents an point in three-dimensional space with special 
-    /// attributes related to meshes. Instances of this class are immutable.
+    /// attributes related to meshes.
     /// </summary>
-    /// <remarks>
-    /// The order of the elements of a <see cref="Vertex"/> is 
-    /// PPPNNNTTDDDDIIII, where 'P' defines the position elements, 'N' the 
-    /// normals, 'T' the texture coordinates, 'D' the deformer IDs and 
-    /// 'I' the defomer weights. The same applies to the memory layout of
-    /// the byte representation of that struct.
-    /// </remarks>
     [StructLayout(LayoutKind.Sequential)]
     public readonly struct Vertex
     {
@@ -72,9 +65,10 @@ namespace Eterra.Common
         public Vector2 TextureCoordinate { get; }
 
         /// <summary>
-        /// Gets the deformer attachments of this vertex.
+        /// Gets the property data, which meaning is defined in the parent
+        /// collection of this <see cref="Vertex"/> instance.
         /// </summary>
-        public DeformerAttachments DeformerAttachments { get; }
+        public VertexPropertyData Properties { get; }
 
         /// <summary>
         /// Creates a new vertex.
@@ -82,7 +76,7 @@ namespace Eterra.Common
         /// <param name="position">The vertex position.</param>
         public Vertex(Vector3 position)
             : this(position, new Vector3(0, 1, 0), new Vector2(0, 0),
-                  new DeformerAttachments())
+                  new VertexPropertyData())
         { }
 
         /// <summary>
@@ -101,7 +95,7 @@ namespace Eterra.Common
         /// <param name="normal">The normal direction.</param>
         public Vertex(Vector3 position, Vector3 normal)
             : this(position, normal, new Vector2(0, 0),
-                  new DeformerAttachments()) { }
+                  new VertexPropertyData()) { }
 
         /// <summary>
         /// Creates a new vertex.
@@ -122,7 +116,7 @@ namespace Eterra.Common
         /// <param name="textureCoordinate">The texture coordinate.</param>
         public Vertex(Vector3 position, Vector2 textureCoordinate)
             : this(position, new Vector3(0, 1, 0), textureCoordinate,
-                  new DeformerAttachments()) { }
+                  new VertexPropertyData()) { }
 
         /// <summary>
         /// Creates a new vertex.
@@ -144,7 +138,7 @@ namespace Eterra.Common
         public Vertex(Vector3 position, Vector3 normal, 
             Vector2 textureCoordinate)
             : this(position, normal, textureCoordinate, 
-                  new DeformerAttachments()) { }
+                  new VertexPropertyData()) { }
 
         /// <summary>
         /// Creates a new vertex.
@@ -168,25 +162,17 @@ namespace Eterra.Common
         /// <param name="position">The vertex position.</param>
         /// <param name="normal">The normal vector.</param>
         /// <param name="textureCoordinate">The texture coordinate.</param>
-        /// <param name="deformerAttachments">
-        /// An enumeration of deformer attachments.
+        /// <param name="properties">
+        /// The property data of the current vertex.
         /// </param>
-        /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="deformerAttachments"/> is null.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when <paramref name="deformerAttachments"/> contains
-        /// more than four elements or when a deformer index is referenced
-        /// more than once.
-        /// </exception>
         public Vertex(Vector3 position, Vector3 normal,
             Vector2 textureCoordinate,
-            DeformerAttachments deformerAttachments)
+            VertexPropertyData properties)
         {
             Position = position;
             Normal = normal;
             TextureCoordinate = textureCoordinate;
-            DeformerAttachments = deformerAttachments;
+            Properties = properties;
         }
 
         /// <summary>
@@ -220,21 +206,21 @@ namespace Eterra.Common
                 vw.Write(TextureCoordinate.Y.ToString(c));
                 vw.Write(ComponentSeparator);
 
-                vw.Write(DeformerAttachments.AttachmentOneIndex);
+                vw.Write(Properties.P1);
                 vw.Write(ComponentSeparator);
-                vw.Write(DeformerAttachments.AttachmentOneWeight);
+                vw.Write(Properties.P2);
                 vw.Write(ComponentSeparator);
-                vw.Write(DeformerAttachments.AttachmentTwoIndex);
+                vw.Write(Properties.P3);
                 vw.Write(ComponentSeparator);
-                vw.Write(DeformerAttachments.AttachmentTwoWeight);
+                vw.Write(Properties.P4);
                 vw.Write(ComponentSeparator);
-                vw.Write(DeformerAttachments.AttachmentThreeIndex);
+                vw.Write(Properties.P5);
                 vw.Write(ComponentSeparator);
-                vw.Write(DeformerAttachments.AttachmentThreeWeight);
+                vw.Write(Properties.P6);
                 vw.Write(ComponentSeparator);
-                vw.Write(DeformerAttachments.AttachmentFourIndex);
+                vw.Write(Properties.P7);
                 vw.Write(ComponentSeparator);
-                vw.Write(DeformerAttachments.AttachmentFourWeight);
+                vw.Write(Properties.P8);
 
                 return vw.ToString();
             };
@@ -278,7 +264,7 @@ namespace Eterra.Common
                     Vector2 texture = new Vector2(
                         float.Parse(elements[6], c),
                         float.Parse(elements[7], c));
-                    DeformerAttachments attachments = new DeformerAttachments(
+                    VertexPropertyData properties = new VertexPropertyData(
                          byte.Parse(elements[8]),
                          byte.Parse(elements[9]),
                          byte.Parse(elements[10]),
@@ -289,7 +275,7 @@ namespace Eterra.Common
                          byte.Parse(elements[15])
                     );
 
-                    return new Vertex(position, normal, texture, attachments);
+                    return new Vertex(position, normal, texture, properties);
                 }
                 catch
                 {

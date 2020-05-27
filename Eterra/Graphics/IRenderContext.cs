@@ -24,12 +24,27 @@ using System.Numerics;
 namespace Eterra.Graphics
 {
     /// <summary>
-    /// Defines the available color mixing modes.
+    /// Defines various mixing modes, which define how colors, textures or
+    /// vertex colors will be mixed with each other.
     /// </summary>
     public enum MixingMode
     {
-        Normal,
-        Multiply
+        /// <summary>
+        /// The current color source will be ignored.
+        /// </summary>
+        None,
+        /// <summary>
+        /// The current source is added with the other.
+        /// </summary>
+        Add,
+        /// <summary>
+        /// The current source is multiplied with the other.
+        /// </summary>
+        Multiply,
+        /// <summary>
+        /// The current source is used to illuminate the other.
+        /// </summary>
+        Light
     }
 
     /// <summary>

@@ -286,8 +286,8 @@ namespace Eterra.Graphics
         /// <summary>
         /// Gets a collection of parameters and <see cref="Common.Light"/> 
         /// instances, which specify if and how objects drawn to a 
-        /// <see cref="IRenderContext"/> will be illuminated (if supported by the 
-        /// <see cref="IRenderContext"/> implementation created with these 
+        /// <see cref="IRenderContext"/> will be illuminated (if supported by 
+        /// the <see cref="IRenderContext"/> implementation created with these 
         /// parameters).
         /// </summary>
         public LightingParameters Lighting { get; }
@@ -295,8 +295,9 @@ namespace Eterra.Graphics
 
         /// <summary>
         /// Gets a collection of parameters, which are used to configure 
-        /// stereoscopic rendering (if supported by the <see cref="IRenderContext"/> 
-        /// implementation created with these parameters).
+        /// stereoscopic rendering (if supported by the 
+        /// <see cref="IRenderContext"/> implementation created with these 
+        /// parameters).
         /// </summary>
         public StereoscopyParameters Stereoscopy { get; }
             = new StereoscopyParameters();
@@ -311,8 +312,8 @@ namespace Eterra.Graphics
         /// <summary>
         /// Gets a collection of parameters, which configure which graphic
         /// filters are applied for post-processing to the final image 
-        /// (if supported by the <see cref="IRenderContext"/> implementation created
-        /// with these parameters).
+        /// (if supported by the <see cref="IRenderContext"/> implementation 
+        /// created with these parameters).
         /// </summary>
         public GraphicsFilterParameters Filters { get; } 
             = new GraphicsFilterParameters();

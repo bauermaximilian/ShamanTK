@@ -31,9 +31,8 @@ namespace Eterra.Common
         /// Gets a <see cref="System.ObjectDisposedException"/> with a default
         /// exception message which indicates that the object with the method
         /// which threw this exception was disposed and can't be used anymore.
-        /// See <see cref="ThrowIfDisposed"/> for a shortcut method.
         /// </summary>
-        protected ObjectDisposedException ObjectDisposedException { get; }
+        public ObjectDisposedException ObjectDisposedException { get; }
             = new ObjectDisposedException("The current instance has been " +
                 "disposed and can't be used anymore.");
 
