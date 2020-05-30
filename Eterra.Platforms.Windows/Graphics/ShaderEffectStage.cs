@@ -24,15 +24,14 @@ namespace Eterra.Platforms.Windows.Graphics
 {
     class ShaderEffectStage : Shader
     {
-        #region GLSL shader source code (as string constants)
-        private static readonly string vertexShaderCode =
-@"#version 140
-
-in vec3 position;
+        #region GLSL shader source code
+        private const string VertexShaderCode =
+            VertexShaderVersionPrefix +
+@"in vec3 position;
 in vec3 normal;
 in vec2 textureCoordinate;
-in uvec4 boneIds;
-in uvec4 boneWeights;
+in vec4 propertySegment1;
+in vec4 propertySegment2;
 
 out vec2 vertexTextureCoordinate;
 
@@ -49,22 +48,21 @@ void main()
     gl_Position = (projection * model) * vec4(position, 1.0f);
 }
 ";
-        private static readonly string fragmentShaderCode =
-@"#version 140
 
-in vec2 vertexTextureCoordinate;
-
-out vec4 color;
+        private const string FragmentShaderCode =
+            FragmentShaderVersionPrefix +
+@"in vec2 vertexTextureCoordinate;
 
 uniform sampler2D texture_color;
 uniform vec3 color_resolution = vec3(255, 255, 255);
 
 void main()
 {
-    color = texture(texture_color, vertexTextureCoordinate);
+    vec4 color = texture(texture_color, vertexTextureCoordinate);
     vec3 color_reduced = floor(color.rgb * (color_resolution - 1.0) + 0.5) / 
         (color_resolution - 1.0);
     color = vec4(min(color_reduced, 1.0), color.a);
+    gl_FragColor = color;
 }
 ";
         #endregion
@@ -106,21 +104,28 @@ void main()
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ShaderRenderStage"/> class.
+        /// Initializes a new instance of the <see cref="ShaderRenderStage"/>
+        /// class.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>
+        /// A new instance of the <see cref="ShaderEffectStage"/> class.
+        /// </returns>
+        /// <exception cref="ApplicationException">
+        /// Is thrown when the shader creation failed due to version 
+        /// incompatibility issues or errors in the shader code.
+        /// </exception>
         public static ShaderEffectStage Create()
         {
             int programHandle;
             try
             {
                 programHandle = CreateShaderProgram(
-                    vertexShaderCode, fragmentShaderCode);
+                    VertexShaderCode, FragmentShaderCode);
             }
             catch (Exception exc)
             {
                 throw new ApplicationException("The shader program " +
-                    "couldn't be compiled.", exc);
+                    "couldn't be created.", exc);
             }
             return new ShaderEffectStage(programHandle);
         }

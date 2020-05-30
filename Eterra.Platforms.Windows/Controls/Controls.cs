@@ -86,7 +86,7 @@ namespace Eterra.Platforms.Windows.Controls
         public int AvailableGamepadsCount { get; }
 
         private readonly Graphics.Graphics graphics;
-        private global::OpenTK.GameWindow Window => graphics.Window;
+        private OpenTK.GameWindow Window => graphics.Window;
         private KeyboardState keyboard;
         private MouseState mouse, mousePrevious;
         private MouseMode mouseMode, mouseModePrevious;
@@ -126,7 +126,7 @@ namespace Eterra.Platforms.Windows.Controls
 
             //Perform an initial state update to ensure the properties of
             //the implementeted IControls interface return valid values.
-            FramePreUpdate(this, new global::OpenTK.FrameEventArgs(0.1));
+            FramePreUpdate(this, new OpenTK.FrameEventArgs(0.1));
         }
 
         private void FramePostUpdate(object sender, EventArgs e)
@@ -156,7 +156,7 @@ namespace Eterra.Platforms.Windows.Controls
                 && graphics.Window.Focused)
             {
                 Window.CursorVisible = false;
-                Window.Cursor = global::OpenTK.MouseCursor.Empty;
+                Window.Cursor = OpenTK.MouseCursor.Empty;
                 Mouse.SetPosition(Window.X + (Window.Width / 2.0),
                     Window.Y + (Window.Height / 2.0));
                 //Required to reliably compare the position of the mouse 
@@ -170,7 +170,7 @@ namespace Eterra.Platforms.Windows.Controls
                 mouseOrigin = new Vector2(mousePrevious.X,
                     mousePrevious.Y);
                 Window.CursorVisible = true;
-                Window.Cursor = global::OpenTK.MouseCursor.Default;
+                Window.Cursor = OpenTK.MouseCursor.Default;
             }
 
             //Prevent that the moving of the mouse to the center position
@@ -195,7 +195,7 @@ namespace Eterra.Platforms.Windows.Controls
         }
 
         private void KeyTyped(object sender, 
-            global::OpenTK.KeyPressEventArgs e)
+            OpenTK.KeyPressEventArgs e)
         {
             if (!Window.Focused) return;
             typedCharacters.Append(e.KeyChar);
@@ -342,17 +342,17 @@ namespace Eterra.Platforms.Windows.Controls
             return button switch
             {
                 Eterra.Controls.MouseButton.Left => 
-                mouse.IsButtonDown(global::OpenTK.Input.MouseButton.Left),
+                mouse.IsButtonDown(OpenTK.Input.MouseButton.Left),
                 Eterra.Controls.MouseButton.Right => 
-                mouse.IsButtonDown(global::OpenTK.Input.MouseButton.Right),
+                mouse.IsButtonDown(OpenTK.Input.MouseButton.Right),
                 Eterra.Controls.MouseButton.Middle => 
-                mouse.IsButtonDown(global::OpenTK.Input.MouseButton.Middle),
+                mouse.IsButtonDown(OpenTK.Input.MouseButton.Middle),
                 Eterra.Controls.MouseButton.Extra1 => 
-                mouse.IsButtonDown(global::OpenTK.Input.MouseButton.Button1),
+                mouse.IsButtonDown(OpenTK.Input.MouseButton.Button1),
                 Eterra.Controls.MouseButton.Extra2 => 
-                mouse.IsButtonDown(global::OpenTK.Input.MouseButton.Button2),
+                mouse.IsButtonDown(OpenTK.Input.MouseButton.Button2),
                 Eterra.Controls.MouseButton.Extra3 => 
-                mouse.IsButtonDown(global::OpenTK.Input.MouseButton.Button3),
+                mouse.IsButtonDown(OpenTK.Input.MouseButton.Button3),
                 Eterra.Controls.MouseButton.None => false,
                 _ => false,
             };

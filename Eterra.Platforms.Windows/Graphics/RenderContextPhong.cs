@@ -88,7 +88,7 @@ namespace Eterra.Platforms.Windows.Graphics
         public RenderContextPhong(IGraphicsContext context)
             : base(context, ShadingMode.Phong)
         {
-            TextureMixingMode = MixingMode.Normal;
+            TextureMixingMode = MixingMode.Add;
             TextureClipping = Rectangle.One;
             Texture = null;
             SpecularMap = null;

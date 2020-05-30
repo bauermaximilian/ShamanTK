@@ -46,8 +46,6 @@ namespace Eterra.Platforms.Windows.Graphics
         private readonly int frameBufferHandle, frameBufferTextureHandle,
             renderBufferHandle;
 
-        private Matrix4 cachedProjectionMatrix = Matrix4.Identity;
-
         private RenderTextureBuffer(Size size, TextureFilter textureFilter, 
             int frameBufferHandle, int frameBufferTextureHandle, 
             int renderBufferHandle) : base(size, textureFilter)
@@ -189,6 +187,10 @@ namespace Eterra.Platforms.Windows.Graphics
             int frameBufferHandle = GL.GenFramebuffer();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer,
                 frameBufferHandle);
+            if (GL.GetInteger(GetPName.FramebufferBinding) !=
+                frameBufferHandle)
+                throw new OutOfMemoryException("The current platform " +
+                    "doesn't support framebuffers.");
 
             //Generate a texture, make sure no OutOfMemory ocurred and 
             //attach it to the framebuffer.

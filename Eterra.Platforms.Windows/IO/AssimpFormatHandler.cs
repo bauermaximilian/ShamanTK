@@ -74,21 +74,15 @@ namespace Eterra.Platforms.Windows.IO
             public override Assimp.ReturnCode Seek(long offset, 
                 Assimp.Origin seekOrigin)
             {
-                SeekOrigin convertedSeekOrigin;
-                switch (seekOrigin)
+                var convertedSeekOrigin = seekOrigin switch
                 {
-                    case Assimp.Origin.Current:
-                        convertedSeekOrigin = SeekOrigin.Current;
-                        break;
-                    case Assimp.Origin.Set:
-                        convertedSeekOrigin = SeekOrigin.Begin;
-                        break;
-                    case Assimp.Origin.End:
-                        convertedSeekOrigin = SeekOrigin.End;
-                        break;
-                    default: throw new ArgumentException("The seek origin " +
-                        "is invalid.");
-                }
+                    Assimp.Origin.Current => SeekOrigin.Current,
+                    Assimp.Origin.Set => SeekOrigin.Begin,
+                    Assimp.Origin.End => SeekOrigin.End,
+                    _ => throw new ArgumentException("The seek origin " +
+                    "is invalid."),
+                };
+
                 try
                 {
                     baseStream.Seek(offset, convertedSeekOrigin);
@@ -667,9 +661,7 @@ namespace Eterra.Platforms.Windows.IO
             Skeleton skeleton = ExtractSkeleton(mesh, scene, false)
                 .ToReadOnly(false);
 
-            return MeshData.Create(
-                new VertexCollection(vertices, false),
-                new FaceCollection(faces, false), skeleton);
+            return MeshData.Create(vertices, faces, skeleton);
         }
 
         private Vertex[] ExtractVertices(Assimp.Mesh mesh)
@@ -724,9 +716,9 @@ namespace Eterra.Platforms.Windows.IO
                 //Convert the list of attachment tuples from the previously 
                 //generated array into a DeformerAttachments instance for the
                 //current vertex.
-                DeformerAttachments deformerAttachment =
-                    new DeformerAttachments(vertexDeformerAttachments[i], 
-                    true);
+                VertexPropertyData deformerAttachment =
+                    DeformerAttachments.FromList(vertexDeformerAttachments[i], 
+                    true).ToVertexPropertyData();
 
                 //Compose all previously collected properties to a new vertex.
                 vertices[i] = new Vertex(new Vector3(position.X, position.Y,
@@ -938,11 +930,6 @@ namespace Eterra.Platforms.Windows.IO
 
             if (!mesh.HasBones) return Skeleton.Empty;
 
-            if (throwOnTooMuchBones && mesh.BoneCount > Deformer.MaximumSize)
-                throw new ArgumentException("The specified mesh contained " +
-                    "more than the supported maximum of "
-                    + Deformer.MaximumSize + " bones.");
-
             //The "scene" contains the bones as (named) scene objects in the 
             //hierarchical kind of relationship which is required for the
             //Skeleton. The properties of the bones (the indicies of the 
@@ -957,8 +944,7 @@ namespace Eterra.Platforms.Windows.IO
             Dictionary<string, byte> bones = new Dictionary<string, byte>();
             try
             {
-                for (int i = 0; i < Math.Min(mesh.Bones.Count,
-                    Deformer.MaximumSize); i++)
+                for (int i = 0; i < mesh.Bones.Count; i++)
                     bones.Add(mesh.Bones[i].Name, (byte)i);
             }
             catch

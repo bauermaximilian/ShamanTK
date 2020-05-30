@@ -18,7 +18,6 @@
 */
 
 using Eterra.Common;
-using System;
 
 namespace Eterra.Platforms.Windows.Graphics
 {
@@ -30,8 +29,6 @@ namespace Eterra.Platforms.Windows.Graphics
 
         public LightSlot(uint slot, in Light light)
         {
-            if (slot < 0 || slot >= ShaderRenderStage.LightsLimit)
-                throw new ArgumentOutOfRangeException(nameof(slot));
             Slot = slot;
             Light = light;
         }

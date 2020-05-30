@@ -28,12 +28,6 @@ namespace Eterra.Platforms.Windows.Graphics
 {
     class ShaderRenderStage : Shader
     {
-        /// <summary>
-        /// Defines the maximum amount of lights (excluding the ambient light)
-        /// which are supported by the shader.
-        /// </summary>
-        public const int LightsLimit = 8;
-
         #region Shader-specific uniform class definitions
         /// <remarks>
         /// The uniform must be of a type which implements the 
@@ -74,7 +68,7 @@ namespace Eterra.Platforms.Windows.Graphics
                     identifier + ".scale");
             }
 
-            protected override bool OnSet(in Rectangle value)
+            protected override bool OnSet(Rectangle value)
             {
                 if (!IsAccessible) return false;
 
@@ -122,7 +116,7 @@ namespace Eterra.Platforms.Windows.Graphics
                     identifier + ".castShadows");*/
             }
 
-            protected override bool OnSet(in Light value)
+            protected override bool OnSet(Light value)
             {
                 bool allSet = true;
 
@@ -151,9 +145,7 @@ namespace Eterra.Platforms.Windows.Graphics
                     allSet &= radius.Set(value.Radius);
                     //allSet &= castShadows.Set(value.CastShadows);
                 }
-                else if (value.Type != LightType.Disabled)
-                    throw new ArgumentException("The specified light type " +
-                        "is not supported.");
+                else if (value.Type != LightType.Disabled) return false;
 
                 //Set the light type at last to prevent setting the light type
                 //when the light parameters are invalid.
@@ -204,17 +196,16 @@ namespace Eterra.Platforms.Windows.Graphics
             public override bool IsAccessible => lights.Count > 0;
 
             public UniformLightSlot(int programHandle,
-                string identifier, int lightSlotCount)
+                string identifier, int count)
             {
                 if (identifier == null)
                     throw new ArgumentNullException(nameof(identifier));
-                if (lightSlotCount < 0)
-                    throw new ArgumentOutOfRangeException(
-                        nameof(lightSlotCount));
+                if (count < 0)
+                    throw new ArgumentOutOfRangeException(nameof(count));
 
                 if (programHandle >= 0)
                 {
-                    for (int i = 0; i < lightSlotCount; i++)
+                    for (int i = 0; i < count; i++)
                     {
                         UniformLight light = new UniformLight(
                             programHandle, identifier + "[" + i + "]");
@@ -224,14 +215,9 @@ namespace Eterra.Platforms.Windows.Graphics
                 }
             }
 
-            protected override bool OnSet(in LightSlot value)
+            protected override bool OnSet(LightSlot value)
             {
-                if (!IsAccessible) return false;
-
-                if (value.Slot >= lights.Count)
-                    throw new ArgumentException("The slot of the specified " +
-                        "light was too large and not supported by the " +
-                        "shader!");
+                if (!IsAccessible || value.Slot >= lights.Count) return false;
 
                 currentValue = value;
                 return lights[(int)value.Slot].Set(value.Light);
@@ -244,7 +230,7 @@ namespace Eterra.Platforms.Windows.Graphics
         /// <c>
         /// const int CAPACITY = 16;
         /// struct List {
-        ///     uint size;
+        ///     int size;
         ///     mat4 elements[CAPACITY];
         /// };
         /// </c>
@@ -268,16 +254,19 @@ namespace Eterra.Platforms.Windows.Graphics
             public override bool IsAccessible =>
                 matrices.Count > 0 && assignedElementsLocation > -1;
 
-            public UniformDeformer(int programHandle, string identifier)
+            public UniformDeformer(int programHandle, string identifier, 
+                int count)
             {
                 if (identifier == null)
                     throw new ArgumentNullException(nameof(identifier));
+                if (count < 0)
+                    throw new ArgumentOutOfRangeException(nameof(count));
 
                 if (programHandle >= 0)
                 {
                     assignedElementsLocation = GL.GetUniformLocation(
                         programHandle, identifier + ".size");
-                    for (int i = 0; i < Deformer.MaximumSize; i++)
+                    for (int i = 0; i < count; i++)
                     {
                         UniformMatrix4x4 matrix =
                             new UniformMatrix4x4(programHandle,
@@ -288,40 +277,48 @@ namespace Eterra.Platforms.Windows.Graphics
                 }
             }
 
-            protected override bool OnSet(in Deformer value)
+            protected override bool OnSet(Deformer value)
             {
                 if (value == null)
                     throw new ArgumentNullException(nameof(value));
 
                 if (!IsAccessible) return false;
 
-                if (value.Length > matrices.Count)
-                    throw new ArgumentException("The specified value list " +
-                        "was larger than the uniform list capacity " +
-                        "in the shader!");
-
-                GL.Uniform1(assignedElementsLocation, (uint)value.Length);
+                GL.Uniform1(assignedElementsLocation, value.Length);
 
                 currentValue = value;
 
-                bool allSet = true;
+                bool allSet = value.Length <= matrices.Count;
 
-                for (byte i = 0; i < value.Length; i++)
+                for (byte i = 0; i < value.Length && i < matrices.Count; i++)
                     allSet &= matrices[i].Set(value[i]);
 
                 return allSet;
             }
         }
         #endregion
-        
-        #region GLSL shader source code (as string constants)
-        private static readonly string vertexShaderCode =
-@"#version 140
 
-const int MAX_BONES = " + Deformer.MaximumSize + @";
+        #region GLSL shader source code (and related constants)
+        /// <summary>
+        /// Defines the amount of vector uniforms which are always used by
+        /// the vertex shader of this class (excluding the possible bone
+        /// deformers with 4 vectors per deformer/bone).
+        /// </summary>
+        internal const int BaseVertexShaderVectorCount = 20;
+
+        private static readonly string VertexShaderCode = 
+            VertexShaderVersionPrefix +
+@"const int MAX_BONES = %MAX_BONES%;
+
+const int PROPERTYFORMAT_NONE = " 
++ (int)Common.VertexPropertyDataFormat.None + @";
+const int PROPERTYFORMAT_DEFORMER_ATTACHMENTS = " 
++ (int)Common.VertexPropertyDataFormat.DeformerAttachments + @";
+const int PROPERTYFORMAT_COLOR_LIGHT = " 
++ (int)Common.VertexPropertyDataFormat.ColorLight + @";
 
 struct BoneList {
-    uint size;
+    int size;
     mat4 elements[MAX_BONES];
 };
 
@@ -333,19 +330,22 @@ struct Rectangle {
 in vec3 position;
 in vec3 normal;
 in vec2 textureCoordinate;
-in vec4 boneIds;
-in vec4 boneWeights;
+in vec4 propertySegment1;
+in vec4 propertySegment2;
 
 out vec3 vertexNormal;
 out vec2 vertexTextureCoordinate;
 out vec3 vertexFragmentPosition;
+out vec4 vertexColor;
+out vec4 vertexLight;
 
 uniform mat4 model;
 uniform mat4 modelTransposedInversed;
 uniform mat4 view;
 uniform mat4 projection;
+uniform int vertexPropertyDataFormat;
 uniform BoneList bones;
-uniform Rectangle textureClipping = Rectangle(vec2(0,0), vec2(1,1));
+uniform Rectangle textureClipping;// = Rectangle(vec2(0,0), vec2(1,1));
 
 void main()
 {
@@ -356,23 +356,48 @@ void main()
         -textureClipping.position.y - textureCoordinate.y 
             * textureClipping.scale.y);
 
-    //If bone deformations were uploaded and the current vertex is mapped
-    //to any bones, the individual deformation matrix is calculated.
-    //Otherwise, the deformation will be the identity matrix.
-    mat4 deformation;
-    if (bones.size > uint(0) && boneWeights != vec4(0.0, 0.0, 0.0, 0.0)) 
+    //If the vertex properties are defined as deformer attachments and the 
+    //current vertex is mapped to any bones (which is the case when the second 
+    //vertex properties segment is not just 0.0), the individual deformation 
+    //matrix is calculated using the two vertex property segments and the 
+    //vertex colors are set to 0.
+    //Otherwise, the deformation will be the identity matrix and the property
+    //segments are interpreted as color/light and sent to the fragment shader.
+    mat4 deformation = mat4(1.0);
+
+    if (vertexPropertyDataFormat == PROPERTYFORMAT_DEFORMER_ATTACHMENTS) 
     {
-        deformation = bones.elements[uint(boneIds[0])] 
-            * (float(boneWeights[0]) / 255.0);
-        deformation += bones.elements[uint(boneIds[1])] 
-            * (float(boneWeights[1]) / 255.0);
-        deformation += bones.elements[uint(boneIds[2])] 
-            * (float(boneWeights[2]) / 255.0);
-        deformation += bones.elements[uint(boneIds[3])] 
-            * (float(boneWeights[3]) / 255.0);
+        if (bones.size > 0 && propertySegment2 != vec4(0.0, 0.0, 0.0, 0.0)) 
+        {
+            deformation = bones.elements[int(propertySegment1[0])] 
+                * (float(propertySegment2[0]) / 255.0);
+            deformation += bones.elements[int(propertySegment1[1])] 
+                * (float(propertySegment2[1]) / 255.0);
+            deformation += bones.elements[int(propertySegment1[2])] 
+                * (float(propertySegment2[2]) / 255.0);
+            deformation += bones.elements[int(propertySegment1[3])] 
+                * (float(propertySegment2[3]) / 255.0);
+        }
+        vertexColor = vec4(0.0);
+        vertexLight = vec4(0.0);
+    } 
+    else if (vertexPropertyDataFormat == PROPERTYFORMAT_COLOR_LIGHT)
+    {
+        vertexColor = vec4(float(propertySegment1[0]) / 255.0,
+            float(propertySegment1[1]) / 255.0, 
+            float(propertySegment1[2]) / 255.0,
+            float(propertySegment1[3]) / 255.0);
+        vertexLight = vec4(float(propertySegment1[0]) / 255.0,
+            float(propertySegment1[1]) / 255.0, 
+            float(propertySegment1[2]) / 255.0,
+            float(propertySegment1[3]) / 255.0);
     }
-    else deformation = mat4(1.0);
-    
+    else 
+    {
+        vertexColor = vec4(0.0);
+        vertexLight = vec4(0.0);
+    }
+
     //Combine all transformations.
     vec4 vertexPosition = deformation * vec4(position, 1.0);
     vertexNormal = vec3(modelTransposedInversed * 
@@ -382,10 +407,16 @@ void main()
 }
 ";
 
-        private static readonly string fragmentShaderCode =
-@"#version 140
+        /// <summary>
+        /// Defines the amount of vector uniforms which are always used by
+        /// the fragment shader of this class (excluding the possible light
+        /// source vectors with 3 vectors per light source).
+        /// </summary>
+        internal const int BaseFragmentShaderVectorCount = 2;
 
-const int MAX_LIGHTS = " + LightsLimit + @";
+        private static readonly string FragmentShaderCode =
+            FragmentShaderVersionPrefix +
+@"const int MAX_LIGHTS = %MAX_LIGHTS%;
 
 const int LIGHTTYPE_AMBIENT = " + (int)LightType.Ambient + @";
 const int LIGHTTYPE_POINT = " + (int)LightType.Point + @";
@@ -395,7 +426,8 @@ const int SHADINGMODE_FLAT = " + (int)Eterra.Graphics.ShadingMode.Flat + @";
 const int SHADINGMODE_PHONG = " + (int)Eterra.Graphics.ShadingMode.Phong + @";
 const int SHADINGMODE_PBR = " + (int)Eterra.Graphics.ShadingMode.PBR + @";
 
-const int MIXINGMODE_NORMAL = " + (int)MixingMode.Normal + @";
+const int MIXINGMODE_NONE = " + (int)MixingMode.None + @";
+const int MIXINGMODE_ADD = " + (int)MixingMode.Add + @";
 const int MIXINGMODE_MULTIPLY = " + (int)MixingMode.Multiply + @";
 
 struct Light {
@@ -412,14 +444,15 @@ struct Light {
 in vec3 vertexNormal;
 in vec2 vertexTextureCoordinate;
 in vec3 vertexFragmentPosition;
-
-out vec4 color;
+in vec4 vertexColor;
+in vec4 vertexLight;
 
 uniform vec3 viewPosition;
 
 uniform vec4 modelColor;
 uniform int shadingMode;
-uniform int mixingMode;
+uniform int vertexPropertyDataFormat;
+uniform int textureMixingMode;
 uniform float opacity;
 uniform float specularIntensity = 40.0;
 
@@ -442,6 +475,8 @@ float GetFogFactor(float start, float length);
 void main()
 {
     float fogFactor = 1;//GetFogFactor(20, 5);
+    
+    vec4 color;    
 
     if (shadingMode == SHADINGMODE_PHONG)
         color = CalculateFragmentWithPhong();
@@ -452,6 +487,8 @@ void main()
     color.a *= opacity;//Old code: 1 - ((1 - opacity) * 0.2)
     color.a *= fogFactor;
     if (color.a < 0.05) discard;
+
+    gl_FragColor = color;
 }
 
 float GetFogFactor(float start, float length)
@@ -479,7 +516,7 @@ vec4 GetTextureColor(sampler2D tex, bool isAssigned, bool mixWithBaseColor)
     vec3 opacityReducedColor = modelColor.rgb * textureOpacityInverted;
     vec3 opacityReducedTextureColor = textureColor.rgb * textureOpacity;
 
-    if (mixingMode == MIXINGMODE_NORMAL)
+    if (textureMixingMode == MIXINGMODE_ADD)
     {
         return vec4(opacityReducedColor.r + opacityReducedTextureColor.r,
             opacityReducedColor.g + opacityReducedTextureColor.g,
@@ -607,7 +644,7 @@ vec4 CalculateFragmentWithPbr()
         /// Gets the shader uniform value accessor for the
         /// view transformation matrix.
         /// </summary>
-        public Uniform<global::OpenTK.Matrix4> View { get; }
+        public Uniform<OpenTK.Matrix4> View { get; }
 
         /// <summary>
         /// Gets the shader uniform value accessor for the 
@@ -639,6 +676,13 @@ vec4 CalculateFragmentWithPbr()
         /// <see cref="Eterra.Graphics.ShadingMode"/>).
         /// </summary>
         public Uniform<int> ShadingMode { get; }
+
+        /// <summary>
+        /// Gets the shader uniform value accessor for the
+        /// primary vertex color mixing mode (integer representation of
+        /// <see cref="VertexPropertyDataFormat"/>).
+        /// </summary>
+        public Uniform<int> VertexPropertyDataFormat { get; }
 
         /// <summary>
         /// Gets the shader uniform value accessor for the
@@ -695,7 +739,9 @@ vec4 CalculateFragmentWithPbr()
         public Uniform<LightSlot> Lights { get; }
         #endregion
 
-        private ShaderRenderStage(int programHandle) : base(programHandle)
+        private ShaderRenderStage(int programHandle, 
+            int supportedDeformersCount, int supportedLightsCount) 
+            : base(programHandle)
         {
             Model = new UniformMatrix4x4(
                 programHandle, "model");
@@ -706,15 +752,17 @@ vec4 CalculateFragmentWithPbr()
             ViewPosition = new UniformVector3(
                 programHandle, "viewPosition", true);
             Deformers = new UniformDeformer(
-                programHandle, "bones");
+                programHandle, "bones", supportedDeformersCount);
             Color = new UniformColorRGBA(
                 programHandle, "modelColor");
             Opacity = new UniformFloat(
                 programHandle, "opacity");
             ShadingMode = new UniformInt(
                 programHandle, "shadingMode");
+            VertexPropertyDataFormat = new UniformInt(
+                programHandle, "vertexPropertyDataFormat");
             ColorTextureMixingMode = new UniformInt(
-                programHandle, "mixingMode");
+                programHandle, "textureMixingMode");
             TextureMain = new UniformTexture(
                 programHandle, "texture_main", 0);
             TextureEffect01 = new UniformTexture(
@@ -726,27 +774,45 @@ vec4 CalculateFragmentWithPbr()
             TextureClipping = new UniformRectangle(
                 programHandle, "textureClipping");
             Lights = new UniformLightSlot(
-                programHandle, "lights", LightsLimit);
+                programHandle, "lights", supportedLightsCount);
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ShaderRenderStage"/> class.
+        /// Initializes a new instance of the <see cref="ShaderRenderStage"/> 
+        /// class.
         /// </summary>
-        /// <returns></returns>
-        public static ShaderRenderStage Create()
+        /// <returns>
+        /// A new instance of the <see cref="ShaderRenderStage"/> class.
+        /// </returns>
+        /// <exception cref="ApplicationException">
+        /// Is thrown when the shader creation failed due to version 
+        /// incompatibility issues or errors in the shader code.
+        /// </exception>
+        public static ShaderRenderStage Create(Graphics parentGraphics)
         {
+            if (!parentGraphics.TryGetPlatformLimit(PlatformLimit.DeformerSize,
+                out int supportedDeformersCount)) 
+                supportedDeformersCount = Graphics.MaximumDeformers;
+            if (!parentGraphics.TryGetPlatformLimit(PlatformLimit.LightCount,
+                out int supportedLightsCount)) 
+                supportedLightsCount = Graphics.MaximumLights;
+
             int programHandle;
             try
             {
                 programHandle = CreateShaderProgram(
-                    vertexShaderCode, fragmentShaderCode);
+                    VertexShaderCode.Replace("%MAX_BONES%",
+                    supportedDeformersCount.ToString()), 
+                    FragmentShaderCode.Replace("%MAX_LIGHTS%",
+                    supportedLightsCount.ToString()));
             }
             catch (Exception exc)
             {
                 throw new ApplicationException("The shader program " +
-                    "couldn't be compiled.", exc);
+                    "couldn't be created.", exc);
             }
-            return new ShaderRenderStage(programHandle);
+            return new ShaderRenderStage(programHandle,
+                supportedDeformersCount, supportedLightsCount);
         }
     }
 }

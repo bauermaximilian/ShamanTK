@@ -25,6 +25,7 @@ using Eterra.Graphics;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System;
+using System.Collections.Generic;
 
 namespace Eterra.Platforms.Windows.Graphics
 {
@@ -33,6 +34,18 @@ namespace Eterra.Platforms.Windows.Graphics
     /// </summary>
     internal class Graphics : DisposableBase, IGraphics
     {
+        /// <summary>
+        /// Defines the maximum amount of deformers which are supported by
+        /// this implementation, even if the hardware would support more.
+        /// </summary>
+        internal const int MaximumDeformers = 128;
+
+        /// <summary>
+        /// Defines the maximum amount of lights which are supported by this
+        /// implementation, even if the hardware would support more.
+        /// </summary>
+        internal const int MaximumLights = 8;
+
         //TODO: Refactor Graphics, especially ContextSimple/ContextAdvanced.
         private class GraphicsContextSimple : IGraphicsContext
         {
@@ -53,11 +66,18 @@ namespace Eterra.Platforms.Windows.Graphics
             private bool wireframeEnabled = false;
 
             private bool redrawInProgress = false;
-            
+
+            private readonly int supportedLightsCount;
+
             public GraphicsContextSimple(Graphics parentGraphics)
             {
                 this.parentGraphics = parentGraphics ??
                     throw new ArgumentNullException(nameof(parentGraphics));
+
+                if (!parentGraphics.TryGetPlatformLimit(
+                    PlatformLimit.LightCount,
+                    out supportedLightsCount))
+                    supportedLightsCount = MaximumLights;
 
                 GL.Enable(EnableCap.DepthTest);
                 GL.DepthFunc(DepthFunction.Less);
@@ -137,12 +157,12 @@ namespace Eterra.Platforms.Windows.Graphics
                 {
                     foreach (Light light in parameters.Lighting)
                     {
-                        if (i < ShaderRenderStage.LightsLimit)
+                        if (i < supportedLightsCount)
                             Shader.Lights.Set(new LightSlot(i++, light));
                         else break;
                     }
                 }
-                for (; i < ShaderRenderStage.LightsLimit; i++)
+                for (; i < supportedLightsCount; i++)
                     Shader.Lights.Set(new LightSlot(i, Light.Disabled));
 
                 //Enable or disable backface culling (clockwise to match the
@@ -166,6 +186,9 @@ namespace Eterra.Platforms.Windows.Graphics
                 if (meshBuffer.IsDisposed)
                     throw new ArgumentException("The specified mesh " +
                         "buffer was disposed and can no longer be used.");
+
+                Shader.VertexPropertyDataFormat.Set(
+                    (int)meshBuffer.VertexPropertyDataFormat);
 
                 GL.BindVertexArray(meshBuffer.Handle);
 
@@ -262,30 +285,38 @@ namespace Eterra.Platforms.Windows.Graphics
 
             private bool redrawInProgress = false;
 
+            private readonly int supportedLightsCount;
+
             public GraphicsContextAdvanced(Graphics parentGraphics)
             {
                 this.parentGraphics = parentGraphics ??
                     throw new ArgumentNullException(nameof(parentGraphics));
 
-            try
-            {
+                if (!parentGraphics.TryGetPlatformLimit(
+                    PlatformLimit.LightCount,
+                    out supportedLightsCount))
+                    supportedLightsCount = MaximumLights;
+
+                try
+                {
                 shaderPostProcessing = ShaderEffectStage.Create();
                 MeshData planeData = MeshData.CreatePlane(
                     new System.Numerics.Vector3(0, 0, 0.5f), 
                     new System.Numerics.Vector3(0, 1, 0.5f),
                     new System.Numerics.Vector3(1, 0, 0.5f));
                 textureTargetPlane = MeshBuffer.Create(planeData.VertexCount,
-                    planeData.FaceCount, shaderPostProcessing);
+                    planeData.FaceCount, planeData.VertexPropertyDataFormat,
+                    shaderPostProcessing);
                 textureTargetPlane.UploadVertices(planeData, 0,
                     planeData.VertexCount);
                 textureTargetPlane.UploadFaces(planeData, 0,
                     planeData.FaceCount);
                 }
-            catch (Exception exc)
-            {
-                throw new ApplicationException("The post processing " +
-                    "stage shader couldn't be initialized.", exc);
-            }
+                catch (Exception exc)
+                {
+                    throw new ApplicationException("The post processing " +
+                        "stage shader couldn't be initialized.", exc);
+                }
 
                 GL.Enable(EnableCap.DepthTest);
                 GL.DepthFunc(DepthFunction.Less);
@@ -409,12 +440,12 @@ namespace Eterra.Platforms.Windows.Graphics
                 {
                     foreach (Light light in parameters.Lighting)
                     {
-                        if (i < ShaderRenderStage.LightsLimit)
+                        if (i < supportedLightsCount)
                             Shader.Lights.Set(new LightSlot(i++, light));
                         else break;
                     }
                 }
-                for (; i < ShaderRenderStage.LightsLimit; i++)
+                for (; i < supportedLightsCount; i++)
                     Shader.Lights.Set(new LightSlot(i, Light.Disabled));
 
                 //Enable or disable backface culling (clockwise to match the
@@ -451,6 +482,11 @@ namespace Eterra.Platforms.Windows.Graphics
 
                 if (!ignoreCurrentRenderTargets)
                 {
+                    //The vertex property data format only needs to be set in 
+                    //the rendering stage/shader, not in the effect stage.
+                    Shader.VertexPropertyDataFormat.Set(
+                        (int)meshBuffer.VertexPropertyDataFormat);
+
                     if (wireframeEnabled) drawType = PrimitiveType.LineStrip;
 
                     foreach (RenderTarget renderTarget in currentRenderTargets)
@@ -759,22 +795,20 @@ namespace Eterra.Platforms.Windows.Graphics
         /// </summary>
         private bool isRedrawing = false;
 
+        private bool supportsRenderTextureBuffers = false;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Graphics"/> class.
         /// </summary>
         public Graphics()
         {
-            Window = new GameWindow(640, 480,
-                new global::OpenTK.Graphics.GraphicsMode(
-                    new global::OpenTK.Graphics.ColorFormat(8, 8, 8, 0), 
-                    24, 8, 4), "Application Window", GameWindowFlags.Default,
-                DisplayDevice.Default, 3, 1, 
-                global::OpenTK.Graphics.GraphicsContextFlags.Default)
+            Window = new GameWindow()
             {
                 TargetRenderFrequency = 
                 EterraApplicationBase.TargetRedrawsPerSecond,
                 TargetUpdateFrequency = 
                 EterraApplicationBase.TargetUpdatesPerSecond,
+                Title = "Application Window"
             };
 
             Window.WindowBorder = WindowBorder.Resizable;
@@ -786,13 +820,33 @@ namespace Eterra.Platforms.Windows.Graphics
             Window.Load += OnInitialized;
 
             size = new Size(Window.Width, Window.Height);
+
+            string extensions = GL.GetString(StringName.Extensions);
+            supportsRenderTextureBuffers =
+                extensions.Contains("GL_ARB_framebuffer_object");
         }
 
         private void OnInitialized(object sender, EventArgs e)
         {
+            if (TryGetPlatformLimit(PlatformLimit.LightCount,
+                out int supportedLightsCount) &&
+                supportedLightsCount < MaximumLights)
+                Log.Warning("The current platform only supports " + 
+                    supportedLightsCount + " of the usually available " + 
+                    MaximumLights + " maximum lights.");
+            if (TryGetPlatformLimit(PlatformLimit.DeformerSize,
+                out int supportedDeformersCount) &&
+                supportedDeformersCount < MaximumDeformers)
+                Log.Warning("The current platform only supports " +
+                    supportedDeformersCount + " of the usually available " +
+                    MaximumDeformers + " maximum deformers.");
+            if (!supportsRenderTextureBuffers)
+                Log.Warning("The current platform doesn't support " +
+                    "render texture buffers.");
+
             try
             {
-                try { shaderRenderStage = ShaderRenderStage.Create(); }
+                try { shaderRenderStage = ShaderRenderStage.Create(this); }
                 catch (Exception exc)
                 {
                     throw new ApplicationException("The render stage shader " +
@@ -877,6 +931,58 @@ namespace Eterra.Platforms.Windows.Graphics
                     "not running.");
 
             lock (windowLock) Window.Close();
+        }
+
+        /// <summary>
+        /// Retrieves the current limit for various values that can vary
+        /// on different platforms or implementations of a 
+        /// <see cref="IGraphics"/> unit.
+        /// </summary>
+        /// <param name="limit">
+        /// The limit to be queried.
+        /// </param>
+        /// <param name="value">
+        /// The value of the limit, if the current platform and implementation
+        /// supports querying that limit, or 0.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if the value of the requested platform limit was
+        /// successfully retrieved into the <paramref name="value"/> parameter,
+        /// <c>false</c> otherwise.
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="limit"/> is invalid.
+        /// </exception>
+        /// <remarks>
+        /// This method uses the <see cref="GL.GetInteger(GetPName)"/> method
+        /// to retrieve the limits for OpenGL on the current platform. 
+        /// Unfortunately, on some platforms, these values are not provided
+        /// by the driver - in these cases, the method will return false.
+        /// </remarks>
+        public bool TryGetPlatformLimit(PlatformLimit limit, out int value)
+        {
+            if (!Enum.IsDefined(typeof(PlatformLimit), limit))
+                throw new ArgumentException("The limit is invalid.");
+
+            int limitValue = limit switch
+            {
+                PlatformLimit.GraphicsSize => 
+                    GL.GetInteger(GetPName.MaxViewportDims),
+                PlatformLimit.TextureSize =>
+                    GL.GetInteger(GetPName.MaxTextureSize),
+                PlatformLimit.DeformerSize => Math.Min(MaximumDeformers,
+                    (GL.GetInteger(GetPName.MaxVertexUniformVectors) / 4) -
+                    ShaderRenderStage.BaseVertexShaderVectorCount),
+                PlatformLimit.LightCount => Math.Min(MaximumLights,
+                    (GL.GetInteger(GetPName.MaxFragmentUniformVectors) / 3) -
+                    ShaderRenderStage.BaseFragmentShaderVectorCount),
+                PlatformLimit.RenderBufferSize =>
+                    GL.GetInteger(GetPName.MaxRenderbufferSize),                    
+                _ => throw new ArgumentException("The limit is invalid.")
+            };
+
+            value = Math.Max(0, limitValue);
+            return limitValue > 0;
         }
 
         /// <summary>
@@ -983,7 +1089,7 @@ namespace Eterra.Platforms.Windows.Graphics
         }
 
         /// <summary>
-        /// Creates a new, uninitialized <see cref="MeshBuffer"/>.
+        /// Creates a new <see cref="MeshBuffer"/> instance.
         /// </summary>
         /// <param name="vertexCount">
         /// The amount of vertices of the new <see cref="MeshBuffer"/>.
@@ -991,12 +1097,20 @@ namespace Eterra.Platforms.Windows.Graphics
         /// <param name="faceCount">
         /// The amount of faces of the new <see cref="MeshBuffer"/>.
         /// </param>
+        /// <param name="vertexPropertyDataFormat">
+        /// The format of the <see cref="VertexPropertyData"/> in every
+        /// <see cref="Vertex"/> uploaded to the new <see cref="MeshBuffer"/>.
+        /// </param>
         /// <returns>
         /// A new instance of the <see cref="MeshBuffer"/> class.
         /// </returns>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="vertexCount"/> is less than 3
+        /// Is thrown when <paramref name="vertexCount"/> is less than 1
         /// or when <paramref name="faceCount"/> is less than 1.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="vertexPropertyDataFormat"/> is
+        /// invalid.
         /// </exception>
         /// <exception cref="OutOfMemoryException">
         /// Is thrown when there's not enough graphics memory left to create 
@@ -1004,10 +1118,10 @@ namespace Eterra.Platforms.Windows.Graphics
         /// exceeded platform-specific limits.
         /// </exception>
         public Eterra.Graphics.MeshBuffer CreateMeshBuffer(int vertexCount, 
-            int faceCount)
+            int faceCount, VertexPropertyDataFormat vertexPropertyDataFormat)
         {
-            return MeshBuffer.Create(vertexCount, faceCount, 
-                shaderRenderStage);
+            return MeshBuffer.Create(vertexCount, faceCount,
+                vertexPropertyDataFormat, shaderRenderStage);
         }
 
         /// <summary>

@@ -46,7 +46,8 @@ namespace Eterra.Platforms.Windows.Graphics
 
         private MeshBuffer(Shader shader, int vertexBufferHandle, 
             int faceBufferHandle, int vertexArrayObjectHandle, int vertexCount,
-            int faceCount) : base(vertexCount, faceCount)
+            int faceCount, VertexPropertyDataFormat vertexPropertyDataFormat) 
+            : base(vertexCount, faceCount, vertexPropertyDataFormat)
         {
             Shader = shader ?? throw new ArgumentNullException(nameof(shader));
             this.vertexBufferHandle = vertexBufferHandle;
@@ -194,7 +195,7 @@ namespace Eterra.Platforms.Windows.Graphics
         /// exceeded platform-specific limits.
         /// </exception>
         public static MeshBuffer Create(int vertexCount, int faceCount,
-            Shader shader)
+            VertexPropertyDataFormat vertexPropertyDataFormat, Shader shader)
         {
             if (shader == null)
                 throw new ArgumentNullException(nameof(shader));
@@ -245,7 +246,8 @@ namespace Eterra.Platforms.Windows.Graphics
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
 
             return new MeshBuffer(shader, vertexBufferHandle, faceBufferHandle,
-                vertexArrayObjectHandle, vertexCount, faceCount);
+                vertexArrayObjectHandle, vertexCount, faceCount,
+                vertexPropertyDataFormat);
         }
     }
 }

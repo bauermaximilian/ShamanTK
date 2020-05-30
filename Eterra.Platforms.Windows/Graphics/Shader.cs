@@ -27,6 +27,49 @@ namespace Eterra.Platforms.Windows.Graphics
 {
     abstract class Shader
     {
+        #region GLSL shader code version/macro prefixes (as string constants)
+#if DISABLE_COMPATIBILITY_MODE
+        /// <summary>
+        /// Defines a GLSL code snippet that explicitely sets the version of 
+        /// the following vertex shader code to GLSL version 1.4.
+        /// </summary>
+        protected const string VertexShaderVersionPrefix =
+            "#version 140\n";
+
+        /// <summary>
+        /// Defines a GLSL code snippet that explicitely sets the version of 
+        /// the following fragment shader code to GLSL version 1.4 and 
+        /// manually defines the vec4 colour output variable "gl_FragColor".
+        /// </summary>
+        protected const string FragmentShaderVersionPrefix =
+            "#version 140\nout vec4 gl_FragColor;\n";
+#else
+        private const string VertexShaderCompatibilityMacros =
+            "#define in attribute\n#define out varying\n";
+
+        private const string FragmentShaderCompatibilityMacros =
+            "#define in varying\n#define texture texture2D\n";
+
+        /// <summary>
+        /// Defines a GLSL code snippet that explicitely sets the version of 
+        /// the following vertex shader code to GLSL version 1.2 and adds 
+        /// macros that will replace various keywords with their 1.2 version 
+        /// equivalents.
+        /// </summary>
+        protected const string VertexShaderVersionPrefix =
+            "#version 120\n" + VertexShaderCompatibilityMacros + "\n";
+
+        /// <summary>
+        /// Defines a GLSL code snippet that explicitely sets the version of 
+        /// the following fragment shader code to GLSL version 1.2 and adds 
+        /// macros that will replace various keywords with their 1.2 version 
+        /// equivalents.
+        /// </summary>
+        protected const string FragmentShaderVersionPrefix =
+            "#version 120\n" + FragmentShaderCompatibilityMacros;
+#endif
+#endregion
+
         #region Uniform and Attribute class definitions
         /// <summary>
         /// Provides an accessor to a uniform values in a shader, which can be 
@@ -44,8 +87,8 @@ namespace Eterra.Platforms.Windows.Graphics
 
             /// <summary>
             /// Gets a value which indicates whether the current uniform 
-            /// exists in the shader (<c>true</c>) or if the uniform does not exist
-            /// and value assignments will have no effect (<c>false</c>).
+            /// exists in the shader (<c>true</c>) or if the uniform does not 
+            /// exist and value assignments will have no effect (<c>false</c>).
             /// </summary>
             public abstract bool IsAccessible { get; }
 
@@ -67,7 +110,7 @@ namespace Eterra.Platforms.Windows.Graphics
             /// Is thrown when the specified value was invalid or had an 
             /// invalid size.
             /// </exception>
-            protected abstract bool OnSet(in T value);
+            protected abstract bool OnSet(T value);
 
             /// <summary>
             /// Sets the value of the parameter on the shader.
@@ -76,18 +119,10 @@ namespace Eterra.Platforms.Windows.Graphics
             /// The new parameter value.
             /// </param>
             /// <returns>
-            /// <c>true</c> when the uniform was available and the value was
-            /// assigned, <c>false</c> otherwise.
+            /// <c>true</c> when the uniform was available, the value was valid
+            /// and could be assigned, <c>false</c> otherwise.
             /// </returns>
-            /// <exception cref="ArgumentNullException">
-            /// Is thrown when <see cref="T"/> is a class type and 
-            /// <paramref name="value"/> is null.
-            /// </exception>
-            /// <exception cref="ArgumentException">
-            /// Is thrown when the specified value was invalid or had an 
-            /// invalid size.
-            /// </exception>
-            public bool Set(in T value)
+            public bool Set(T value)
             {
                 return OnSet(value);
             }
@@ -101,8 +136,8 @@ namespace Eterra.Platforms.Windows.Graphics
         {
             /// <summary>
             /// Gets a value which indicates whether the current attribute 
-            /// exists in the shader (<c>true</c>) or if the attribute does not exist
-            /// and value associations will Fail (<c>false</c>).
+            /// exists in the shader (<c>true</c>) or if the attribute does not
+            /// exist and value associations will Fail (<c>false</c>).
             /// </summary>
             public bool IsAccessible { get => Location >= 0; }
 
@@ -148,9 +183,9 @@ namespace Eterra.Platforms.Windows.Graphics
             /// The identifier of the attribute.
             /// </param>
             /// <param name="elementCount">
-            /// The amount of elements this attribute has. For an array, this would
-            /// be the amount of array elements, for a vector this is the amount of
-            /// vector components.
+            /// The amount of elements this attribute has. For an array, this 
+            /// would be the amount of array elements, for a vector this is the
+            /// amount of vector components.
             /// </param>
             /// <returns>
             /// A new instance of the <see cref="Attribute"/> class.
@@ -208,9 +243,10 @@ namespace Eterra.Platforms.Windows.Graphics
             }
 
             /// <summary>
-            /// Executes the command <see cref="GL.VertexAttribPointer(int, int, VertexAttribPointerType, bool, int, int)"/> with the parameters
-            /// and <see cref="GL.EnableVertexAttribArray(int)"/> for the 
-            /// current <see cref="Attribute"/> instance. 
+            /// Executes the command <see cref="GL.VertexAttribPointer(
+            /// int, int, VertexAttribPointerType, bool, int, int)"/> with the 
+            /// parameters and <see cref="GL.EnableVertexAttribArray(int)"/> 
+            /// for the current <see cref="Attribute"/> instance. 
             /// </summary>
             /// <param name="strideBytes">
             /// The value for the stride parameter in the original GL command.
@@ -218,13 +254,17 @@ namespace Eterra.Platforms.Windows.Graphics
             /// <param name="offsetBytes">
             /// The value for the offset parameter in the original GL command.
             /// </param>
+            /// <exception cref="ArgumentOutOfRangeException">
+            /// Is thrown when <paramref name="strideBytes"/> or
+            /// <paramref name="offsetBytes"/> is less than 0.
+            /// </exception>
             public void InitializeVertexAttribPointer(int strideBytes,
                 int offsetBytes)
             {
                 if (strideBytes < 0)
-                    throw new ArgumentOutOfRangeException("strideBytes");
+                    throw new ArgumentOutOfRangeException(nameof(strideBytes));
                 if (offsetBytes < 0)
-                    throw new ArgumentOutOfRangeException("offsetBytes");
+                    throw new ArgumentOutOfRangeException(nameof(offsetBytes));
 
                 GL.VertexAttribPointer(Location, ComponentCount,
                         Type, false, strideBytes,
@@ -271,7 +311,7 @@ namespace Eterra.Platforms.Windows.Graphics
                         UniformIdentifier);
             }
 
-            protected override bool OnSet(in ValueT value)
+            protected override bool OnSet(ValueT value)
             {
                 currentValue = value;
                 return true;
@@ -289,12 +329,12 @@ namespace Eterra.Platforms.Windows.Graphics
                 this.transpose = transpose;
             }
 
-            protected override bool OnSet(in Matrix4x4 value)
+            protected override bool OnSet(Matrix4x4 value)
             {
                 if (!IsAccessible) return false;
 
-                global::OpenTK.Matrix4 originalMatrix =
-                    new global::OpenTK.Matrix4(
+                OpenTK.Matrix4 originalMatrix =
+                    new OpenTK.Matrix4(
                         value.M11, value.M12, value.M13, value.M14,
                         value.M21, value.M22, value.M23, value.M24,
                         value.M31, value.M32, value.M33, value.M34,
@@ -306,15 +346,15 @@ namespace Eterra.Platforms.Windows.Graphics
         }
 
         protected class UniformMatrix4 : 
-            UniformSingleValue<global::OpenTK.Matrix4>
+            UniformSingleValue<OpenTK.Matrix4>
         {
             public UniformMatrix4(int programHandle,
                 string identifier) : base(programHandle, identifier) { }
 
-            protected override bool OnSet(in global::OpenTK.Matrix4 value)
+            protected override bool OnSet(OpenTK.Matrix4 value)
             {
                 if (!IsAccessible) return false;
-                global::OpenTK.Matrix4 matrix = value;
+                OpenTK.Matrix4 matrix = value;
                 GL.UniformMatrix4(Location, false, ref matrix);
                 return base.OnSet(value);
             }
@@ -325,7 +365,7 @@ namespace Eterra.Platforms.Windows.Graphics
             public UniformVector2(int programHandle,
                 string identifier) : base(programHandle, identifier) { }
 
-            protected override bool OnSet(in Vector2 value)
+            protected override bool OnSet(Vector2 value)
             {
                 if (!IsAccessible) return false;
                 GL.Uniform2(Location, value.X, value.Y);
@@ -344,7 +384,7 @@ namespace Eterra.Platforms.Windows.Graphics
                 this.invertZ = invertZ;
             }
 
-            protected override bool OnSet(in Vector3 value)
+            protected override bool OnSet(Vector3 value)
             {
                 if (!IsAccessible) return false;
                 GL.Uniform3(Location, value.X, value.Y,
@@ -358,7 +398,7 @@ namespace Eterra.Platforms.Windows.Graphics
             public UniformQuaternion(int programHandle,
                 string identifier) : base(programHandle, identifier) { }
 
-            protected override bool OnSet(in Quaternion value)
+            protected override bool OnSet(Quaternion value)
             {
                 if (!IsAccessible) return false;
                 GL.Uniform4(Location, value.X, value.Y, value.Z, value.W);
@@ -372,7 +412,7 @@ namespace Eterra.Platforms.Windows.Graphics
                 string uniformIdentifier)
                 : base(programHandle, uniformIdentifier) { }
 
-            protected override bool OnSet(in bool value)
+            protected override bool OnSet(bool value)
             {
                 if (!IsAccessible) return false;
                 GL.Uniform1(Location, (value ? 1 : 0));
@@ -386,7 +426,7 @@ namespace Eterra.Platforms.Windows.Graphics
                 string uniformIdentifier)
                 : base(programHandle, uniformIdentifier) { }
 
-            protected override bool OnSet(in int value)
+            protected override bool OnSet(int value)
             {
                 if (!IsAccessible) return false;
                 GL.Uniform1(Location, value);
@@ -400,7 +440,7 @@ namespace Eterra.Platforms.Windows.Graphics
                 string uniformIdentifier)
                 : base(programHandle, uniformIdentifier) { }
 
-            protected override bool OnSet(in float value)
+            protected override bool OnSet(float value)
             {
                 if (!IsAccessible) return false;
                 GL.Uniform1(Location, value);
@@ -424,7 +464,7 @@ namespace Eterra.Platforms.Windows.Graphics
                     identifier, false);
             }
 
-            protected override bool OnSet(in Color value)
+            protected override bool OnSet(Color value)
             {
                 if (!IsAccessible) return false;
                 baseUniform.Set(new Vector3(
@@ -452,7 +492,7 @@ namespace Eterra.Platforms.Windows.Graphics
                     identifier);
             }
 
-            protected override bool OnSet(in Color value)
+            protected override bool OnSet(Color value)
             {
                 if (!IsAccessible) return false;
                 baseUniform.Set(new Quaternion(
@@ -498,7 +538,7 @@ namespace Eterra.Platforms.Windows.Graphics
             }
 
             protected override bool OnSet(
-                in Eterra.Graphics.TextureBuffer value)
+                Eterra.Graphics.TextureBuffer value)
             {
                 if (!IsAccessible)
                 {
@@ -515,8 +555,7 @@ namespace Eterra.Platforms.Windows.Graphics
                     targetHandle = !renderBufferValue.IsDisposed ?
                         renderBufferValue.TextureHandle : 0;
                 else if (value == null) targetHandle = 0;
-                else throw new ArgumentException("The specified buffer " +
-                    "was no valid texture buffer in the current context.");
+                else return false;
 
                 GL.ActiveTexture(textureUnits[slot]);
                 GL.BindTexture(TextureTarget.Texture2D, targetHandle);
@@ -539,7 +578,7 @@ namespace Eterra.Platforms.Windows.Graphics
         /// Gets the shader uniform value accessor for the 
         /// projection transformation matrix.
         /// </summary>
-        public Uniform<global::OpenTK.Matrix4> Projection { get; }
+        public Uniform<OpenTK.Matrix4> Projection { get; }
 
         /// <summary>
         /// Gets the vertex attribute of the shader, which defines the 
@@ -561,15 +600,15 @@ namespace Eterra.Platforms.Windows.Graphics
 
         /// <summary>
         /// Gets the vertex attribute of the shader, which defines the
-        /// IDs of the bones the vertex is attached to.
+        /// first 4 bytes of the <see cref="VertexPropertyData"/>.
         /// </summary>
-        public Attribute VertexBoneMappingIds { get; }
+        public Attribute VertexPropertySegment1 { get; }
 
         /// <summary>
         /// Gets the vertex attribute of the shader, which defines the
-        /// weights of the bone attachments the vertex is attached to.
+        /// last 4 bytes of the <see cref="VertexPropertyData"/>.
         /// </summary>
-        public Attribute VertexBoneMappingWeights { get; }
+        public Attribute VertexPropertySegment2 { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Shader"/> 
@@ -591,10 +630,10 @@ namespace Eterra.Platforms.Windows.Graphics
                 "normal", 3, VertexAttribPointerType.Float);
             VertexTextureCoordinate = new Attribute(programHandle,
                 "textureCoordinate", 2, VertexAttribPointerType.Float);
-            VertexBoneMappingIds = new Attribute(programHandle,
-                "boneIds", 4, VertexAttribPointerType.UnsignedByte);
-            VertexBoneMappingWeights = new Attribute(programHandle,
-                "boneWeights", 4, VertexAttribPointerType.UnsignedByte);
+            VertexPropertySegment1 = new Attribute(programHandle,
+                "propertySegment1", 4, VertexAttribPointerType.UnsignedByte);
+            VertexPropertySegment2 = new Attribute(programHandle,
+                "propertySegment2", 4, VertexAttribPointerType.UnsignedByte);
         }
 
         /// <summary>
@@ -617,8 +656,8 @@ namespace Eterra.Platforms.Windows.Graphics
         public virtual void InitializeVertexAttribPointers()
         {
             int stride = VertexPosition.Size + VertexNormal.Size
-                + VertexTextureCoordinate.Size + VertexBoneMappingIds.Size
-                + VertexBoneMappingWeights.Size;
+                + VertexTextureCoordinate.Size + VertexPropertySegment1.Size
+                + VertexPropertySegment2.Size;
 
             int offset = 0;
 
@@ -632,13 +671,13 @@ namespace Eterra.Platforms.Windows.Graphics
                 offset);
             offset += VertexTextureCoordinate.Size;
 
-            VertexBoneMappingIds.InitializeVertexAttribPointer(stride,
+            VertexPropertySegment1.InitializeVertexAttribPointer(stride,
                 offset);
-            offset += VertexBoneMappingIds.Size;
+            offset += VertexPropertySegment1.Size;
 
-            VertexBoneMappingWeights.InitializeVertexAttribPointer(stride,
+            VertexPropertySegment2.InitializeVertexAttribPointer(stride,
                 offset);
-            //offset += VertexBoneMappingWeights.Size;
+            //offset += VertexPropertySegment2.Size;
         }
 
         /// <summary>
@@ -711,9 +750,12 @@ namespace Eterra.Platforms.Windows.Graphics
             GL.GetProgram(handle, GetProgramParameterName.ValidateStatus,
                 out int validateStatus);
             if (linkStatus != 1)
+            {
+                string infoLog = GL.GetProgramInfoLog(handle).Trim();
+                GL.DeleteProgram(handle);
                 throw new ArgumentException("Error while linking " +
-                    "vertex and fragment shader. "
-                    + GL.GetProgramInfoLog(handle));
+                    "vertex and fragment shader. " + infoLog);
+            }
             if (validateStatus != 1 && validateStatus != 0)
                 Log.Warning("The OpenGL shader program validation failed "
                     + "(Code " + validateStatus + "). " + 
@@ -733,7 +775,11 @@ namespace Eterra.Platforms.Windows.Graphics
             GL.GetShader(handle, ShaderParameter.CompileStatus,
                 out int shaderStatus);
             if (shaderStatus != 1)
-                throw new Exception(GL.GetShaderInfoLog(handle).Trim());
+            {
+                string infoLog = GL.GetShaderInfoLog(handle).Trim();
+                GL.DeleteShader(handle);
+                throw new Exception(infoLog);
+            }
             else return handle;
         }
     }
