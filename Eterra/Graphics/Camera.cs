@@ -80,7 +80,7 @@ namespace Eterra.Graphics
         /// the smaller side is now the width (with a length of 1) and the
         /// height has a total surplus of [...]
         /// </example>
-        OrthgraphicRelativeProportional,
+        OrthgraphicRelativeProportional,//OrthographicRelativeSmallestSide
         /// <summary>
         /// An orthographic projection, which is a parallel projection where 
         /// the distance of the drawn objects to the camera doesn't affect 

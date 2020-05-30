@@ -725,7 +725,7 @@ namespace Eterra.IO
 
         public static implicit operator FileSystemPath(string path)
         {
-            return new FileSystemPath(path);
+            return new FileSystemPath(path ?? "");
         }
     }
 }

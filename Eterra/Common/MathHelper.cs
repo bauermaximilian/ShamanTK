@@ -115,6 +115,7 @@ namespace Eterra.Common
             return new Vector2(Math.Abs(vector.X), Math.Abs(vector.Y));
         }
 
+        //TODO: Remove following two methods after Camera class replaced
         /// <summary>
         /// Creates a new <see cref="Quaternion"/> from a set of euler 
         /// rotation values.
