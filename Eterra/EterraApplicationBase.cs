@@ -175,6 +175,13 @@ namespace Eterra
             graphics.Graphics.IsRunning;
 
         /// <summary>
+        /// A flag that - when set to <c>true</c> - causes the application to
+        /// <see cref="Dispose"/> itself before the next 
+        /// <see cref="Update(TimeSpan)"/>.
+        /// </summary>
+        private bool applicationTerminationRequested = false;
+
+        /// <summary>
         /// Initializes a new instance of the 
         /// <see cref="EterraApplicationBase"/> class.
         /// </summary>
@@ -350,8 +357,8 @@ namespace Eterra
         }
 
         /// <summary>
-        /// Stops the current platform and the 
-        /// <see cref="Update"/>/<see cref="Redraw"/> cycle.
+        /// Terminates the application after the current
+        /// <see cref="Update(TimeSpan)"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException">
         /// Is thrown when <see cref="IsRunning"/> is <c>false</c>.
@@ -360,24 +367,7 @@ namespace Eterra
         {
             if (!IsRunning) throw new InvalidOperationException("The " +
                 "platform is not running and can't be closed.");
-            else
-            {
-                graphics.Graphics.Close();
-                graphics.Graphics.Initialized -= OnInitialized;
-                graphics.Graphics.Closing -= OnClosed;
-                graphics.Graphics.Redraw -= OnRedraw;
-                graphics.Graphics.Update -= OnUpdate;
-                graphics = null;
-
-                sound = null;
-
-                controls = null;
-
-                resources.Dispose();
-                resources = null;
-
-                IsDisposed = true;
-            }
+            else applicationTerminationRequested = true;
         }
 
         private void OnInitialized(object source, EventArgs args)
@@ -385,18 +375,19 @@ namespace Eterra
             Log.Information("Loading main application...");
 
             DateTime start = DateTime.Now;
-            try { Load(); }
+            try
+            {
+                Load();
+                Log.Information("Loading of main application completed " +
+                    "in " + (DateTime.Now - start).TotalSeconds.ToString("F3") 
+                    + " seconds.");
+            }
             catch (Exception exc)
             {
                 Log.Error(new ApplicationException("The main application " +
                     "couldn't be loaded.", exc));
                 Close();
-                return;
             }
-
-            Log.Information("Loading of main application completed " +
-                "in " + (DateTime.Now - start).TotalSeconds.ToString("F3") +
-                " seconds.");
         }
 
         private void OnClosed(object source, EventArgs args)
@@ -418,6 +409,14 @@ namespace Eterra
         {
             if (IsDisposed) return;
 
+            //Catch close requests from previous updates (or redraws) and a
+            //potential close from a failed initialisation.
+            if (applicationTerminationRequested)
+            {
+                Dispose();
+                return;
+            }
+
             try { Controls.Update(delta); }
             catch (Exception exc)
             {
@@ -432,14 +431,14 @@ namespace Eterra
             {
                 Log.Error(new ApplicationException("The main application " +
                     "failed unexpectedly while updating itself.", exc));
-                Close();
+                if (IsRunning) Close();
                 return;
             }
         }
 
         private void OnRedraw(IGraphics source, TimeSpan delta)
         {
-            if (IsDisposed) return;
+            if (IsDisposed || applicationTerminationRequested) return;
 
             DateTime eventStart = DateTime.Now;
 
@@ -469,7 +468,24 @@ namespace Eterra
         /// </summary>
         public void Dispose()
         {
-            if (!IsDisposed) Close();
+            if (!IsDisposed)
+            {
+                graphics.Graphics.Close();
+                graphics.Graphics.Initialized -= OnInitialized;
+                graphics.Graphics.Closing -= OnClosed;
+                graphics.Graphics.Redraw -= OnRedraw;
+                graphics.Graphics.Update -= OnUpdate;
+                graphics = null;
+
+                sound = null;
+
+                controls = null;
+
+                resources.Dispose();
+                resources = null;
+
+                IsDisposed = true;
+            }
         }
     }
 }
