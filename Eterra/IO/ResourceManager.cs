@@ -230,6 +230,9 @@ namespace Eterra.IO
                     try
                     {
                         dataRetrieverResult = bufferDataRetriever();
+                        if (dataRetrieverResult == null)
+                            throw new Exception("The data retriever for the " +
+                                "buffer generation returned null as data.");
                         dataRetrieverState = SyncTaskState.Finished;
                     }
                     catch (Exception exc)
@@ -446,8 +449,6 @@ namespace Eterra.IO
         {
             public class BufferGenerator
             {
-                private const int PixelBufferSize = 256;
-
                 private TextureBuffer buffer;
                 private int currentRowOffset = 0;
 
@@ -473,7 +474,7 @@ namespace Eterra.IO
                         buffer = graphics.CreateTextureBuffer(data.Size, 
                             textureFilter);
                     else if (currentRowOffset < data.Size.Height)
-                        buffer.Upload(data, ref currentRowOffset, 1);
+                        buffer.Upload(data, ref currentRowOffset, 16);
                     else return buffer;
 
                     return null;
