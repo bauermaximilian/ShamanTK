@@ -244,22 +244,14 @@ namespace Eterra.Controls
         Vector3 GetGyroscope();
 
         /// <summary>
-        /// Gets the characters which have been typed in in the keyboard layout
-        /// of the current user.
+        /// Gets the characters typed on the keyboard since the last update,
+        /// using the currently active keyboard layout. This does not include
+        /// any control characters beside whitespaces.
         /// </summary>
         /// <returns>
         /// A string of typed characters or an empty string, if no characters
         /// were typed or <see cref="SupportsKeyboard"/> is <c>false</c>.
         /// </returns>
-        /// <remarks>
-        /// In compliance with the behaviour of the <see cref="IControls"/>
-        /// behaviour specification (found under the remarks section of the
-        /// comment of this interface), this method will return all characters
-        /// which have been typed until the current update. After the update,
-        /// this string (or the internal structure containing the typed 
-        /// characters) can be expected to be cleared and filled with the input
-        /// following that update.
-        /// </remarks>
         string GetTypedCharacters();
 
         /// <summary>
