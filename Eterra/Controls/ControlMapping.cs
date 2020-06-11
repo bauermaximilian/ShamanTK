@@ -136,6 +136,18 @@ namespace Eterra.Controls
         }
 
         /// <summary>
+        /// Gets the <see cref="DateTime"/> of when the <see cref="Value"/>
+        /// changed the last time.
+        /// </summary>
+        public DateTime LastValueChange { get; private set; } =
+            DateTime.Now;
+
+        /// <summary>
+        /// Gets the time elapsed since the last value change.
+        /// </summary>
+        public TimeSpan ValueUnchanged => DateTime.Now - LastValueChange;
+
+        /// <summary>
         /// Gets or sets a <see cref="KeyboardKey"/> whose value is used 
         /// in combination with the values of the other input element sources 
         /// to update the <see cref="Value"/> and <see cref="Accerlation"/>. 
@@ -343,6 +355,9 @@ namespace Eterra.Controls
 
             Accerlation = value - Value;
             Value = value;
+
+            if (Math.Abs(Accerlation) > float.Epsilon)
+                LastValueChange = DateTime.Now;
 
 #if ENABLE_EXPERIMENTAL_API
             currentValueSlot = (currentValueSlot + 1)
