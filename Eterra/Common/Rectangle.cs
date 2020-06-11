@@ -91,7 +91,7 @@ namespace Eterra.Common
         /// <summary>
         /// Gets the size of the current rectangle.
         /// </summary>
-        public Vector2 Size => new Vector2(X, Y);
+        public Vector2 Size => new Vector2(Width, Height);
 
         /// <summary>
         /// Gets the X position of the bottom left point 
