@@ -28,8 +28,8 @@ namespace Eterra.Graphics
     public enum VerticalAlignment
     {
         /// <summary>
-        /// The text will be aligned above the Y coordinate of the
-        /// specified position.
+        /// The text area will be aligned above the Y coordinate of the text
+        /// area position.
         /// </summary>
         Top,
         /// <summary>
@@ -38,8 +38,8 @@ namespace Eterra.Graphics
         /// </summary>
         Middle,
         /// <summary>
-        /// The text will be aligned below the Y coordinate of the
-        /// specified position.
+        /// The text will be aligned below the Y coordinate of the text
+        /// area position.
         /// </summary>
         Bottom
     }
@@ -51,18 +51,18 @@ namespace Eterra.Graphics
     public enum HorizontalAlignment
     {
         /// <summary>
-        /// The text will be aligned left to the X coordinate of the
-        /// specified position.
+        /// The text will be aligned left, so that the X coordinate of the 
+        /// text area position defines where it "starts" (the left side).
         /// </summary>
         Left,
         /// <summary>
-        /// The text will be aligned central to the X coordinate of the
-        /// specified position.
+        /// The text will be aligned central so that the X coordinate of the
+        /// text area position defines its (horizontal) center.
         /// </summary>
         Center,
         /// <summary>
-        /// The text will be aligned right to the X coordinate of the
-        /// specified position.
+        /// The text will be aligned right, so that the X coordinate of the 
+        /// text area position defines where it "ends" (the right side).
         /// </summary>
         Right
     }
@@ -97,7 +97,7 @@ namespace Eterra.Graphics
         /// <summary>
         /// Gets or sets the horizontal alignment of the text in relation to
         /// its root position. 
-        /// The default value is <see cref="HorizontalAlignment.Right"/>.
+        /// The default value is <see cref="HorizontalAlignment.Left"/>.
         /// </summary>
         public HorizontalAlignment HorizontalAlignment { get; set; }
             = HorizontalAlignment.Left;

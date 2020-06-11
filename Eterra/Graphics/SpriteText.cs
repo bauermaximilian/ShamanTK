@@ -132,6 +132,21 @@ namespace Eterra.Graphics
         public SpriteFont SpriteFont { get; }
 
         /// <summary>
+        /// Gets the size of the text area.
+        /// </summary>
+        public Vector2 AreaSize { get; }
+
+        /// <summary>
+        /// Gets the position of the left bottom edge of the text area.
+        /// </summary>
+        public Vector3 AreaPositionMinimum { get; }
+
+        /// <summary>
+        /// Gets the position of the right top edge of the text area.
+        /// </summary>
+        public Vector3 AreaPositionMaximum { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="SpriteText"/> class.
         /// </summary>
         /// <param name="glyphs">
@@ -143,21 +158,43 @@ namespace Eterra.Graphics
         /// The <see cref="Graphics.SpriteFont"/> instance this new
         /// <see cref="SpriteText"/> instance should be linked to.
         /// </param>
-        internal SpriteText(Glyph[] glyphs, SpriteFont spriteFont)
+        /// <param name="areaPositionMinimum">
+        /// The position of the lower left edge of the text area.
+        /// </param>
+        /// <param name="size">
+        /// The size of the text area.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="glyphs"/> or
+        /// <paramref name="spriteFont"/> are null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when the specified <paramref name="size"/> contains
+        /// negative components.
+        /// </exception>
+        internal SpriteText(Glyph[] glyphs, SpriteFont spriteFont, 
+            Vector3 areaPositionMinimum, Vector2 size)
         {
             this.glyphs = glyphs ??
                 throw new ArgumentNullException(nameof(glyphs));
             SpriteFont = spriteFont ??
                 throw new ArgumentNullException(nameof(spriteFont));
+
+            if (size.X < 0 || size.Y < 0)
+                throw new ArgumentException("The specified size is invalid.");
+            else AreaSize = size;
+            AreaPositionMinimum = areaPositionMinimum;
+            AreaPositionMaximum = areaPositionMinimum +
+                new Vector3(size.X, size.Y, 0);
         }
 
         /// <summary>
         /// Draws the current <see cref="SpriteText"/> instance to a
         /// <see cref="IRenderContext"/>.
         /// </summary>
-        /// <param name="canvas">The target canvas.</param>
+        /// <param name="renderContext">The target render context.</param>
         /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="canvas"/> is null.
+        /// Is thrown when <paramref name="renderContext"/> is null.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// Is thrown when the <see cref="SpriteFont"/> instance, which was
@@ -165,25 +202,25 @@ namespace Eterra.Graphics
         /// disposed (and with it, the glyph texture map and the mesh to
         /// draw the single glyphs onto).
         /// </exception>
-        public void Draw(IRenderContext canvas)
+        public void Draw(IRenderContext renderContext)
         {
-            if (canvas == null)
-                throw new ArgumentNullException(nameof(canvas));
+            if (renderContext == null)
+                throw new ArgumentNullException(nameof(renderContext));
 
-            canvas.Mesh = SpriteFont.GlyphMesh;
-            canvas.Opacity = Opacity;
-            canvas.Color = Color;
-            canvas.TextureMixingMode = MixingMode.Multiply;
-            canvas.Texture = SpriteFont.GlyphTexture;
+            renderContext.Mesh = SpriteFont.GlyphMesh;
+            renderContext.Opacity = Opacity;
+            renderContext.Color = Color;
+            renderContext.TextureMixingMode = MixingMode.Multiply;
+            renderContext.Texture = SpriteFont.GlyphTexture;
 
             for (int i = 0; i < GlyphCount; i++)
             {
                 Glyph glyph = glyphs[i];
                 if (!glyph.IsEmpty)
                 {
-                    canvas.Location = glyph.GlyphTransformation;
-                    canvas.TextureClipping = glyph.TextureClipping;
-                    canvas.Draw();
+                    renderContext.Location = glyph.GlyphTransformation;
+                    renderContext.TextureClipping = glyph.TextureClipping;
+                    renderContext.Draw();
                 }
             }
         }

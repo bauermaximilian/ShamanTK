@@ -155,8 +155,24 @@ namespace Eterra.Graphics
             SpriteTextFormat format)
         {
             SpriteText.Glyph[] typesetContent = CreateTypesetContent(
-                position, text, format);
-            return new SpriteText(typesetContent, this);
+                position, text, format, out Vector2 size);
+
+            float areaMinimumX, areaMinimumY;
+
+            if (format.HorizontalAlignment == HorizontalAlignment.Left)
+                areaMinimumX = position.X;
+            else if (format.HorizontalAlignment == HorizontalAlignment.Center)
+                areaMinimumX = position.X - size.X / 2;
+            else areaMinimumX = position.X - size.X;
+
+            if (format.VerticalAlignment == VerticalAlignment.Top)
+                areaMinimumY = position.Y;
+            else if (format.VerticalAlignment == VerticalAlignment.Middle)
+                areaMinimumY = position.Y - size.Y / 2;
+            else areaMinimumY = position.Y - size.Y;
+
+            return new SpriteText(typesetContent, this,
+                new Vector3(areaMinimumX, areaMinimumY, position.Z), size);
         }
 
         /// <summary>
@@ -175,7 +191,8 @@ namespace Eterra.Graphics
         }
 
         private SpriteText.Glyph[] CreateTypesetContent(
-            Vector3 position, string text, SpriteTextFormat format)
+            Vector3 position, string text, SpriteTextFormat format,
+            out Vector2 size)
         {
             if (text == null)
                 throw new ArgumentNullException(nameof(text));
@@ -186,11 +203,11 @@ namespace Eterra.Graphics
                 text != null ? text.Split('\n') : new string[0];
 
             //The amount of characters minus the new line characters.
-            int typesetSize = text.Length - (textRows.Length - 1);
+            int typesetLength = text.Length - (textRows.Length - 1);
             int typesetCaret = 0;
 
             SpriteText.Glyph[] typesetContent =
-                new SpriteText.Glyph[typesetSize];
+                new SpriteText.Glyph[typesetLength];
 
             float caretX = 0, caretY = 0;
 
@@ -204,6 +221,9 @@ namespace Eterra.Graphics
                 caretY = totalHeight / 2;
             else if (format.VerticalAlignment == VerticalAlignment.Top)
                 caretY = totalHeight;
+
+            //This value will be the highest caretX value afterwards.
+            float totalWidth = 0;
 
             foreach (string row in textRows)
             {
@@ -242,12 +262,14 @@ namespace Eterra.Graphics
                     caretX += absoluteMapping.GlyphWidth;
 
                     int adaptedCaret = format.InvertDrawingOrder ?
-                        (typesetSize - 1 - typesetCaret) : typesetCaret;
+                        (typesetLength - 1 - typesetCaret) : typesetCaret;
                     typesetContent[adaptedCaret] = drawingCall;
                     typesetCaret++;
                     
                     rowGlyphCount++;
                 }
+
+                totalWidth = Math.Max(totalWidth, caretX);
 
                 //After the glyph positions were calculated, apply the
                 //horizontal alignment (if not default) in another step.
@@ -272,6 +294,8 @@ namespace Eterra.Graphics
                 //Update the Y caret for the next row.
                 caretY -= format.LineSpacingFactor * format.TypeSize;
             }
+
+            size = new Vector2(totalWidth, totalHeight);
 
             return typesetContent;
         }
