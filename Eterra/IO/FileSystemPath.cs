@@ -183,8 +183,8 @@ namespace Eterra.IO
         /// Is thrown when <paramref name="pathString"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when <paramref name="pathString"/> doesn't match the
-        /// format specified by <see cref="Format"/>.
+        /// Is thrown when <paramref name="pathString"/> contains one or more
+        /// invalid characters.
         /// </exception>
         public FileSystemPath(string pathString)
             : this(pathString, true) { }
@@ -205,10 +205,10 @@ namespace Eterra.IO
         /// Is thrown when <paramref name="pathString"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when <paramref name="pathString"/> doesn't match the
-        /// format specified by <see cref="Format"/>, or when 
-        /// <paramref name="allowDirectoryPath"/> is <c>false</c> but
-        /// <paramref name="pathString"/> is a directory path.
+        /// Is thrown when <paramref name="pathString"/> contains one or more
+        /// invalid characters or when <paramref name="allowDirectoryPath"/> 
+        /// is <c>false</c> but <paramref name="pathString"/> is a 
+        /// directory path.
         /// </exception>
         public FileSystemPath(string pathString,
             bool allowDirectoryPath) : this()
@@ -501,6 +501,34 @@ namespace Eterra.IO
         }
 
         /// <summary>
+        /// Combines a file name and an extension to a relative 
+        /// <see cref="FileSystemPath"/> instance.
+        /// </summary>
+        /// <param name="fileName">The raw file name.</param>
+        /// <param name="fileExtension">The file extension.</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="fileName"/> or 
+        /// <paramref name="fileExtension"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="pathString"/> contains one or more
+        /// invalid characters.
+        /// </exception>
+        public static FileSystemPath CombineFileName(string fileName,
+            string fileExtension)
+        {
+            if (fileName == null)
+                throw new ArgumentNullException(nameof(fileName));
+            if (fileExtension == null)
+                throw new ArgumentNullException(nameof(fileExtension));
+
+            return new FileSystemPath(fileName.TrimEnd(SeparatorFileExtension) 
+                + SeparatorFileExtension +
+                fileExtension.TrimStart(SeparatorFileExtension));
+        }
+
+        /// <summary>
         /// Checks whether another (absolute) path is hierarchically directly 
         /// related as child to the current (absolute, non-empty) path.
         /// </summary>
@@ -645,8 +673,8 @@ namespace Eterra.IO
         {
             if (IsEmpty) throw new ArgumentException("The path must not " +
                 "be empty!");
-            if (!IsAbsolute) throw new ArgumentException("The path must be " +
-                "absolute!");
+            if (!allowRelativePath && !IsAbsolute) 
+                throw new ArgumentException("The path must be absolute!");
             if (IsDirectoryPath && !allowDirectoryPath)
                 throw new ArgumentException("The path must not be a " +
                     "directory path!");

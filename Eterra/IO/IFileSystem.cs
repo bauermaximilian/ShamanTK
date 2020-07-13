@@ -38,7 +38,7 @@ namespace Eterra.IO
         bool IsWritable { get; }
 
         /// <summary>
-        /// Opens a file stream.
+        /// Opens an existing file.
         /// </summary>
         /// <param name="filePath">
         /// An absolute <see cref="FileSystemPath"/> specifying the file which
@@ -142,6 +142,10 @@ namespace Eterra.IO
         /// <see cref="FileSystemPath.IsDirectoryPath"/> or
         /// <see cref="FileSystemPath.IsAbsolute"/> of 
         /// <paramref name="directoryPath"/> are <c>false</c>.
+        /// </exception>
+        /// <exception cref="DirectoryNotFoundException">
+        /// Is thrown when the specified <paramref name="directoryPath"/> 
+        /// couldn't be resolved into an existing directory.
         /// </exception>
         /// <exception cref="IOException">
         /// Is thrown when the underlying operating system failed to perform

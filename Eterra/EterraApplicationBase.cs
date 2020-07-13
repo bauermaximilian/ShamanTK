@@ -472,7 +472,6 @@ namespace Eterra
             {
                 graphics.Graphics.Close();
                 graphics.Graphics.Initialized -= OnInitialized;
-                graphics.Graphics.Closing -= OnClosed;
                 graphics.Graphics.Redraw -= OnRedraw;
                 graphics.Graphics.Update -= OnUpdate;
                 graphics = null;

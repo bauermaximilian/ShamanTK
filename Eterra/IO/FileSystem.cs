@@ -271,6 +271,10 @@ namespace Eterra.IO
         /// <see cref="FileSystemPath.IsAbsolute"/> of 
         /// <paramref name="directoryPath"/> are <c>false</c>.
         /// </exception>
+        /// <exception cref="DirectoryNotFoundException">
+        /// Is thrown when the specified <paramref name="directoryPath"/> 
+        /// couldn't be resolved into an existing directory.
+        /// </exception>
         /// <exception cref="IOException">
         /// Is thrown when the underlying operating system failed to perform
         /// the requested action.
@@ -286,6 +290,11 @@ namespace Eterra.IO
             {
                 return Directory.EnumerateFiles(platformPath)
                     .Select(p => GetFileSystemPath(p));
+            }
+            catch (DirectoryNotFoundException exc)
+            {
+                throw new DirectoryNotFoundException("The specified " +
+                    "directory couldn't be found.", exc);
             }
             catch (Exception exc)
             {

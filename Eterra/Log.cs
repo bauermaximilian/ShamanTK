@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+using Eterra.Common;
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -33,6 +34,9 @@ namespace Eterra
     /// </summary>
     public static class Log
     {
+        private static readonly Regex wordWrapRegex = new Regex("[^\\s]+");
+        private static readonly Regex lineBreakRegex = new Regex(".+");
+
         /// <summary>
         /// Defines the possible levels of a message, which describe how 
         /// important a specific message to the program execution or the user.
@@ -44,10 +48,7 @@ namespace Eterra
         /// which occurred during framework operations.
         /// </summary>
         public class EventArgs : System.EventArgs
-        {
-            private static readonly Regex wordWrapRegex = new Regex("[^\\s]+");
-            private static readonly Regex lineBreakRegex = new Regex(".+");
-
+        {          
             /// <summary>
             /// Gets the level of the log message.
             /// </summary>
@@ -100,28 +101,7 @@ namespace Eterra
                 Source = source;
             }
 
-            /// <summary>
-            /// Formats the current log message to a string.
-            /// </summary>
-            /// <returns>The current log event as string.</returns>
-            public override string ToString()
-            {
-                return ToString(int.MaxValue);
-            }
-
-            /// <summary>
-            /// Formats the current log message as a string and adds line
-            /// breaks and spaces as indent after a specified amount of 
-            /// characters (only suitable for monospace fonts, e.g. in console 
-            /// output).
-            /// </summary>
-            /// <param name="lineWidth">
-            /// The maximum line width in characters. If the value is negative 
-            /// or too small for any message to reasonably fit in one line, 
-            /// the value is ignored.
-            /// </param>
-            /// <returns>The current log event as string.</returns>
-            public string ToString(int lineWidth)
+            private string GetMessagePrefix()
             {
                 StringBuilder builder = new StringBuilder();
 
@@ -148,57 +128,108 @@ namespace Eterra
                 if (!string.IsNullOrWhiteSpace(Source))
                 {
                     builder.Append(" [");
-                    builder.Append(Source);
+                    builder.Append(Source.Clamp(16));
                     builder.Append(']');
                 }
 
-                int minLineWidth = builder.ToString().Length;
-                if ((minLineWidth + Environment.NewLine.Length) >= lineWidth)
-                    minLineWidth = int.MinValue;
-
-                int caret = minLineWidth;
-
-                Match linePart = lineBreakRegex.Match(Message);
-                do
-                {
-                    Match wordPart = wordWrapRegex.Match(linePart.Value);
-                    do
-                    {
-                        if ((caret + wordPart.Length
-                            + Environment.NewLine.Length + 1) > lineWidth
-                            && caret > minLineWidth)
-                        {
-                            builder.AppendLine();
-                            for (int i = 0; i <= minLineWidth; i++)
-                                builder.Append(' ');
-                            caret = minLineWidth + 1;
-                        }
-                        else
-                        {
-                            builder.Append(' ');
-                            caret++;
-                        }
-
-                        builder.Append(wordPart.Value);
-                        caret += wordPart.Length;
-                        wordPart = wordPart.NextMatch();
-                    } while (wordPart.Success);
-
-                    linePart = linePart.NextMatch();
-
-                    if (linePart.Success)
-                    {
-                        builder.AppendLine();
-                        for (int i = 0; i < minLineWidth; i++)
-                            builder.Append(' ');
-                        caret = minLineWidth + 1;
-                    }
-                    else break;
-
-                } while (true);
+                builder.Append(' ');
 
                 return builder.ToString();
             }
+
+            /// <summary>
+            /// Formats the current log message to a string.
+            /// </summary>
+            /// <returns>The current log event as string.</returns>
+            public override string ToString()
+            {
+                return ToString(int.MaxValue);
+            }
+
+            /// <summary>
+            /// Formats the current log message as a string and adds line
+            /// breaks and spaces as indent after a specified amount of 
+            /// characters (only suitable for monospace fonts, e.g. in console 
+            /// output).
+            /// </summary>
+            /// <param name="lineWidth">
+            /// The maximum line width in characters. If the value is negative 
+            /// or too small for any message to reasonably fit in one line, 
+            /// the value is ignored.
+            /// </param>
+            /// <returns>The current log event as string.</returns>
+            public string ToString(int lineWidth)
+            {
+                string prefix = GetMessagePrefix();
+                if ((prefix.Length + 4) > lineWidth) return prefix + Message;
+                else return WordWrapText(prefix + Message, lineWidth, 
+                    prefix.Length);
+            }
+        }
+
+        /// <summary>
+        /// Word-wraps a text so that it doesn't exceed a specified amount 
+        /// of characters per line.
+        /// </summary>
+        /// <param name="text">
+        /// The text to be word-wrapped.
+        /// </param>
+        /// <param name="lineWidth">
+        /// The requested maximum width of a line.
+        /// </param>
+        /// <returns>A new <see cref="string"/> instance.</returns>
+        public static string WordWrapText(string text, int lineWidth)
+        {
+            return WordWrapText(text, lineWidth, 0);
+        }
+
+        private static string WordWrapText(string text, int lineWidth,
+            int indentationLength)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            int caret = indentationLength;
+
+            Match linePart = lineBreakRegex.Match(text);
+            do
+            {
+                Match wordPart = wordWrapRegex.Match(linePart.Value);
+                do
+                {
+                    if ((caret + wordPart.Length
+                        + Environment.NewLine.Length + 1) > lineWidth
+                        && caret > indentationLength)
+                    {
+                        builder.AppendLine();
+                        for (int i = 0; i < indentationLength; i++)
+                            builder.Append(' ');
+                        caret = indentationLength;
+                    }
+                    else
+                    {
+                        if (caret > indentationLength) builder.Append(' ');
+                        caret++;
+                    }
+
+                    builder.Append(wordPart.Value);
+                    caret += wordPart.Length;
+                    wordPart = wordPart.NextMatch();
+                } while (wordPart.Success);
+
+                linePart = linePart.NextMatch();
+
+                if (linePart.Success)
+                {
+                    builder.AppendLine();
+                    for (int i = 0; i < indentationLength; i++)
+                        builder.Append(' ');
+                    caret = indentationLength;
+                }
+                else break;
+
+            } while (true);
+
+            return builder.ToString();
         }
 
         private static readonly object logObject = new object();
