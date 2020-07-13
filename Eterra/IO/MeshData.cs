@@ -41,7 +41,7 @@ namespace Eterra.IO
             public MemoryMesh(Vertex[] vertexData, Face[] faceData,
                 VertexPropertyDataFormat vertexPropertyDataFormat,
                 Skeleton skeleton) 
-                : base(vertexData?.Length ?? 3, faceData?.Length ?? 1,
+                : base(vertexData?.Length ?? 1, faceData?.Length ?? 1,
                       vertexPropertyDataFormat, skeleton)
             {
                 this.vertexData = vertexData
@@ -88,12 +88,37 @@ namespace Eterra.IO
         public static MeshData Plane { get; } = CreatePlane(Vector2.One);
 
         /// <summary>
-        /// Gets a three-dimensional box with a width, height and depth of 1,
-        /// its pivot in the center of the box and am UV layout with that any 
-        /// assigned texture will be displayed completely on each side of 
-        /// the box.
+        /// Gets a single-quad plane on the XY-axis with a width and height of 
+        /// 1, its pivot in the bottom left corner of the plane and 
+        /// -<see cref="Vector3.UnitZ"/> as normal.
         /// </summary>
-        public static MeshData Box { get; } = CreateBox(Vector3.One);
+        public static MeshData Quad { get; } = CreatePlane(Vector3.Zero,
+            Vector3.UnitY, Vector3.UnitX);
+
+        /// <summary>
+        /// Gets a three-dimensional cube with a width, height and depth of 1,
+        /// its pivot in the center of the box and an UV layout with that any 
+        /// assigned texture will be displayed completely on each side of 
+        /// the cube.
+        /// </summary>
+        public static MeshData Box { get; } = CreateBox(Vector3.One, true);
+
+        /// <summary>
+        /// Gets a three-dimensional cube with a width, height and depth of 1,
+        /// its pivot in the center of the box, an "t"-shaped UV layout 
+        /// (tilted 90° clockwise, 4:3-format) and inverted normals.
+        /// the cube.
+        /// </summary>
+        public static MeshData Skybox { get; } = 
+            CreateBox(Vector3.One, true, true, true);
+
+        /// <summary>
+        /// Gets a three-dimensional cube with a width, height and depth of 1,
+        /// its pivot in the left, bottom, front edge and an UV layout with 
+        /// that any assigned texture will be displayed completely on each 
+        /// side of the cube.
+        /// </summary>
+        public static MeshData Block { get; } = CreateBox(Vector3.One, false);
 
         /// <summary>
         /// Gets the amount of vertices the current <see cref="MeshData"/> has.
@@ -659,17 +684,23 @@ namespace Eterra.IO
         /// <param name="bottomRight">
         /// The position of the bottom-right edge of the plane.
         /// </param>
+        /// <param name="flipNormals">
+        /// <c>false</c> to create a normal plane mesh with the normal of the
+        /// plane faces being equal to the up vector created with the specified
+        /// vectors, <c>true</c> to flip the vertex indicies in the faces 
+        /// and invert the normal of the faces into the opposite direction.
+        /// </param>
         /// <returns>
         /// A new instance of the <see cref="MeshData"/> class.
         /// </returns>
         public static MeshData CreatePlane(Vector3 bottomLeft, Vector3 topLeft,
-            Vector3 bottomRight)
+            Vector3 bottomRight, bool flipNormals = false)
         {
             List<Vertex> vertices = new List<Vertex>();
             List<Face> faces = new List<Face>();
 
             CreatePlane(bottomLeft, topLeft, bottomRight, out _,
-                Vector2.Zero, Vector2.One, vertices, faces);
+                Vector2.Zero, Vector2.One, false, vertices, faces);
 
             return new MemoryMesh(vertices.ToArray(), faces.ToArray(),
                 VertexPropertyDataFormat.None, null);
@@ -686,12 +717,17 @@ namespace Eterra.IO
         /// width, <see cref="Vector3.Y"/> specifies the height and
         /// <see cref="Vector3.Z"/> specifies the depth.
         /// </param>
+        /// <param name="centerOrigin">
+        /// <c>true</c> to position the origin of the created mesh in its 
+        /// center, <c>false</c> to set the origin of the box to its left,
+        /// front, bottom edge.
+        /// </param>
         /// <returns>
         /// A new instance of the <see cref="MeshData"/> class.
         /// </returns>
-        public static MeshData CreateBox(Vector3 dimensions)
+        public static MeshData CreateBox(Vector3 dimensions, bool centerOrigin)
         {
-            return CreateBox(dimensions, false);
+            return CreateBox(dimensions, centerOrigin, false);
         }
 
         /// <summary>
@@ -704,12 +740,23 @@ namespace Eterra.IO
         /// width, <see cref="Vector3.Y"/> specifies the height and
         /// <see cref="Vector3.Z"/> specifies the depth.
         /// </param>
+        /// <param name="centerOrigin">
+        /// <c>true</c> to position the origin of the created mesh in its 
+        /// center, <c>false</c> to set the origin of the box to its left,
+        /// front, bottom edge.
+        /// </param>
         /// <param name="seperateUvSides">
         /// <c>true</c> to create an UV map where each side of the box has
         /// its own segment in the UV map, which looks a bit like a lowercase 
-        /// "t" rotated 90 degrees counter-clockwise (see the remarks for more
+        /// "t" rotated 90 degrees clockwise (see the remarks for more
         /// information), <c>false</c> to generate an UV map where each side
         /// of the box will have the same (full) texture.
+        /// </param>
+        /// <param name="flipNormals">
+        /// <c>false</c> to create a normal cube with its normals pointing to
+        /// the outside (default), <c>true</c> to invert the normals - the
+        /// latter is especially required for skyboxes with enabled backface
+        /// culling.
         /// </param>
         /// <returns>
         /// A new instance of the <see cref="MeshData"/> class.
@@ -726,13 +773,13 @@ namespace Eterra.IO
         /// represents the right side, 'U' represents the top and 'D' 
         /// represents the bottom side:
         /// <c>
-        ///   |T|
+        ///     |T|
         /// |B|L|F|R|
-        ///   |D|
+        ///     |D|
         /// </c>
         /// </remarks>
-        public static MeshData CreateBox(Vector3 dimensions, 
-            bool seperateUvSides)
+        public static MeshData CreateBox(Vector3 dimensions, bool centerOrigin,
+            bool seperateUvSides, bool flipNormals = false)
         {
             List<Vertex> vertices = new List<Vertex>();
             List<Face> faces = new List<Face>();
@@ -740,51 +787,65 @@ namespace Eterra.IO
             float width = dimensions.X;
             float height = dimensions.Y;
             float depth = dimensions.Z;
-            float right = width / 2;
-            float left = -right;
-            float top = height / 2;
-            float bottom = -top;
-            float back = depth / 2;
-            float front = -back;
+
+            float right, left, top, bottom, back, front;
+            if (centerOrigin)
+            {
+                right = width / 2;
+                left = -right;
+                top = height / 2;
+                bottom = -top;
+                back = depth / 2;
+                front = -back;
+            }
+            else
+            {
+                right = width;
+                left = 0;
+                top = height;
+                bottom = 0;
+                back = depth;
+                front = 0;
+            }
 
             Vector2 seperatedUvSectionSize = new Vector2(1 / 4f, 1 / 3f);
             Vector2 singleUvSectionSize = Vector2.One;
 
-            Vector3 leftBottomFront = new Vector3(left, bottom, front);
+            Vector3 leftBtmFront = new Vector3(left, bottom, front);
             Vector3 leftTopFront = new Vector3(left, top, front);
             Vector3 rightTopFront = new Vector3(right, top, front);
-            Vector3 rightBottomFront = new Vector3(right, bottom, front);
-            Vector3 leftBottomBack = new Vector3(left, bottom, back);
+            Vector3 rightBtmFront = new Vector3(right, bottom, front);
+            Vector3 leftBtmBack = new Vector3(left, bottom, back);
             Vector3 leftTopBack = new Vector3(left, top, back);
             Vector3 rightTopBack = new Vector3(right, top, back);
-            Vector3 rightBottomBack = new Vector3(right, bottom, back);
+            Vector3 rightBtmBack = new Vector3(right, bottom, back);
 
             //The planes of the box are defined in the following order:
             //Back, left, front, right, top, bottom.
-            CreatePlane(rightBottomBack, rightTopBack, leftBottomBack,
+            CreatePlane(rightBtmBack, rightTopBack, leftBtmBack,
                 seperateUvSides ? new Vector2(0 / 4f, 1 / 3f) : Vector2.Zero,
                 seperateUvSides ? seperatedUvSectionSize : singleUvSectionSize,
-                vertices, faces);
-            CreatePlane(leftBottomBack, leftTopBack, leftBottomFront,
+                flipNormals, vertices, faces);
+            CreatePlane(leftBtmBack, leftTopBack, leftBtmFront,
                 seperateUvSides ? new Vector2(1 / 4f, 1 / 3f) : Vector2.Zero,
                 seperateUvSides ? seperatedUvSectionSize : singleUvSectionSize,
-                vertices, faces);
-            CreatePlane(leftBottomFront, leftTopFront, rightBottomFront,
+                flipNormals, vertices, faces);
+            CreatePlane(leftBtmFront, leftTopFront, rightBtmFront,
                 seperateUvSides ? new Vector2(2 / 4f, 1 / 3f) : Vector2.Zero,
                 seperateUvSides ? seperatedUvSectionSize : singleUvSectionSize,
-                vertices, faces);
-            CreatePlane(rightBottomFront, rightTopFront, rightBottomBack,
+                flipNormals, vertices, faces);
+            CreatePlane(rightBtmFront, rightTopFront, rightBtmBack,
                 seperateUvSides ? new Vector2(3 / 4f, 1 / 3f) : Vector2.Zero,
                 seperateUvSides ? seperatedUvSectionSize : singleUvSectionSize,
-                vertices, faces);
+                flipNormals, vertices, faces);
             CreatePlane(leftTopFront, leftTopBack, rightTopFront,
                 seperateUvSides ? new Vector2(2 / 4f, 2 / 3f) : Vector2.Zero,
                 seperateUvSides ? seperatedUvSectionSize : singleUvSectionSize,
-                vertices, faces);
-            CreatePlane(leftBottomBack, leftBottomFront, rightBottomBack,
+                flipNormals, vertices, faces);
+            CreatePlane(leftBtmBack, leftBtmFront, rightBtmBack,
                 seperateUvSides ? new Vector2(2 / 4f, 0 / 3f) : Vector2.Zero,
                 seperateUvSides ? seperatedUvSectionSize : singleUvSectionSize,
-                vertices, faces);
+                flipNormals, vertices, faces);
 
             return new MemoryMesh(vertices.ToArray(), faces.ToArray(),
                 VertexPropertyDataFormat.None, null);
@@ -793,17 +854,19 @@ namespace Eterra.IO
         private static void CreatePlane(Vector3 bottomLeftMesh,
              Vector3 topLeftMesh, Vector3 bottomRightMesh,
              Vector2 bottomLeftUV, Vector2 dimensionsUV, 
+             bool flipNormals,
              List<Vertex> targetVerticesList, List<Face> targetFaceList)
         {
             CreatePlane(bottomLeftMesh, topLeftMesh, bottomRightMesh,
-                out _, bottomLeftUV, dimensionsUV, targetVerticesList,
-                targetFaceList);
+                out _, bottomLeftUV, dimensionsUV, flipNormals,
+                targetVerticesList, targetFaceList);
         }
 
         private static void CreatePlane(Vector3 bottomLeftMesh,
             Vector3 topLeftMesh, Vector3 bottomRightMesh,
             out Vector3 topRightMesh, Vector2 bottomLeftUV,
-            Vector2 dimensionsUV, List<Vertex> targetVerticesList,
+            Vector2 dimensionsUV, bool flipNormals,
+            List<Vertex> targetVerticesList,
             List<Face> targetFaceList)
         {
             if (targetVerticesList == null)
@@ -812,13 +875,25 @@ namespace Eterra.IO
                 throw new ArgumentNullException(nameof(targetFaceList));
 
             uint firstVertexIndex = (uint)targetVerticesList.Count;
-            targetFaceList.Add(new Face(firstVertexIndex, firstVertexIndex + 1,
-                firstVertexIndex + 2));
-            targetFaceList.Add(new Face(firstVertexIndex + 2,
-                firstVertexIndex + 3, firstVertexIndex));
+
+            if (flipNormals)
+            {
+                targetFaceList.Add(new Face(firstVertexIndex,
+                    firstVertexIndex + 2, firstVertexIndex + 1));
+                targetFaceList.Add(new Face(firstVertexIndex,
+                    firstVertexIndex + 3, firstVertexIndex + 2));
+            }
+            else
+            {
+                targetFaceList.Add(new Face(firstVertexIndex,
+                    firstVertexIndex + 1, firstVertexIndex + 2));
+                targetFaceList.Add(new Face(firstVertexIndex,
+                    firstVertexIndex + 2, firstVertexIndex + 3));
+            }
 
             Vector3 normal = Vector3.Normalize(Vector3.Cross(topLeftMesh,
                 bottomRightMesh));
+            if (flipNormals) normal *= -1;
 
             Vector3 z = bottomRightMesh - topLeftMesh;
             float p1 = Vector3.Dot(z, bottomLeftMesh);
