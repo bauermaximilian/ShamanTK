@@ -24,7 +24,7 @@ using System.Numerics;
 
 namespace Eterra.Platforms.Windows.Graphics
 {
-    abstract internal class RenderContext : IRenderContext
+    internal abstract class RenderContext : IRenderContext
     {
         public bool IsDisposed { get; private set; }
 
@@ -35,7 +35,7 @@ namespace Eterra.Platforms.Windows.Graphics
         }
         private Eterra.Graphics.MeshBuffer mesh;
 
-        public Matrix4x4 Location
+        public Matrix4x4 Transformation
         {
             get => IsDisposed ? Matrix4x4.Identity : 
                 Context.Shader.Model.CurrentValue;
@@ -69,35 +69,76 @@ namespace Eterra.Platforms.Windows.Graphics
             set { if (!IsDisposed) Context.Shader.Color.Set(value); }
         }
 
+        public BlendingMode ColorBlending
+        {
+            get => IsDisposed ? BlendingMode.None :
+                (BlendingMode)Context.Shader.ColorBlending.CurrentValue;
+            set
+            {
+                if (!IsDisposed && Enum.IsDefined(typeof(BlendingMode), value))
+                    Context.Shader.ColorBlending.Set((int)value);
+            }
+        }
+
         public abstract Eterra.Graphics.TextureBuffer Texture { get; set; }
 
-        public abstract Rectangle TextureClipping { get; set; }
+        public Rectangle TextureClipping
+        {
+            get => IsDisposed ?
+                Rectangle.Zero : Context.Shader.TextureClipping.CurrentValue;
+            set
+            {
+                if (!IsDisposed) Context.Shader.TextureClipping.Set(value);
+            }
+        }
 
-        public abstract MixingMode TextureMixingMode { get; set; }
+        public BlendingMode TextureBlending
+        {
+            get => IsDisposed ? BlendingMode.None :
+                (BlendingMode)Context.Shader.TextureBlending.CurrentValue;
+            set
+            {
+                if (!IsDisposed && Enum.IsDefined(typeof(BlendingMode), value))
+                    Context.Shader.TextureBlending.Set((int)value);
+            }
+        }
+
+        public Fog Fog
+        {
+            get => IsDisposed ? Fog.Disabled : Context.Shader.Fog.CurrentValue;
+            set
+            {
+                if (!IsDisposed) Context.Shader.Fog.Set(value);
+            }
+        }
 
         public float Opacity
         {
             get => IsDisposed ? 0 : Context.Shader.Opacity.CurrentValue;
-            set { if (!IsDisposed) Context.Shader.Opacity.Set(value); }
+            set
+            {
+                if (!IsDisposed) 
+                    Context.Shader.Opacity.Set(
+                        Math.Max(Math.Min(1, value), 0));
+            }
         }
 
         protected IGraphicsContext Context { get; }
 
-        protected RenderContext(IGraphicsContext context, ShadingMode shadingMode)
+        protected RenderContext(IGraphicsContext context)
         {
             Context = context ??
                 throw new ArgumentNullException(nameof(context));
 
-            if (Enum.IsDefined(typeof(ShadingMode), shadingMode))
-                context.Shader.ShadingMode.Set((int)shadingMode);
-            else throw new ArgumentException("The specified shading mode " +
-                "is invalid.");
-
             Mesh = null;
-            Location = Matrix4x4.Identity;
+            Transformation = Matrix4x4.Identity;
             Deformation = null;
-            Color = Color.Black;
+            Color = Color.Transparent;
+            ColorBlending = BlendingMode.Add;
+            TextureBlending = BlendingMode.Add;
+            Fog = Fog.Disabled;
             Opacity = 1;
+            TextureClipping = Rectangle.One;
         }
 
         public virtual void Dispose()

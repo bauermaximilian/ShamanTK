@@ -146,32 +146,17 @@ namespace Eterra.Platforms.Windows.Graphics
                 //Make the main render stage shader current.
                 Shader.Use();
 
-                //Upload the lights (as many lights as supported by the 
-                //implementation, the remaining ones are ignored) and set
-                //all undefined light slots (if the light array is smaller
-                //than the amount of supported lights) to "disabled".
-                //If lighting is disabled, all the light slots will be set to
-                //"disabled" instead.
-                uint i = 0;
-                if (parameters.Lighting.Enabled)
-                {
-                    foreach (Light light in parameters.Lighting)
-                    {
-                        if (i < supportedLightsCount)
-                            Shader.Lights.Set(new LightSlot(i++, light));
-                        else break;
-                    }
-                }
-                for (; i < supportedLightsCount; i++)
-                    Shader.Lights.Set(new LightSlot(i, Light.Disabled));
-
                 //Enable or disable backface culling (clockwise to match the
                 //order of the faces, as specified in the "Face" class).
                 if (parameters.BackfaceCullingEnabled)
                 {
                     GL.Enable(EnableCap.CullFace);
                     GL.CullFace(CullFaceMode.Back);
-                    GL.FrontFace(FrontFaceDirection.Cw);
+                    //HACK: Without this, everything rendered to texture will
+                    //have flipped faces.
+                    if (finalRenderTarget != null)
+                        GL.FrontFace(FrontFaceDirection.Ccw);
+                    else GL.FrontFace(FrontFaceDirection.Cw);
                 }
                 else GL.Disable(EnableCap.CullFace);
 
@@ -429,32 +414,17 @@ namespace Eterra.Platforms.Windows.Graphics
                 //Make the main render stage shader current.
                 Shader.Use();
 
-                //Upload the lights (as many lights as supported by the 
-                //implementation, the remaining ones are ignored) and set
-                //all undefined light slots (if the light array is smaller
-                //than the amount of supported lights) to "disabled".
-                //If lighting is disabled, all the light slots will be set to
-                //"disabled" instead.
-                uint i = 0;
-                if (parameters.Lighting.Enabled)
-                {
-                    foreach (Light light in parameters.Lighting)
-                    {
-                        if (i < supportedLightsCount)
-                            Shader.Lights.Set(new LightSlot(i++, light));
-                        else break;
-                    }
-                }
-                for (; i < supportedLightsCount; i++)
-                    Shader.Lights.Set(new LightSlot(i, Light.Disabled));
-
                 //Enable or disable backface culling (clockwise to match the
                 //order of the faces, as specified in the "Face" class).
                 if (parameters.BackfaceCullingEnabled)
                 {
                     GL.Enable(EnableCap.CullFace);
                     GL.CullFace(CullFaceMode.Back);
-                    GL.FrontFace(FrontFaceDirection.Cw);
+                    //HACK: Without this, everything rendered to texture will
+                    //have flipped faces.
+                    if (finalRenderTarget != null)
+                        GL.FrontFace(FrontFaceDirection.Ccw);
+                    else GL.FrontFace(FrontFaceDirection.Cw);
                 }
                 else GL.Disable(EnableCap.CullFace);
 

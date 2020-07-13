@@ -24,7 +24,7 @@ using System.Drawing.Imaging;
 
 namespace Eterra.Platforms.Windows.IO
 {
-    class BitmapTextureData : TextureData
+    public class BitmapTextureData : TextureData
     {
         private System.Drawing.Bitmap bitmap;
         private BitmapData bitmapData;

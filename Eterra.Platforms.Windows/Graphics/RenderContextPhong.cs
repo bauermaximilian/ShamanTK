@@ -25,27 +25,6 @@ namespace Eterra.Platforms.Windows.Graphics
 {
     internal class RenderContextPhong : RenderContext, IRenderContextPhong
     {
-        public override MixingMode TextureMixingMode
-        {
-            get =>
-                (MixingMode)Context.Shader.ColorTextureMixingMode.CurrentValue;
-            set
-            {
-                if (!IsDisposed && Enum.IsDefined(typeof(MixingMode), value))
-                    Context.Shader.ColorTextureMixingMode.Set((int)value);
-            }
-        }
-
-        public override Rectangle TextureClipping
-        {
-            get => IsDisposed ? 
-                Rectangle.Zero : Context.Shader.TextureClipping.CurrentValue;
-            set
-            {
-                if (!IsDisposed) Context.Shader.TextureClipping.Set(value);
-            }
-        }
-
         public override Eterra.Graphics.TextureBuffer Texture
         {
             get => IsDisposed ? null : Context.Shader.TextureMain.CurrentValue;
@@ -85,11 +64,8 @@ namespace Eterra.Platforms.Windows.Graphics
             }
         }
 
-        public RenderContextPhong(IGraphicsContext context)
-            : base(context, ShadingMode.Phong)
+        public RenderContextPhong(IGraphicsContext context) : base(context)
         {
-            TextureMixingMode = MixingMode.Add;
-            TextureClipping = Rectangle.One;
             Texture = null;
             SpecularMap = null;
             NormalMap = null;

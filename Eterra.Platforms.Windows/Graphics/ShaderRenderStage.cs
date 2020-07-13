@@ -30,8 +30,7 @@ namespace Eterra.Platforms.Windows.Graphics
     {
         #region Shader-specific uniform class definitions
         /// <remarks>
-        /// The uniform must be of a type which implements the 
-        /// following struct layout:
+        /// The uniform must be a struct with the following layout:
         /// <c>
         /// struct Rectangle {
         ///     vec2 position;
@@ -80,6 +79,82 @@ namespace Eterra.Platforms.Windows.Graphics
             }
         }
 
+        /// <remarks>
+        /// The uniform must be a struct with the following layout:
+        /// <c>
+        /// struct Fog {
+        ///     float onsetDistance;
+        ///     float falloffLength;
+        ///     vec4 color;
+        ///     bool ignoreYAxis;
+        /// };
+        /// </c>
+        /// </remarks>
+        protected class UniformFog : Uniform<Fog>
+        {
+            public override bool IsAccessible
+            {
+                get
+                {
+                    return onsetDistanceUniformLocation > -1 ||
+                        falloffLengthUniformLocation > -1 ||
+                        colorUniform.IsAccessible ||
+                        ignoreYAxisUniformLocation > -1;
+                }
+            }
+
+            public override Fog CurrentValue => currentValue;
+            private Fog currentValue;
+
+            private readonly int onsetDistanceUniformLocation;
+            private readonly int falloffLengthUniformLocation;
+            private readonly UniformColorRGBA colorUniform;
+            private readonly int ignoreYAxisUniformLocation;
+
+            public UniformFog(int programHandle, string identifier)
+            {
+                if (identifier == null)
+                    throw new ArgumentNullException(nameof(identifier));
+
+                onsetDistanceUniformLocation = GL.GetUniformLocation(
+                    programHandle, identifier + ".onsetDistance");
+                falloffLengthUniformLocation = GL.GetUniformLocation(
+                    programHandle, identifier + ".falloffLength");
+                colorUniform = new UniformColorRGBA(programHandle, 
+                    identifier + ".color");
+                ignoreYAxisUniformLocation = GL.GetUniformLocation(
+                    programHandle, identifier + ".ignoreYAxis");
+            }
+
+            protected override bool OnSet(Fog value)
+            {
+                if (!IsAccessible) return false;
+                currentValue = value;
+
+                GL.Uniform1(onsetDistanceUniformLocation, value.OnsetDistance);
+                GL.Uniform1(falloffLengthUniformLocation, value.FalloffLength);
+                colorUniform.Set(value.Color);
+                GL.Uniform1(ignoreYAxisUniformLocation, 
+                    value.IgnoreYAxis ? 1 : 0);
+
+                return true;
+            }
+        }
+
+        /// <remarks>
+        /// The uniform must be a struct with the following layout:
+        /// <c>
+        /// struct Light {
+        ///     int type;
+        ///     vec3 color;
+        ///     vec3 position;
+        ///     vec3 direction;
+        ///     float cutoff;
+        ///     float cutoffWidth;
+        ///     float radius;
+        /// };
+        /// </c>
+        /// </remarks>
         protected class UniformLight : Uniform<Light>
         {
             public override Light CurrentValue => currentValue;
@@ -89,7 +164,6 @@ namespace Eterra.Platforms.Windows.Graphics
             private readonly UniformColorRGB color;
             private readonly UniformVector3 position, direction;
             private readonly UniformFloat cutoff, cutoffWidth, radius;
-            //private readonly UniformBool castShadows;
 
             public override bool IsAccessible => type.IsAccessible;
 
@@ -112,8 +186,6 @@ namespace Eterra.Platforms.Windows.Graphics
                     identifier + ".cutoffWidth");
                 radius = new UniformFloat(programHandle,
                     identifier + ".radius");
-                /*castShadows = new UniformBool(programHandle,
-                    identifier + ".castShadows");*/
             }
 
             protected override bool OnSet(Light value)
@@ -124,14 +196,12 @@ namespace Eterra.Platforms.Windows.Graphics
                 {
                     allSet &= color.Set(value.Color);
                     allSet &= direction.Set(value.Direction);
-                    //allSet &= castShadows.Set(value.CastShadows);
                 }
                 else if (value.Type == LightType.Point)
                 {
                     allSet &= color.Set(value.Color);
                     allSet &= position.Set(value.Position);
                     allSet &= radius.Set(value.Radius);
-                    //allSet &= castShadows.Set(value.CastShadows);
                 }
                 else if (value.Type == LightType.Spot)
                 {
@@ -143,7 +213,6 @@ namespace Eterra.Platforms.Windows.Graphics
                     allSet &= cutoffWidth.Set((float)Math.Sin(
                         value.CutoffWidth.Radians));
                     allSet &= radius.Set(value.Radius);
-                    //allSet &= castShadows.Set(value.CastShadows);
                 }
                 else if (value.Type != LightType.Disabled) return false;
 
@@ -157,6 +226,7 @@ namespace Eterra.Platforms.Windows.Graphics
             }
         }
 
+        /*
         /// <remarks>
         /// Warning - the following documentation is outdated and needs to be
         /// revised to be completely valid.
@@ -221,6 +291,91 @@ namespace Eterra.Platforms.Windows.Graphics
 
                 currentValue = value;
                 return lights[(int)value.Slot].Set(value.Light);
+            }
+        }
+        */
+
+        /// <remarks>
+        /// The uniform must be a struct with the following layout:
+        /// <c>
+        /// struct SampleList {
+        ///     int count;
+        ///     ELEMENT_TYPE elements[MAXIMUM_COUNT];
+        /// };
+        /// uniform SampleList samples;
+        /// </c>
+        /// The MAXIMUM_COUNT constant value should be equal to the
+        /// maximumCount parameter provided to the constructor of this class.
+        /// The ELEMENT_TYPE should be the GLSL equivalent type of
+        /// <typeparamref name="T"/>, which gets assigned by a element uniform
+        /// provided by the factory specified in the constructor of this clas.
+        /// </remarks>
+        protected class UniformCollection<T> : Uniform<IReadOnlyCollection<T>>
+        {
+            private readonly int countUniformLocation;
+            private readonly Uniform<T>[] elementUniforms;
+
+            public override IReadOnlyCollection<T> CurrentValue 
+                => currentValue;
+            private IReadOnlyCollection<T> currentValue;
+
+            public override bool IsAccessible =>
+                elementUniforms.Length > 0 && countUniformLocation > -1;
+
+            public UniformCollection(int programHandle, string identifier,
+                int maximumCount, 
+                Func<int, string, Uniform<T>> elementUniformFactory)
+            {
+                if (identifier == null)
+                    throw new ArgumentNullException(nameof(identifier));
+                if (maximumCount < 0)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(maximumCount));
+
+                if (programHandle >= 0)
+                {
+                    countUniformLocation = GL.GetUniformLocation(
+                        programHandle, identifier + ".count");
+
+                    List<Uniform<T>> elementUniformsList = 
+                        new List<Uniform<T>>();
+                    for (int i = 0; i < maximumCount; i++)
+                    {
+                        string elementUniformIdentifier = identifier +
+                            ".elements[" + i + "]";
+
+                        Uniform<T> elementUniform = elementUniformFactory(
+                            programHandle, elementUniformIdentifier);
+
+                        if (elementUniform.IsAccessible) 
+                            elementUniformsList.Add(elementUniform);
+                        else break;
+                    }
+                    elementUniforms = elementUniformsList.ToArray();
+                }
+            }
+
+            protected override bool OnSet(IReadOnlyCollection<T> value)
+            {
+                if (value == null)
+                    throw new ArgumentNullException(nameof(value));
+
+                if (!IsAccessible) return false;
+
+                GL.Uniform1(countUniformLocation, value.Count);
+
+                currentValue = value;
+
+                bool allSet = value.Count <= elementUniforms.Length;
+
+                int i = 0;
+                foreach (T element in value)
+                {
+                    allSet &= elementUniforms[i++].Set(element);
+                    if (i >= elementUniforms.Length) break;
+                }
+
+                return allSet;
             }
         }
 
@@ -365,6 +520,9 @@ void main()
     //segments are interpreted as color/light and sent to the fragment shader.
     mat4 deformation = mat4(1.0);
 
+    vertexColor = vec4(0.0);
+    vertexLight = vec4(1.0);
+
     if (vertexPropertyDataFormat == PROPERTYFORMAT_DEFORMER_ATTACHMENTS) 
     {
         if (bones.size > 0 && propertySegment2 != vec4(0.0, 0.0, 0.0, 0.0)) 
@@ -378,8 +536,6 @@ void main()
             deformation += bones.elements[int(propertySegment1[3])] 
                 * (float(propertySegment2[3]) / 255.0);
         }
-        vertexColor = vec4(0.0);
-        vertexLight = vec4(0.0);
     } 
     else if (vertexPropertyDataFormat == PROPERTYFORMAT_COLOR_LIGHT)
     {
@@ -391,11 +547,6 @@ void main()
             float(propertySegment1[1]) / 255.0, 
             float(propertySegment1[2]) / 255.0,
             float(propertySegment1[3]) / 255.0);
-    }
-    else 
-    {
-        vertexColor = vec4(0.0);
-        vertexLight = vec4(0.0);
     }
 
     //Combine all transformations.
@@ -422,13 +573,9 @@ const int LIGHTTYPE_AMBIENT = " + (int)LightType.Ambient + @";
 const int LIGHTTYPE_POINT = " + (int)LightType.Point + @";
 const int LIGHTTYPE_SPOT = " + (int)LightType.Spot + @";
 
-const int SHADINGMODE_FLAT = " + (int)Eterra.Graphics.ShadingMode.Flat + @";
-const int SHADINGMODE_PHONG = " + (int)Eterra.Graphics.ShadingMode.Phong + @";
-const int SHADINGMODE_PBR = " + (int)Eterra.Graphics.ShadingMode.PBR + @";
-
-const int MIXINGMODE_NONE = " + (int)MixingMode.None + @";
-const int MIXINGMODE_ADD = " + (int)MixingMode.Add + @";
-const int MIXINGMODE_MULTIPLY = " + (int)MixingMode.Multiply + @";
+const int BLENDINGMODE_NONE = " + (int)BlendingMode.None + @";
+const int BLENDINGMODE_ADD = " + (int)BlendingMode.Add + @";
+const int BLENDINGMODE_MULTIPLY = " + (int)BlendingMode.Multiply + @";
 
 struct Light {
 	int type;//Required by all light types
@@ -438,7 +585,18 @@ struct Light {
 	float cutoff;//Required by LIGHTTYPE_SPOT
     float cutoffWidth;//Required by LIGHTTYPE_SPOT
 	float radius;//Required by LIGHTTYPE_POINT
-    bool castShadows;//Required by all light types
+};
+
+struct LightList {
+    int count;
+    Light elements[MAX_LIGHTS];
+};
+
+struct Fog {
+    float onsetDistance;
+    float falloffLength;
+    vec4 color;
+    bool ignoreYAxis;
 };
 
 in vec3 vertexNormal;
@@ -450,11 +608,13 @@ in vec4 vertexLight;
 uniform vec3 viewPosition;
 
 uniform vec4 modelColor;
-uniform int shadingMode;
 uniform int vertexPropertyDataFormat;
-uniform int textureMixingMode;
+uniform int colorBlending;
+uniform int textureBlending;
 uniform float opacity;
 uniform float specularIntensity = 40.0;
+uniform Fog fog;
+uniform LightList lights;
 
 uniform sampler2D texture_main;
 uniform bool texture_main_assigned;
@@ -465,78 +625,133 @@ uniform bool texture_effect02_assigned;
 uniform sampler2D texture_effect03;
 uniform bool texture_effect03_assigned;
 
-uniform Light[MAX_LIGHTS] lights;
-
-vec4 CalculateFragmentFlat();
-vec4 CalculateFragmentWithPhong();
-vec4 CalculateFragmentWithPbr();
-float GetFogFactor(float start, float length);
+float getFogIntensity();
+vec4 blend(vec4 primaryColor, vec4 secondaryColor, int blendingMode);
+vec3 calculateLightingPhong();
 
 void main()
 {
-    float fogFactor = 1;//GetFogFactor(20, 5);
-    
-    vec4 color;    
-
-    if (shadingMode == SHADINGMODE_PHONG)
-        color = CalculateFragmentWithPhong();
-    else if (shadingMode == SHADINGMODE_PBR)
-        color = CalculateFragmentWithPbr();
-    else color = CalculateFragmentFlat();
-    
-    color.a *= opacity;//Old code: 1 - ((1 - opacity) * 0.2)
-    color.a *= fogFactor;
-    if (color.a < 0.05) discard;
-
-    gl_FragColor = color;
-}
-
-float GetFogFactor(float start, float length)
-{
-    float distance = distance(viewPosition, vertexFragmentPosition);
-    return min(max(start + length - distance, 0), length) / length;
-}
-
-vec4 GetTextureColor(sampler2D tex, bool isAssigned, bool mixWithBaseColor)
-{
-    if (!isAssigned) 
+    float fogIntensity = getFogIntensity();
+    if (fogIntensity >= 1.0) 
     {
-        if (mixWithBaseColor) return modelColor;
-        else return vec4(0, 0, 0, 1);
+        gl_FragColor = fog.color;
+        return;
     }
-    
-    vec4 textureColor = texture(tex, vertexTextureCoordinate);
-    if (!mixWithBaseColor) return textureColor;
-    
-    float textureOpacity = min(1, textureColor.a);
-    float textureOpacityInverted = 1.0f - textureOpacity;
 
-    if (textureOpacity < 0.05) discard;
+    vec4 surfaceColor = blend(modelColor, vertexColor, colorBlending);
 
-    vec3 opacityReducedColor = modelColor.rgb * textureOpacityInverted;
-    vec3 opacityReducedTextureColor = textureColor.rgb * textureOpacity;
-
-    if (textureMixingMode == MIXINGMODE_ADD)
+    if (texture_main_assigned)
     {
-        return vec4(opacityReducedColor.r + opacityReducedTextureColor.r,
-            opacityReducedColor.g + opacityReducedTextureColor.g,
-            opacityReducedColor.b + opacityReducedTextureColor.b,
-            textureOpacity);
+        vec4 textureColor = texture(texture_main, vertexTextureCoordinate);
+        surfaceColor = blend(textureColor, surfaceColor, textureBlending);
     }
-    else
+
+    if (surfaceColor.a < 0.012) discard;
+
+    vec4 surfaceLight = vertexLight;
+    if (lights.count > 0) 
     {
-        return vec4(modelColor.r * opacityReducedTextureColor.r,
-            modelColor.g * opacityReducedTextureColor.g,
-            modelColor.b * opacityReducedTextureColor.b,
-            textureOpacity);
+        vec3 phongLight = calculateLightingPhong();
+        surfaceLight += vec4(phongLight.x, phongLight.y, phongLight.z, 1);
     }
+
+    gl_FragColor = surfaceColor * surfaceLight;
+    
+    if (texture_effect03_assigned)
+    {
+        gl_FragColor += texture(texture_effect03, vertexTextureCoordinate);
+    }
+
+    gl_FragColor.a *= opacity;
+
+    gl_FragColor *= (1 - fogIntensity);
+    gl_FragColor += fog.color * fogIntensity;
 }
 
-vec4 CalculateFragmentFlat()
+vec4 blend(vec4 primaryColor, vec4 secondaryColor, int blendingMode) 
 {
-    return GetTextureColor(texture_main, texture_main_assigned, true);
+    if (blendingMode == BLENDINGMODE_ADD) 
+        return primaryColor + secondaryColor;
+    else if (blendingMode == BLENDINGMODE_MULTIPLY)
+        return primaryColor * secondaryColor;
+    else return secondaryColor;
 }
 
+float getFogIntensity() 
+{
+    if (fog.onsetDistance == 0 && fog.falloffLength == 0) return 0;
+
+    float fragmentDistance;
+
+    if (fog.ignoreYAxis) 
+        fragmentDistance = distance(vec3(viewPosition.x, 0, -viewPosition.z),
+            vec3(vertexFragmentPosition.x, 0, vertexFragmentPosition.z));
+    else fragmentDistance = distance(vec3(viewPosition.x, viewPosition.y, 
+        -viewPosition.z), vertexFragmentPosition);
+
+    return 1 - min(max(fog.onsetDistance + fog.falloffLength - 
+        fragmentDistance, 0), fog.falloffLength) / fog.falloffLength;
+}
+
+vec3 calculateLightingPhong() 
+{
+    vec4 specularColor = vec4(0.0);
+    if (texture_effect01_assigned) 
+        specularColor = texture(texture_effect01, vertexTextureCoordinate);
+
+    vec3 normal = normalize(vertexNormal);
+    vec3 viewDirection = normalize(viewPosition - vertexFragmentPosition);
+
+    vec3 lighting = vec3(0);
+
+    for (int i=0; i < lights.count; i++) 
+    {
+        Light light = lights.elements[i];
+
+        vec3 surfaceToLightDirection;
+        if (light.type == LIGHTTYPE_AMBIENT) 
+            surfaceToLightDirection = -light.direction;
+        else if (light.type == LIGHTTYPE_POINT || light.type == LIGHTTYPE_SPOT)
+            surfaceToLightDirection = 
+                normalize(light.position - vertexFragmentPosition);
+        else continue; //For unrecognized light types or disabled lights
+
+        vec3 ambient = light.color;
+        vec3 diffuse = max(0, dot(normal, surfaceToLightDirection)) 
+            * light.color;
+        vec3 specular = pow(max(0.0, dot(viewDirection, 
+            reflect(-surfaceToLightDirection, normal))), specularIntensity) * 
+            light.color;
+
+        float attenuation = 1;
+
+        if (light.type == LIGHTTYPE_POINT || light.type == LIGHTTYPE_SPOT)
+        {
+            float distanceToLight = 
+                length(light.position - vertexFragmentPosition);
+
+            float linear = ((115.22 / light.radius) + 84.97) / 
+                (1.15 * light.radius * light.radius);
+            float quadratic = ((2.85 / light.radius) + 4.9) / 
+                (light.radius * 1.08);
+            attenuation = 1.0 / (quadratic * pow(distanceToLight, 2) 
+                + linear * distanceToLight + 0.1);
+
+            if (light.type == LIGHTTYPE_SPOT) 
+            {                 
+                float lightToSurfaceAngle = dot(surfaceToLightDirection, 
+                    normalize(-light.direction));
+                attenuation *= clamp((lightToSurfaceAngle - (light.cutoff 
+                    - light.cutoffWidth)) / light.cutoffWidth, 0.0, 1.0);
+            }
+        }
+
+        lighting += (ambient + diffuse + specular) * attenuation;
+    }
+
+    return lighting;
+}
+/*
 vec4 CalculateFragmentWithPhong()
 {
     vec4 fragmentDiffuse = GetTextureColor(texture_main, 
@@ -615,13 +830,7 @@ vec4 CalculateFragmentWithPhong()
     }
     else return fragmentDiffuse + 
         vec4(fragmentEmission.rgb * fragmentEmission.a, 0);
-}
-
-vec4 CalculateFragmentWithPbr()
-{
-    //TODO: Implement PBR.
-    return vec4(1,0,0,1);
-}
+}*/
 ";
         #endregion
 
@@ -672,13 +881,6 @@ vec4 CalculateFragmentWithPbr()
 
         /// <summary>
         /// Gets the shader uniform value accessor for the
-        /// shading mode (integer representation of 
-        /// <see cref="Eterra.Graphics.ShadingMode"/>).
-        /// </summary>
-        public Uniform<int> ShadingMode { get; }
-
-        /// <summary>
-        /// Gets the shader uniform value accessor for the
         /// primary vertex color mixing mode (integer representation of
         /// <see cref="VertexPropertyDataFormat"/>).
         /// </summary>
@@ -686,10 +888,17 @@ vec4 CalculateFragmentWithPbr()
 
         /// <summary>
         /// Gets the shader uniform value accessor for the
-        /// color texture mixing mode (integer representation of
-        /// <see cref="MixingMode"/>).
+        /// color blending mode (integer representation of
+        /// <see cref="BlendingMode"/>).
         /// </summary>
-        public Uniform<int> ColorTextureMixingMode { get; }
+        public Uniform<int> ColorBlending { get; }
+
+        /// <summary>
+        /// Gets the shader uniform value accessor for the
+        /// texture blending mode (integer representation of
+        /// <see cref="BlendingMode"/>).
+        /// </summary>
+        public Uniform<int> TextureBlending { get; }
 
         /// <summary>
         /// Gets the shader uniform value accessor for the 
@@ -734,9 +943,14 @@ vec4 CalculateFragmentWithPbr()
         public Uniform<Rectangle> TextureClipping { get; }
 
         /// <summary>
-        /// Gets the shader uniform value accessor for the light array.
+        /// Gets the shader uniform value accessor for the light collection.
         /// </summary>
-        public Uniform<LightSlot> Lights { get; }
+        public Uniform<IReadOnlyCollection<Light>> Lights { get; }
+
+        /// <summary>
+        /// Gets the shader uniform value accessor for the fog effect.
+        /// </summary>
+        public Uniform<Fog> Fog { get; }
         #endregion
 
         private ShaderRenderStage(int programHandle, 
@@ -757,12 +971,12 @@ vec4 CalculateFragmentWithPbr()
                 programHandle, "modelColor");
             Opacity = new UniformFloat(
                 programHandle, "opacity");
-            ShadingMode = new UniformInt(
-                programHandle, "shadingMode");
             VertexPropertyDataFormat = new UniformInt(
                 programHandle, "vertexPropertyDataFormat");
-            ColorTextureMixingMode = new UniformInt(
-                programHandle, "textureMixingMode");
+            ColorBlending = new UniformInt(
+                programHandle, "colorBlending");
+            TextureBlending = new UniformInt(
+                programHandle, "textureBlending");
             TextureMain = new UniformTexture(
                 programHandle, "texture_main", 0);
             TextureEffect01 = new UniformTexture(
@@ -773,8 +987,11 @@ vec4 CalculateFragmentWithPbr()
                 programHandle, "texture_effect03", 3);
             TextureClipping = new UniformRectangle(
                 programHandle, "textureClipping");
-            Lights = new UniformLightSlot(
-                programHandle, "lights", supportedLightsCount);
+            Lights = new UniformCollection<Light>(
+                programHandle, "lights", supportedLightsCount,
+                (p, i) => new UniformLight(p, i));
+            Fog = new UniformFog(
+                programHandle, "fog");
         }
 
         /// <summary>
