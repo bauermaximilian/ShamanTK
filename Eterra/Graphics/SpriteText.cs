@@ -210,7 +210,7 @@ namespace Eterra.Graphics
             renderContext.Mesh = SpriteFont.GlyphMesh;
             renderContext.Opacity = Opacity;
             renderContext.Color = Color;
-            renderContext.TextureMixingMode = MixingMode.Multiply;
+            renderContext.TextureBlending = BlendingMode.Multiply;
             renderContext.Texture = SpriteFont.GlyphTexture;
 
             for (int i = 0; i < GlyphCount; i++)
@@ -218,7 +218,7 @@ namespace Eterra.Graphics
                 Glyph glyph = glyphs[i];
                 if (!glyph.IsEmpty)
                 {
-                    renderContext.Location = glyph.GlyphTransformation;
+                    renderContext.Transformation = glyph.GlyphTransformation;
                     renderContext.TextureClipping = glyph.TextureClipping;
                     renderContext.Draw();
                 }

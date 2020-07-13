@@ -408,9 +408,14 @@ namespace Eterra.Common
         public static Color Olive => new Color(128, 128, 0);
 
         /// <summary>
-        /// Gets a transparent color (with all components set to 0).
+        /// Gets a transparent black color.
         /// </summary>
         public static Color Transparent => new Color(0, 0, 0, 0);
+
+        /// <summary>
+        /// Gets a transparent white color.
+        /// </summary>
+        public static Color TransparentWhite => new Color(255, 255, 255, 0);
         #endregion
 
         /// <summary>

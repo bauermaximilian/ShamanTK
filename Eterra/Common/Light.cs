@@ -27,7 +27,7 @@ namespace Eterra.Common
     /// <summary>
     /// Defines the possible types of a <see cref="Light"/>.
     /// </summary>
-    public enum LightType
+    public enum LightType : byte
     {
         /// <summary>
         /// A disabled light which has no effect on the scene rendering.

@@ -106,66 +106,6 @@ namespace Eterra.Graphics
         }
 
         /// <summary>
-        /// Provides the parameters to configure a fog effect.
-        /// </summary>
-        public class FogParameters
-        {
-            /// <summary>
-            /// Gets or sets a value indicating whether the fog effect is
-            /// enabled (<c>true</c>) or not (<c>false</c>).
-            /// The default value is <c>false</c>.
-            /// </summary>
-            public bool Enabled { get; set; } = false;
-
-            /// <summary>
-            /// Gets or sets a value greater than/equal to 0, which defines the
-            /// distance from the camera where the fog will start.
-            /// The default value is 50.
-            /// </summary>
-            /// <exception cref="ArgumentOutOfRangeException">
-            /// Is thrown when the assigned value is less than 0.
-            /// </exception>
-            public float Start
-            {
-                get => start;
-                set
-                {
-                    if (value < 0)
-                        throw new ArgumentOutOfRangeException();
-                    else start = value;
-                }
-            }
-            private float start = 50;
-
-            /// <summary>
-            /// Gets or sets a value greater than/equal to 0, which defines the
-            /// length between the start of the fog effect and the point from 
-            /// which a rendered object will no longer be visible because it's 
-            /// completely disappeared in the fog.
-            /// The default value is 10.
-            /// </summary>
-            /// <exception cref="ArgumentOutOfRangeException">
-            /// Is thrown when the assigned value is less than 0.
-            /// </exception>
-            public float OnsetLength
-            {
-                get => onsetLength;
-                set
-                {
-                    if (value < 0)
-                        throw new ArgumentOutOfRangeException();
-                    else onsetLength = value;
-                }
-            }
-            private float onsetLength = 10;
-
-            /// <summary>
-            /// Gets or sets the color of the fog.
-            /// </summary>
-            public Color Color { get; set; } = Color.Black;
-        }
-
-        /// <summary>
         /// Provides the parameters to configure graphic filters.
         /// </summary>
         public class GraphicsFilterParameters
@@ -271,29 +211,6 @@ namespace Eterra.Graphics
         }
 
         /// <summary>
-        /// Provides the parameters to configure lighting.
-        /// </summary>
-        public class LightingParameters : HashSet<Light>
-        {
-            /// <summary>
-            /// Gets or sets a value indicating whether illumination is
-            /// enabled (<c>true</c>) or not (<c>false</c>).
-            /// The default value is <c>false</c>.
-            /// </summary>
-            public bool Enabled { get; set; } = false;
-        }
-
-        /// <summary>
-        /// Gets a collection of parameters and <see cref="Common.Light"/> 
-        /// instances, which specify if and how objects drawn to a 
-        /// <see cref="IRenderContext"/> will be illuminated (if supported by 
-        /// the <see cref="IRenderContext"/> implementation created with these 
-        /// parameters).
-        /// </summary>
-        public LightingParameters Lighting { get; }
-            = new LightingParameters();
-
-        /// <summary>
         /// Gets a collection of parameters, which are used to configure 
         /// stereoscopic rendering (if supported by the 
         /// <see cref="IRenderContext"/> implementation created with these 
@@ -301,13 +218,6 @@ namespace Eterra.Graphics
         /// </summary>
         public StereoscopyParameters Stereoscopy { get; }
             = new StereoscopyParameters();
-
-        /// <summary>
-        /// Gets a collection of parameters, which are used to configure the
-        /// fog effect (if supported by the <see cref="IRenderContext"/> 
-        /// implementation created with these parameters).
-        /// </summary>
-        public FogParameters Fog { get; } = new FogParameters();
 
         /// <summary>
         /// Gets a collection of parameters, which configure which graphic

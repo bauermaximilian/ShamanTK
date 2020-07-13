@@ -53,7 +53,7 @@ namespace Eterra.Graphics
         /// the render target into consideration and maintain quadratic pixels,
         /// use <see cref="OrthgraphicRelativeProportional"/>.
         /// </summary>
-        OrthographicRelative,
+        OrthographicRelative,//OrthographicRelativeFill
         /// <summary>
         /// An orthographic projection, which is a parallel projection where 
         /// the distance of the drawn objects to the camera doesn't affect 
@@ -80,7 +80,7 @@ namespace Eterra.Graphics
         /// the smaller side is now the width (with a length of 1) and the
         /// height has a total surplus of [...]
         /// </example>
-        OrthgraphicRelativeProportional,//OrthographicRelativeSmallestSide
+        OrthgraphicRelativeProportional,//OrthographicRelativeSmallestSide, OrthographicRelativeSquare
         /// <summary>
         /// An orthographic projection, which is a parallel projection where 
         /// the distance of the drawn objects to the camera doesn't affect 
@@ -115,7 +115,7 @@ namespace Eterra.Graphics
         /// upon initialisation.
         /// </summary>
         public static Vector3 DefaultPosition { get; }
-            = Vector3.UnitZ * -5;
+            = new Vector3(0, 0, -4.20f);
 
         /// <summary>
         /// Gets the position of the camera.
