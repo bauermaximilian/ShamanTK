@@ -217,11 +217,6 @@ namespace Eterra.Platforms.Windows.IO
             if ((meshDataRequested && meshQuerySpecified)
                 || meshDataRequested)
                 return (T)(object)ExtractMesh(scene, meshQuery, true);
-            //Old code, to be removed once animation importer is finished
-            /*else if ((timelineRequested && animationQuerySpecified)
-                || timelineRequested)
-                return (T)(object)ExtractDeformerTimeline(scene,
-                    animationQuery);*/
             else if (sceneRequested)
                 return (T)(object)ConvertScene(scene, path.Path, manager);
             else throw new FileNotFoundException("The specified path " +

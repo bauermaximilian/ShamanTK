@@ -84,6 +84,7 @@ namespace Eterra.Platforms.Windows
                 resourceFormatHandlers.Add(new IO.FontFormatHandler());
                 resourceFormatHandlers.Add(new IO.ImageFormatHandler());
                 resourceFormatHandlers.Add(new IO.SoundFormatHandler());
+                resourceFormatHandlers.Add(new IO.GLTFormatHandler());
                 resourceFormatHandlers.Add(new IO.AssimpFormatHandler());
             }
             catch (Exception exc)
