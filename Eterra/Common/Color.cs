@@ -550,31 +550,6 @@ namespace Eterra.Common
         }
 
         /// <summary>
-        /// Creates two new <see cref="Color"/> instances with the data from 
-        /// a <see cref="VertexPropertyData"/> instance by using the first
-        /// 4 property bytes for the <paramref name="primaryColor"/> (RGBA)
-        /// and the last 4 property bytes for the 
-        /// <paramref name="secondaryColor"/> (RGBA).
-        /// </summary>
-        /// <param name="properties">
-        /// The properties instance from the parent <see cref="Vertex"/>.
-        /// </param>
-        /// <param name="primaryColor">
-        /// The primary color, using the data from the provided properties.
-        /// </param>
-        /// <param name="secondaryColor">
-        /// The secondary color, using the data from the provided properties.
-        /// </param>
-        public void FromVertexProperties(VertexPropertyData properties, 
-            out Color primaryColor, out Color secondaryColor)
-        {
-            primaryColor = new Color(properties.P1, properties.P2,
-                properties.P3, properties.P4);
-            secondaryColor = new Color(properties.P5, properties.P6,
-                properties.P7, properties.P8);
-        }
-
-        /// <summary>
         /// Converts the current <see cref="Color"/> into a hex color code.
         /// </summary>
         /// <param name="includeAlphaComponent">
