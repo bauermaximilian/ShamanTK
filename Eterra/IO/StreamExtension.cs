@@ -710,10 +710,9 @@ namespace Eterra.IO
         }
 
         /// <summary>
-        /// Reads an instance of a type with a fixed size from the current 
+        /// Reads an instance of a type with a fixed byte size from the current 
         /// stream and advances the current position within this stream by the 
-        /// number of bytes of a single <see cref="uint"/> and the byte size
-        /// of an instance of type <typeparamref name="T"/>.
+        /// size of an instance of type <typeparamref name="T"/>.
         /// </summary>
         /// <typeparam name="T">
         /// The type of the value to be read from the stream.
@@ -726,10 +725,9 @@ namespace Eterra.IO
         /// Is thrown when <paramref name="stream"/> is null.
         /// </exception>
         /// <exception cref="FormatException">
-        /// Is thrown when the byte buffer definition in the stream is invalid,
-        /// the read buffer length doesn't match the byte size of an instance
-        /// of type <typeparamref name="T"/>, or the buffer couldn't be
-        /// converted to an instance of the type <typeparamref name="T"/>.
+        /// Is thrown when the byte buffer definition in the stream is invalid
+        /// or the buffer couldn't be converted to an instance of the 
+        /// specified type.
         /// </exception>
         /// <exception cref="IOException">
         /// Is thrown when an I/O error occurs.
@@ -746,20 +744,15 @@ namespace Eterra.IO
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
 
-            int expectedBufferSize = Marshal.SizeOf(typeof(T));
+            uint expectedBufferSize = (uint)Marshal.SizeOf(typeof(T));
 
             byte[] buffer;
-            try { buffer = stream.ReadBuffer(); }
+            try { buffer = stream.ReadBuffer(expectedBufferSize); }
             catch (FormatException exc)
             {
                 throw new FormatException("The byte representation of the " +
                     "requested object couldn't be read from the stream.", exc);
             }
-
-            if (expectedBufferSize != buffer.Length)
-                throw new FormatException("The size of the read buffer " +
-                    "doesn't match the size of an object instance of the " +
-                    "requested type '" + typeof(T).GetType().Name + "'.");
 
             T value;
             IntPtr pointer = Marshal.AllocHGlobal(buffer.Length);
@@ -777,6 +770,156 @@ namespace Eterra.IO
             finally { Marshal.FreeHGlobal(pointer); }
 
             return value;
+        }
+
+        /// <summary>
+        /// Reads a tuple of instances of a type with a fixed byte size from 
+        /// the current stream and advances the current position within this 
+        /// stream by the size of each instance of tuple types.
+        /// </summary>
+        /// <typeparam name="T1">
+        /// The tuple type of the first value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <typeparam name="T2">
+        /// The tuple type of the second value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <param name="stream">The stream to operate on.</param>
+        /// <returns>A new <see cref="ValueTuple"/> instance.</returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="stream"/> is null.
+        /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when the byte buffer definition in the stream is invalid
+        /// or the buffer couldn't be converted to an instance of the 
+        /// specified type.
+        /// </exception>
+        /// <exception cref="IOException">
+        /// Is thrown when an I/O error occurs.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when <see cref="Stream.CanRead"/> is <c>false</c>.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// Is thrown when <paramref name="stream"/> was disposed.
+        /// </exception>
+        public static (T1, T2) Read<T1, T2>(this Stream stream)
+            where T1 : unmanaged
+            where T2 : unmanaged
+        {
+            T1 v1 = stream.Read<T1>();
+            T2 v2 = stream.Read<T2>();
+            return (v1, v2);
+        }
+
+        /// <summary>
+        /// Reads a tuple of instances of a type with a fixed byte size from 
+        /// the current stream and advances the current position within this 
+        /// stream by the size of each instance of tuple types.
+        /// </summary>
+        /// <typeparam name="T1">
+        /// The tuple type of the first value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <typeparam name="T2">
+        /// The tuple type of the second value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <typeparam name="T3">
+        /// The tuple type of the third value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <param name="stream">The stream to operate on.</param>
+        /// <returns>A new <see cref="ValueTuple"/> instance.</returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="stream"/> is null.
+        /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when the byte buffer definition in the stream is invalid
+        /// or the buffer couldn't be converted to an instance of the 
+        /// specified type.
+        /// </exception>
+        /// <exception cref="IOException">
+        /// Is thrown when an I/O error occurs.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when <see cref="Stream.CanRead"/> is <c>false</c>.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// Is thrown when <paramref name="stream"/> was disposed.
+        /// </exception>
+        public static (T1, T2, T3) Read<T1, T2, T3>(this Stream stream)
+            where T1 : unmanaged
+            where T2 : unmanaged
+            where T3 : unmanaged
+        {
+            T1 v1 = stream.Read<T1>();
+            T2 v2 = stream.Read<T2>();
+            T3 v3 = stream.Read<T3>();
+            return (v1, v2, v3);
+        }
+
+        /// <summary>
+        /// Reads a tuple of instances of a type with a fixed byte size from 
+        /// the current stream and advances the current position within this 
+        /// stream by the size of each instance of tuple types.
+        /// </summary>
+        /// <typeparam name="T1">
+        /// The tuple type of the first value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <typeparam name="T2">
+        /// The tuple type of the second value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <typeparam name="T3">
+        /// The tuple type of the third value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <typeparam name="T4">
+        /// The tuple type of the third value to be read from the stream.
+        /// Must have a fixed size (see the <c>unmanaged</c> keyword for more 
+        /// information).
+        /// </typeparam>
+        /// <param name="stream">The stream to operate on.</param>
+        /// <returns>A new <see cref="ValueTuple"/> instance.</returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="stream"/> is null.
+        /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when the byte buffer definition in the stream is invalid
+        /// or the buffer couldn't be converted to an instance of the 
+        /// specified type.
+        /// </exception>
+        /// <exception cref="IOException">
+        /// Is thrown when an I/O error occurs.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when <see cref="Stream.CanRead"/> is <c>false</c>.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// Is thrown when <paramref name="stream"/> was disposed.
+        /// </exception>
+        public static (T1, T2, T3, T4) Read<T1, T2, T3, T4>(this Stream stream)
+            where T1 : unmanaged
+            where T2 : unmanaged
+            where T3 : unmanaged
+            where T4 : unmanaged
+        {
+            T1 v1 = stream.Read<T1>();
+            T2 v2 = stream.Read<T2>();
+            T3 v3 = stream.Read<T3>();
+            T4 v4 = stream.Read<T4>();
+            return (v1, v2, v3, v4);
         }
 
         /// <summary>
@@ -1349,10 +1492,9 @@ namespace Eterra.IO
         }
 
         /// <summary>
-        /// Writes an instance of a type with a fixed size to the current 
+        /// Writes an instance of a type with a fixed byte size to the current 
         /// stream and advances the current position within this stream by the 
-        /// number of bytes of a single <see cref="uint"/> and the converted 
-        /// <paramref name="instance"/>.
+        /// number of bytes of a <typeparamref name="T"/> instance.
         /// </summary>
         /// <typeparam name="T">
         /// The type of the value which should be written to the stream.
@@ -1360,7 +1502,7 @@ namespace Eterra.IO
         /// information).
         /// </typeparam>
         /// <param name="stream">The stream to operate on.</param>
-        /// <param name="value">
+        /// <param name="instance">
         /// The instance to be written to the current stream.
         /// </param>
         /// <exception cref="ArgumentNullException">
@@ -1388,7 +1530,7 @@ namespace Eterra.IO
             Marshal.Copy(pointer, buffer, 0, buffer.Length);
             Marshal.FreeHGlobal(pointer);
 
-            stream.WriteBuffer(buffer, true);
+            stream.WriteBuffer(buffer, false);
         }
 
         /// <summary>
