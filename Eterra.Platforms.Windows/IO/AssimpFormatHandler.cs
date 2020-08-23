@@ -711,9 +711,9 @@ namespace Eterra.Platforms.Windows.IO
                 //Convert the list of attachment tuples from the previously 
                 //generated array into a DeformerAttachments instance for the
                 //current vertex.
-                VertexPropertyData deformerAttachment =
-                    DeformerAttachments.FromList(vertexDeformerAttachments[i], 
-                    true).ToVertexPropertyData();
+                VertexPropertyData deformerAttachment = 
+                    VertexPropertyData.CreateAsDeformerAttachment(
+                        vertexDeformerAttachments[i], true);
 
                 //Compose all previously collected properties to a new vertex.
                 vertices[i] = new Vertex(new Vector3(position.X, position.Y,
