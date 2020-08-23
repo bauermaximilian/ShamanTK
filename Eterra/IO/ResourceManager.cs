@@ -1525,6 +1525,47 @@ namespace Eterra.IO
         }
 
         /// <summary>
+        /// Opens an existing file in the current <see cref="FileSystem"/>.
+        /// </summary>
+        /// <param name="filePath">
+        /// An absolute <see cref="FileSystemPath"/> specifying the file which
+        /// should be opened.
+        /// </param>
+        /// <param name="requestWriteAccess">
+        /// <c>true</c> to open the file with read-write access,
+        /// <c>false</c> (default) to open the file with read-only access.
+        /// </param>
+        /// <returns>The <see cref="Stream"/> to the file.</returns>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <see cref="FileSystemPath.IsEmpty"/> or
+        /// <see cref="FileSystemPath.IsDirectoryPath"/> of 
+        /// <paramref name="filePath"/> are <c>true</c> or if 
+        /// <see cref="FileSystemPath.IsAbsolute"/> of 
+        /// <paramref name="filePath"/> is <c>false</c>.
+        /// </exception>
+        /// <exception cref="FileNotFoundException">
+        /// Is thrown when no file at the specified 
+        /// <paramref name="filePath"/> was found.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// Is thrown when <paramref name="requestWriteAccess"/> is 
+        /// <c>true</c>, but <see cref="IsWritable"/> is <c>false</c>.
+        /// </exception>
+        /// <exception cref="IOException">
+        /// Is thrown when the underlying operating system failed to perform
+        /// the requested action.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// Is thrown when the current file system is disposed and can't be
+        /// used anymore.
+        /// </exception>
+        public Stream OpenFile(FileSystemPath filePath, 
+            bool requestWriteAccess = false)
+        {
+            return FileSystem.OpenFile(filePath, requestWriteAccess);
+        }
+
+        /// <summary>
         /// Continues the processing of the tasks in the current 
         /// <see cref="ResourceManager"/> instance for a specific amount 
         /// of time.

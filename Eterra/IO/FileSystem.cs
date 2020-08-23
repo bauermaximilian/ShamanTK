@@ -106,7 +106,6 @@ namespace Eterra.IO
         /// absolute, it's resolved in relation to the path of the
         /// application executable. Specify an empty string to directly use 
         /// the directory of the application executable.
-        /// execu
         /// </param>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="rootDirectoryPath"/> is null.

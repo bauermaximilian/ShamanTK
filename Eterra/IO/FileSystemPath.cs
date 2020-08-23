@@ -751,6 +751,11 @@ namespace Eterra.IO
             return path.PathString;
         }
 
+        public static implicit operator FileSystemPath(ResourcePath path)
+        {
+            return path.Path;
+        }
+
         public static implicit operator FileSystemPath(string path)
         {
             return new FileSystemPath(path ?? "");
