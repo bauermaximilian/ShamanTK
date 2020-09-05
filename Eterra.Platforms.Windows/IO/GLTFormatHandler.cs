@@ -88,6 +88,12 @@ namespace Eterra.Platforms.Windows.IO
         private const bool CubicSplineInterpolationUseLinearInterpolation =
             true;
 
+        /// <summary>
+        /// Defines the distance between two connected animation clips in
+        /// seconds.
+        /// </summary>
+        private const double AnimationOffsetSeconds = 1 / 100.0;
+
         private const string VertexAttributePosition = "POSITION";
 
         private const string VertexAttributeNormal = "NORMAL";
@@ -153,14 +159,125 @@ namespace Eterra.Platforms.Windows.IO
             Dictionary<Mesh, MeshData> importedMeshes = 
                 new Dictionary<Mesh, MeshData>();
 
+            Dictionary<string, TimelineLayer> timelineLayers =
+                new Dictionary<string, TimelineLayer>();
+
             foreach (var node in root.LogicalNodes)
             {
                 if (node.Mesh != null)
                     ImportMesh(node, importedMeshes);
+
+                SortedList<double, Marker> markerTargetList = 
+                    new SortedList<double, Marker>();
+
+                TimelineLayer timelineLayer = ImportTimelineLayer(node,
+                    markerTargetList, root.LogicalAnimations);
+                timelineLayers.Add(timelineLayer.Identifier, timelineLayer);
             }
 
             //root.LogicalAnimations.First().FindTranslationSampler()
             throw new NotImplementedException();
+        }
+
+        private static TimelineLayer ImportTimelineLayer(Node node, 
+            SortedList<double, Marker> markerTargetList,
+            IEnumerable<SharpGLTF.Schema2.Animation> sourceAnimations)
+        {
+            if (node == null)
+                throw new ArgumentNullException(nameof(node));
+            if (markerTargetList == null)
+                throw new ArgumentNullException(nameof(markerTargetList));
+            if (sourceAnimations == null)
+                throw new ArgumentNullException(nameof(sourceAnimations));
+
+            SortedList<double, Keyframe<Vector3>> positionKeyframes =
+                new SortedList<double, Keyframe<Vector3>>();
+            SortedList<double, Keyframe<Vector3>> scaleKeyframes =
+                new SortedList<double, Keyframe<Vector3>>();
+            SortedList<double, Keyframe<Quaternion>> rotationKeyframes =
+                new SortedList<double, Keyframe<Quaternion>>();
+
+            InterpolationMethod positionInterpolationMethod =
+                    InterpolationMethod.None;
+            InterpolationMethod scaleInterpolationMethod =
+                InterpolationMethod.None;
+            InterpolationMethod rotationInterpolationMethod =
+                InterpolationMethod.None;
+
+            // This variable is used to offset the start of appended animations
+            // and increases after every processed animation.
+            double timeOffset = 0;
+
+            foreach (var sourceAnimation in sourceAnimations)
+            {
+                bool framesImported = false;
+
+                IAnimationSampler<Vector3> translationSampler =
+                    sourceAnimation.FindTranslationSampler(node);
+                if (translationSampler != null)
+                {
+                    framesImported |= ImportKeyframes(translationSampler, 
+                        positionKeyframes, timeOffset, 
+                        out positionInterpolationMethod);
+                }
+
+                IAnimationSampler<Vector3> scaleSampler =
+                    sourceAnimation.FindScaleSampler(node);
+                if (scaleSampler != null)
+                {
+                    framesImported |= ImportKeyframes(scaleSampler, 
+                        scaleKeyframes, timeOffset, 
+                        out scaleInterpolationMethod);
+                }
+
+                IAnimationSampler<Quaternion> rotationSampler =
+                    sourceAnimation.FindRotationSampler(node);
+                if (rotationSampler != null)
+                {
+                    framesImported |= ImportKeyframes(rotationSampler, 
+                        rotationKeyframes, timeOffset, 
+                        out rotationInterpolationMethod);
+                }
+
+                // The marker for the current animation should only be set
+                // and the offset should only be incremented if the animation
+                // actually contained keyframes that were imported.
+                if (!framesImported) continue;
+
+                markerTargetList[timeOffset] = new Marker(timeOffset,
+                        sourceAnimation.Name);
+
+                timeOffset += sourceAnimation.Duration 
+                    + AnimationOffsetSeconds;
+
+                // This could fail if the timeline for one node has a different
+                // length (e.g. missing keyframes at the end) than the other.
+                double timeOffset2 = 0;
+                if (positionKeyframes.Count > 0)
+                    timeOffset2 = Math.Max(timeOffset2, positionKeyframes.Keys[
+                        positionKeyframes.Count - 1] + AnimationOffsetSeconds);
+                if (scaleKeyframes.Count > 0)
+                    timeOffset2 = Math.Max(timeOffset2, scaleKeyframes.Keys[
+                        scaleKeyframes.Count - 1] + AnimationOffsetSeconds);
+                if (rotationKeyframes.Count > 0)
+                    timeOffset2 = Math.Max(timeOffset2, rotationKeyframes.Keys[
+                        rotationKeyframes.Count - 1] + AnimationOffsetSeconds);                
+            }
+
+            TimelineChannel<Vector3> positionChannel =
+                new TimelineChannel<Vector3>(ChannelIdentifier.Position,
+                positionInterpolationMethod, positionKeyframes.Values);
+            TimelineChannel<Vector3> scaleChannel =
+                new TimelineChannel<Vector3>(ChannelIdentifier.Scale,
+                scaleInterpolationMethod, scaleKeyframes.Values);
+            TimelineChannel<Quaternion> rotationChannel =
+                new TimelineChannel<Quaternion>(ChannelIdentifier.Rotation,
+                rotationInterpolationMethod, rotationKeyframes.Values);
+
+            return new TimelineLayer(node.Name, new TimelineChannel[]
+            {
+                positionChannel, scaleChannel, rotationChannel
+            });
         }
 
         private static TimelineLayer ImportTimelineLayer(Node node, 
@@ -171,6 +288,31 @@ namespace Eterra.Platforms.Windows.IO
             if (sourceAnimation == null)
                 throw new ArgumentNullException(nameof(sourceAnimation));
 
+            static TimelineChannel<T> ImportTimelineChannel<T>(
+                ChannelIdentifier channelIdentifier,
+                IAnimationSampler<T> sourceAnimationSampler)
+                where T : unmanaged
+            {
+                if (sourceAnimationSampler == null)
+                    throw new ArgumentNullException(
+                        nameof(sourceAnimationSampler));
+                if (channelIdentifier == null)
+                    throw new ArgumentNullException(nameof(channelIdentifier));
+
+                SortedList<double, Keyframe<T>> keyframes =
+                    new SortedList<double, Keyframe<T>>();
+
+                ImportKeyframes<T>(sourceAnimationSampler, keyframes, 0,
+                    out InterpolationMethod interpolationMethod);
+
+                try
+                {
+                    return new TimelineChannel<T>(channelIdentifier,
+                        interpolationMethod, keyframes.Values);
+                }
+                catch (ArgumentException) { throw; }
+            }
+
             List<TimelineChannel> timelineChannels = 
                 new List<TimelineChannel>();
 
@@ -178,43 +320,75 @@ namespace Eterra.Platforms.Windows.IO
                 sourceAnimation.FindTranslationSampler(node);
             if (translationSampler != null)
             {
-                timelineChannels.Add(ImportTimelineChannel(translationSampler,
-                    ChannelIdentifier.Position));
+                timelineChannels.Add(ImportTimelineChannel(
+                    ChannelIdentifier.Position, translationSampler));
             }
 
             IAnimationSampler<Vector3> scaleSampler =
                 sourceAnimation.FindScaleSampler(node);
             if (scaleSampler != null)
             {
-                timelineChannels.Add(ImportTimelineChannel(scaleSampler,
-                    ChannelIdentifier.Scale));
+                timelineChannels.Add(ImportTimelineChannel(
+                    ChannelIdentifier.Scale, scaleSampler));
             }
 
             IAnimationSampler<Quaternion> rotationSampler =
                 sourceAnimation.FindRotationSampler(node);
             if (rotationSampler != null)
             {
-                timelineChannels.Add(ImportTimelineChannel(rotationSampler,
-                    ChannelIdentifier.Rotation));
+                timelineChannels.Add(ImportTimelineChannel(
+                    ChannelIdentifier.Rotation, rotationSampler));
             }
 
             return new TimelineLayer(node.Name, timelineChannels);
         }
 
-        private static TimelineChannel<T> ImportTimelineChannel<T>(
-            IAnimationSampler<T> sourceAnimationSampler, 
-            ChannelIdentifier channelIdentifier)
+        /// <summary>
+        /// Imports an animation from an <see cref="IAnimationSampler{T}"/>.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of keyframes of this animation.
+        /// </typeparam>
+        /// <param name="sourceAnimationSampler">
+        /// The source <see cref="IAnimationSampler{T}"/> instance.
+        /// </param>
+        /// <param name="targetKeyframeCollection">
+        /// The <see cref="SortedList{TKey, TValue}"/> instance, into which
+        /// the keyframes from the specified 
+        /// <paramref name="sourceAnimationSampler"/> should be put.
+        /// </param>
+        /// <param name="timeOffset">
+        /// The time offset (in seconds), which will be added to every 
+        /// keyframe added to the specified 
+        /// <paramref name="targetKeyframeCollection"/>.
+        /// </param>
+        /// <param name="interpolationMethod">
+        /// The <see cref="InterpolationMethod"/>, which should be used when
+        /// an animation with the keyframes imported into 
+        /// <paramref name="targetKeyframeCollection"/> is played back.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if keyframes were imported and added to the specified
+        /// <paramref name="targetKeyframeCollection"/>, <c>false</c> if no
+        /// keyframes were loaded.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="sourceAnimationSampler"/> or
+        /// <paramref name="targetKeyframeCollection"/> are null.
+        /// </exception>
+        private static bool ImportKeyframes<T>(
+            IAnimationSampler<T> sourceAnimationSampler,
+            SortedList<double, Keyframe<T>> targetKeyframeCollection, 
+            double timeOffset,  out InterpolationMethod interpolationMethod)
             where T : unmanaged
         {
             if (sourceAnimationSampler == null)
                 throw new ArgumentNullException(
                     nameof(sourceAnimationSampler));
-            if (channelIdentifier == null)
-                throw new ArgumentNullException(nameof(channelIdentifier));
 
-            InterpolationMethod interpolationMethod = InterpolationMethod.None;
+            bool framesImported = false;
 
-            List<Keyframe<T>> keyframes = new List<Keyframe<T>>();
+            interpolationMethod = InterpolationMethod.None;
 
             // As cubic spline interpolation isn't supported by the framework,
             // this type of animation would need to be "rasterized".
@@ -232,14 +406,18 @@ namespace Eterra.Platforms.Windows.IO
                     end = Math.Max(key.Key, end);
                 }
 
-                ICurveSampler<T> curveSampler = 
+                ICurveSampler<T> curveSampler =
                     sourceAnimationSampler.CreateCurveSampler();
 
-                for (float p = begin; p <= end;
-                    p += CubicSplineInterpolationRasterisationFrequency)
+                for (float time = begin; time <= end;
+                    time += CubicSplineInterpolationRasterisationFrequency)
                 {
-                    T keyframeValue = curveSampler.GetPoint(p);
-                    keyframes.Add(new Keyframe<T>(p, keyframeValue));
+                    T value = curveSampler.GetPoint(time);
+                    double offsettedTime = time + timeOffset;
+                    targetKeyframeCollection.Add(offsettedTime, 
+                        new Keyframe<T>(offsettedTime, value));
+                    
+                    framesImported = true;
                 }
             }
             // For the animation types "LINEAR" and "STEP", the keyframes can
@@ -253,19 +431,19 @@ namespace Eterra.Platforms.Windows.IO
                     AnimationInterpolationMode.STEP)
                     interpolationMethod = InterpolationMethod.None;
 
-                foreach (var (position, value) in
+                foreach (var (time, value) in
                     sourceAnimationSampler.GetLinearKeys())
                 {
-                    keyframes.Add(new Keyframe<T>(position, value));
+                    double offsettedTime = time + timeOffset;
+
+                    targetKeyframeCollection.Add(offsettedTime, 
+                        new Keyframe<T>(offsettedTime, value));
+
+                    framesImported = true;
                 }
             }
 
-            try
-            {
-                return new TimelineChannel<T>(channelIdentifier,
-                    interpolationMethod, keyframes);
-            }
-            catch (ArgumentException) { throw; }
+            return framesImported;
         }
 
         private static MeshData ImportMesh(Node meshNode, 
