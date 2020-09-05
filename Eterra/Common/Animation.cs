@@ -18,6 +18,7 @@
 */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Eterra.Common
@@ -25,9 +26,9 @@ namespace Eterra.Common
     /// <summary>
     /// Provides the base class from which classes that can produce a fluent,
     /// controllable animation using the data from a 
-    /// <see cref="Timeline"/> are derived.
+    /// <see cref="sourceTimeline"/> are derived.
     /// </summary>
-    public class AnimationPlayer : IAnimation
+    public class Animation : IEnumerable<AnimationLayer>
     {
         /// <summary>
         /// Gets or sets a value indicating whether the animation is currently 
@@ -52,31 +53,9 @@ namespace Eterra.Common
         private TimeSpan position;
 
         /// <summary>
-        /// Gets the timeline which is used by this 
-        /// <see cref="AnimationPlayer"/>.
-        /// </summary>
-        protected internal Timeline Timeline { get; }
-
-        /// <summary>
         /// Gets a sorted list of all markers.
         /// </summary>
-        public IList<Marker> Markers => Timeline.Markers;
-
-        /// <summary>
-        /// Gets a collection of the identifiers of all markers.
-        /// </summary>
-        public ICollection<string> MarkerIdentifiers => 
-            Timeline.MarkerIdentifiers;
-
-        /// <summary>
-        /// Gets a collection of all animation layers.
-        /// </summary>
-        public ICollection<IAnimationLayer> Layers => layers.Values;
-
-        /// <summary>
-        /// Gets a collection of the identifiers of all animation layers.
-        /// </summary>
-        public ICollection<string> LayerIdentifiers => layers.Keys;
+        public ICollection<Marker> Markers => sourceTimeline.Markers;
 
         /// <summary>
         /// Gets or sets the start of the playback.
@@ -84,8 +63,8 @@ namespace Eterra.Common
         public TimeSpan PlaybackStart { get; set; }
 
         /// <summary>
-        /// Gets or sets the marker, which defines the start of the playback,
-        /// or null if the start of the playback isn't defined by any marker.
+        /// Gets or sets the marker identifier, which defines the end of the 
+        /// playback, or null.
         /// Setting this property with an existing, non-null marker identifier
         /// will update <see cref="PlaybackStart"/> with the position of the
         /// specified marker. Setting this value to null or a non-existing
@@ -96,8 +75,9 @@ namespace Eterra.Common
             get => playbackStartMarker;
             set
             {
-                if (value != null && MarkerIdentifiers.Contains(value))
-                    PlaybackStart = Timeline.GetMarker(value).Position;
+                if (value != null && sourceTimeline.TryGetMarker(value, 
+                    out Marker marker)) PlaybackStart = marker.Position;
+
                 playbackStartMarker = value;
             }
         }
@@ -109,8 +89,8 @@ namespace Eterra.Common
         public TimeSpan PlaybackEnd { get; set; }
 
         /// <summary>
-        /// Gets or sets the marker, which defines the end of the playback,
-        /// or null if the end of the playback isn't defined by any marker.
+        /// Gets or sets the marker identifier, which defines the end of the 
+        /// playback, or null.
         /// Setting this property with an existing, non-null marker identifier
         /// will update <see cref="PlaybackEnd"/> with the position of the
         /// specified marker. Setting this value to null or a non-existing
@@ -121,8 +101,8 @@ namespace Eterra.Common
             get => playbackEndMarker;
             set
             {
-                if (value != null && MarkerIdentifiers.Contains(value))
-                    PlaybackEnd = Timeline.GetMarker(value).Position;
+                if (value != null && sourceTimeline.TryGetMarker(value,
+                    out Marker marker)) PlaybackEnd = marker.Position;
                 playbackEndMarker = value;
             }
         }
@@ -137,45 +117,37 @@ namespace Eterra.Common
         /// </summary>
         public bool PlaybackLoop { get; set; }
 
-        private readonly Dictionary<string, IAnimationLayer> layers = 
-            new Dictionary<string, IAnimationLayer>();
+        private readonly Dictionary<string, AnimationLayer> layers = 
+            new Dictionary<string, AnimationLayer>();
 
         private bool resetPositionToStartOnPlaybackStart = true;
 
+        private readonly Timeline sourceTimeline;
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="AnimationPlayer"/> 
+        /// Initializes a new instance of the <see cref="Animation"/> 
         /// base class.
         /// </summary>
-        /// <param name="timeline">
-        /// The timeline, which is used by this <see cref="AnimationPlayer"/>.
+        /// <param name="sourceTimeline">
+        /// The timeline, which is used by this <see cref="Animation"/>.
         /// </param>
         /// <exception cref="ArgumentNullException">
-        /// Is thown when <paramref name="timeline"/> is null.
+        /// Is thown when <paramref name="sourceTimeline"/> is null.
         /// </exception>
-        public AnimationPlayer(Timeline timeline)
+        public Animation(Timeline sourceTimeline)
         {
-            Timeline = timeline ?? 
-                throw new ArgumentNullException(nameof(timeline));
-            position = PlaybackStart = Timeline.Start;
-            PlaybackEnd = Timeline.End;
+            this.sourceTimeline = sourceTimeline ?? 
+                throw new ArgumentNullException(nameof(sourceTimeline));
+            position = PlaybackStart = this.sourceTimeline.Start;
+            PlaybackEnd = this.sourceTimeline.End;
 
-            foreach (TimelineLayer timelineLayer in timeline.Layers)
-            {
-                //It is assumed that the timeline.Layers collection has no
-                //duplicates (due to the constructor of the TimelineLayer
-                //class, which would throw an exception in case layers with 
-                //duplicate identifiers were found).
-
-                Type animationPlayerLayerType = 
-                    typeof(AnimationPlayerLayer<>).MakeGenericType(
-                        timelineLayer.ValueType);
-                IAnimationLayer animationPlayerLayer = 
-                    (IAnimationLayer)Activator.CreateInstance(
-                        animationPlayerLayerType, this, 
-                        timelineLayer.Identifier);
-
-                layers[timelineLayer.Identifier] = animationPlayerLayer;
-            }
+            //It is assumed that the timeline.Layers collection has no
+            //duplicates (due to the constructor of the TimelineLayer
+            //class, which would throw an exception in case layers with 
+            //duplicate identifiers were found).
+            foreach (TimelineLayer sourceLayer in sourceTimeline)
+                layers[sourceLayer.Identifier] =
+                    new AnimationLayer(this, sourceLayer);
         }
 
         /// <summary>
@@ -217,7 +189,7 @@ namespace Eterra.Common
         /// </summary>
         public void Stop()
         {
-            Position = Timeline.Start;
+            Position = sourceTimeline.Start;
             IsPlaying = false;
         }
 
@@ -231,7 +203,7 @@ namespace Eterra.Common
         /// <exception cref="ArgumentException">
         /// Is thrown when <paramref name="delta"/> is negative.
         /// </exception>
-        public virtual void Update(TimeSpan delta)
+        public void Update(TimeSpan delta)
         {
             if (delta < TimeSpan.Zero)
                 throw new ArgumentException("A negative value for time " +
@@ -257,115 +229,128 @@ namespace Eterra.Common
         }
 
         /// <summary>
-        /// Gets a <see cref="AnimationPlayerLayer{T}"/> from the current
-        /// <see cref="AnimationPlayer"/>, which provides access to the 
-        /// animated data of the <see cref="TimelineLayer{T}"/> with the
-        /// same identifier in the associated <see cref="Timeline"/>.
+        /// Attempts to get an <see cref="AnimationLayer"/> from the current
+        /// <see cref="Animation"/> instance.
         /// </summary>
-        /// <typeparam name="T">
-        /// The value type of the keyframes on the associated 
-        /// <see cref="TimelineLayer{T}"/>.
-        /// </typeparam>
         /// <param name="identifier">
-        /// The identifier of the requested <see cref="TimelineLayer{T}"/>.
-        /// </param>
-        /// <returns>
-        /// The requested <see cref="IAnimationLayer{T}"/> instance.
-        /// </returns>
-        /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="identifier"/> is null.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when no player layer with the specified
-        /// <paramref name="identifier"/> was found.
-        /// </exception>
-        /// <exception cref="InvalidCastException">
-        /// Is thrown when the specified <typeparamref name="T"/> doesn't
-        /// match the type of the requested 
-        /// <see cref="IAnimationLayer{T}"/> (and the associated 
-        /// <see cref="TimelineLayer{T}"/>).
-        /// </exception>
-        public IAnimationLayer<T> GetLayer<T>(string identifier)
-            where T : unmanaged
-        {
-            IAnimationLayer layer = GetLayer(identifier);
-            try { return (IAnimationLayer<T>)layer; }
-            catch (InvalidCastException)
-            {
-                throw new InvalidCastException("Couldn't convert the " +
-                    "player layer with the value type \"" 
-                    + layer.ValueType.Name + "\" to a player layer with the " +
-                    "(requested) value type \"" + typeof(T).Name + "\".");
-            }
-        }
-
-        /// <summary>
-        /// Gets a <see cref="AnimationPlayerLayer{T}"/> from the current
-        /// <see cref="AnimationPlayer"/>, which provides access to the 
-        /// animated data of the <see cref="TimelineLayer{T}"/> with the
-        /// same identifier in the associated <see cref="Timeline"/>.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="identifier">
-        /// The identifier of the requested <see cref="TimelineLayer{T}"/>.
+        /// The identifier of the <see cref="AnimationLayer"/>.
         /// </param>
         /// <param name="layer">
-        /// The requested <see cref="IAnimationLayer{T}"/> instance or null if
-        /// no layer with the specified <paramref name="identifier"/> and
-        /// type <typeparamref name="T"/> was found.
+        /// The requested <see cref="AnimationLayer"/> instance or null.
         /// </param>
         /// <returns>
-        /// <c>true</c> if a <see cref="IAnimationLayer{T}"/> with the specifed
-        /// <paramref name="identifier"/> and type <typeparamref name="T"/> 
-        /// was found and stored into the <paramref name="layer"/> parameter,
-        /// <c>false</c> otherwise.
+        /// <c>true</c> if an <see cref="AnimationLayer"/> with the specified
+        /// <paramref name="identifier"/> was found, <c>false</c> otherwise.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="identifier"/> is null.
         /// </exception>
-        public bool TryGetLayer<T>(string identifier,
-            out IAnimationLayer<T> layer)
-            where T : unmanaged
-        {
-            try { layer = GetLayer<T>(identifier); return true; }
-            catch (ArgumentNullException) { throw; }
-            catch
-            {
-                layer = null;
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Gets an <see cref="IAnimationLayer"/> instance from the current
-        /// <see cref="AnimationPlayer"/>, which provides access to the 
-        /// animated data of the <see cref="TimelineLayer"/> with the
-        /// same identifier in the associated <see cref="Timeline"/>
-        /// (when casted to the <see cref="AnimationPlayerLayer{T}"/> with the
-        /// correct type).
-        /// </summary>
-        /// <param name="identifier">
-        /// The identifier of the requested <see cref="TimelineLayer"/>.
-        /// </param>
-        /// <returns>
-        /// The requested <see cref="IAnimationLayer"/> instance.
-        /// </returns>
-        /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="identifier"/> is null.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when no player layer with the specified
-        /// <paramref name="identifier"/> was found.
-        /// </exception>
-        public IAnimationLayer GetLayer(string identifier)
+        public bool TryGetLayer(string identifier, out AnimationLayer layer)
         {
             if (identifier == null)
                 throw new ArgumentNullException(nameof(identifier));
 
-            if (layers.TryGetValue(identifier, out IAnimationLayer layer))
+            return layers.TryGetValue(identifier, out layer);
+        }
+
+        /// <summary>
+        /// Gets an <see cref="AnimationLayer"/> from the current
+        /// <see cref="Animation"/> instance.
+        /// </summary>
+        /// <param name="identifier">
+        /// The identifier of the <see cref="AnimationLayer"/>.
+        /// </param>
+        /// <returns>
+        /// The requested <see cref="AnimationLayer"/> instance.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="identifier"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when no <see cref="AnimationLayer"/> with the specified
+        /// <paramref name="identifier"/> was found.
+        /// </exception>
+        public AnimationLayer GetLayer(string identifier)
+        {
+            if (TryGetLayer(identifier, out AnimationLayer layer)) 
                 return layer;
-            else throw new ArgumentException("The current animation player " +
-                "doesn't contain a layer with the specified identifier.");
+            else throw new ArgumentException("No layer with the specified " +
+              "identifier was found.");
+        }
+
+        /// <summary>
+        /// Gets a marker via its identifier.
+        /// </summary>
+        /// <param name="identifier">
+        /// The identifier of the marker.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Marker"/> instance with the specified identifier.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="identifier"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when no marker with the specified 
+        /// <paramref name="identifier"/> was defined.
+        /// </exception>
+        /// <remarks>
+        /// This method performs a binary search; therefore, this method is an 
+        /// O(log n) operation, where n is <see cref="ICollection{T}.Count"/>
+        /// of <see cref="Markers"/>. Internally, the
+        /// <see cref="TryGetMarker(string, out Marker)"/> method is used.
+        /// </remarks>
+        public Marker GetMarker(string identifier)
+        {
+            return sourceTimeline.GetMarker(identifier);
+        }
+
+        /// <summary>
+        /// Attempts to get a marker via its identifier.
+        /// </summary>
+        /// <param name="identifier">
+        /// The identifier of the marker.
+        /// </param>
+        /// <param name="marker">
+        /// The requested marker or null, if the method returns <c>false</c>.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if a marker with the specified 
+        /// <paramref name="identifier"/> was found, <c>false</c> otherwise.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="identifier"/> is null.
+        /// </exception>
+        /// <remarks>
+        /// This method performs a binary search; therefore, this method is an 
+        /// O(log n) operation, where n is <see cref="ICollection{T}.Count"/>
+        /// of <see cref="Markers"/>. Internally, the
+        /// <see cref="Dictionary{TKey, TValue}.TryGetValue(TKey, 
+        /// out TValue)"/> method is used.
+        /// </remarks>
+        public bool TryGetMarker(string identifier, out Marker marker)
+        {
+            return sourceTimeline.TryGetMarker(identifier, out marker);
+        }
+
+        /// <summary>
+        /// Returns an <see cref="IEnumerator"/> for the 
+        /// current instance.
+        /// </summary>
+        /// <returns>A new <see cref="IEnumerator"/> instance.</returns>
+        public IEnumerator<AnimationLayer> GetEnumerator()
+        {
+            return layers.Values.GetEnumerator();
+        }
+
+        /// <summary>
+        /// Returns an <see cref="IEnumerator{T}"/> for the 
+        /// current instance.
+        /// </summary>
+        /// <returns>A new <see cref="IEnumerator{T}"/> instance.</returns>
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return layers.Values.GetEnumerator();
         }
     }
 }

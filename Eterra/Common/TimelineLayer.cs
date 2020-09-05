@@ -24,516 +24,180 @@ using System.Collections.Generic;
 namespace Eterra.Common
 {
     /// <summary>
-    /// Represents a collection of keyframes of a certain type in 
-    /// chronological order.
+    /// Provides a collection of <see cref="Keyframe"/> instances, 
+    /// hierarchically structured into contained 
+    /// <see cref="TimelineChannel"/> instances per
+    /// object parameter.
     /// </summary>
-    public abstract class TimelineLayer
+    public class TimelineLayer : IEnumerable<TimelineChannel>
     {
-        /// <summary>
-        /// Defines the default layer identifier for a 
-        /// <see cref="TimelineLayer{Vector3}"/>, which stores position
-        /// keyframes.
-        /// </summary>
-        public const string IdentifierPosition = "position";
-
-        /// <summary>
-        /// Defines the default layer identifier for a
-        /// <see cref="TimelineLayer{Vector3}"/>, which stores scale
-        /// keyframes.
-        /// </summary>
-        public const string IdentifierScale = "scale";
-
-        /// <summary>
-        /// Defines the default layer identifier for a 
-        /// <see cref="TimelineLayer{Quaternion}"/>, which stores rotation
-        /// keyframes.
-        /// </summary>
-        public const string IdentifierRotation = "rotation";
-
-        /// <summary>
-        /// Defines the default layer identifier for a 
-        /// <see cref="TimelineLayer{float}"/>, which stores an opacity
-        /// value between 0.0 and 1.0.
-        /// </summary>
-        public const string IdentifierOpacity = "opacity";
-
-        /// <summary>
-        /// Defines the default layer identifier for a
-        /// <see cref="TimelineLayer{Rectangle}"/>, which stores texture
-        /// clipping keyframes (e.g. for sprite animations).
-        /// </summary>
-        public const string IdentifierTextureClipping = "textureClipping";
-
-        /// <summary>
-        /// Defines the default layer identifier for a
-        /// <see cref="TimelineLayer{GlyphMapping}"/>, which stores glyph
-        /// mapping "keyframes" for fonts, where every marker defines a
-        /// glyph available in the font.
-        /// </summary>
-        public const string IdentifierGlyphMapping = "glyphMapping";
-
-        /// <summary>
-        /// Gets the amount of keyframes.
-        /// </summary>
-        public abstract int KeyframeCount { get; }
-
-        /// <summary>
-        /// Gets the position of the first keyframe.
-        /// </summary>
-        public abstract TimeSpan Start { get; }
-
-        /// <summary>
-        /// Gets the position of the last keyframe.
-        /// </summary>
-        public abstract TimeSpan End { get; }
+        private readonly Dictionary<string, TimelineChannel> channels =
+            new Dictionary<string, TimelineChannel>();
 
         /// <summary>
         /// Gets the distance between the first and the last keyframe.
         /// </summary>
-        public abstract TimeSpan Length { get; }
-
-        /// <summary>
-        /// Gets the type of the keyframe values.
-        /// </summary>
-        public abstract Type ValueType { get; }
-
-        /// <summary>
-        /// Gets the identifier of the current instance.
-        /// </summary>
-        public abstract string Identifier { get; }
-
-        /// <summary>
-        /// Gets the interpolation method, with which the values between the
-        /// individual keyframes should be calculated.
-        /// </summary>
-        public abstract InterpolationMethod InterpolationMethod { get; }
-
-        /// <summary>
-        /// Gets a keyframe by its index.
-        /// </summary>
-        /// <param name="index">
-        /// The index of the <see cref="Keyframe"/> to be retrieved.
-        /// </param>
-        /// <returns>
-        /// The requested <see cref="Keyframe"/> instance.
-        /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="index"/> is less than 0 or
-        /// greater than/equal to <see cref="KeyframeCount"/>.
-        /// </exception>
-        internal protected abstract Keyframe GetKeyframeUntyped(int index);
-    }
-
-    /// <summary>
-    /// Represents a collection of keyframes of a certain type in 
-    /// chronological order.
-    /// </summary>
-    /// <typeparam name="T">
-    /// The type of the values in the layer. 
-    /// The type must match the the "unmanaged" constraint.
-    /// </typeparam>
-    public class TimelineLayer<T> : TimelineLayer, IEnumerable<Keyframe<T>>
-        where T : unmanaged
-    {
-        #region Internally used IEnumerator implementation for TimelineLayer
-        private class KeyframeEnumerator : IEnumerator<Keyframe<T>>
-        {
-            public Keyframe<T> Current
-            {
-                get
-                {
-                    if (currentKeyframeIndex >= 0 
-                        && currentKeyframeIndex < timeline.KeyframeCount)
-                        return timeline.GetKeyframe(currentKeyframeIndex);
-                    else return Keyframe<T>.Empty;
-                }
-            }
-
-            object IEnumerator.Current => Current;
-
-            private readonly TimelineLayer<T> timeline;
-
-            private int currentKeyframeIndex = 0;
-
-            public KeyframeEnumerator(TimelineLayer<T> timeline)
-            {
-                this.timeline = timeline ??
-                    throw new ArgumentNullException(nameof(timeline));
-            }
-
-            public void Dispose()
-            {
-            }
-
-            public bool MoveNext()
-            {
-                if (currentKeyframeIndex + 1 < timeline.KeyframeCount)
-                {
-                    currentKeyframeIndex++;
-                    return true;
-                }
-                else return false;
-            }
-
-            public void Reset()
-            {
-                currentKeyframeIndex = 0;
-            }
-        }
-        #endregion
-
-        private readonly SortedList<TimeSpan, Keyframe<T>> data =
-            new SortedList<TimeSpan, Keyframe<T>>();
-
-        /// <summary>
-        /// Gets the distance between the first and the last keyframe.
-        /// </summary>
-        public override TimeSpan Length { get; }
+        public TimeSpan Length { get; }
 
         /// <summary>
         /// Gets the position of the first keyframe.
         /// </summary>
-        public override TimeSpan Start { get; }
+        public TimeSpan Start { get; }
 
         /// <summary>
         /// Gets the position of the last keyframe.
         /// </summary>
-        public override TimeSpan End { get; }
-
-        /// <summary>
-        /// Gets the amount of keyframes.
-        /// </summary>
-        public override int KeyframeCount => data.Count;
-
-        /// <summary>
-        /// Gets the type of the keyframe values.
-        /// </summary>
-        public override Type ValueType => typeof(T);
-
-        /// <summary>
-        /// Gets the interpolation method, with which the values between the
-        /// individual keyframes should be calculated.
-        /// </summary>
-        public override InterpolationMethod InterpolationMethod { get; }
+        public TimeSpan End { get; }
 
         /// <summary>
         /// Gets the identifier of the current instance.
         /// </summary>
-        public override string Identifier { get; }
+        public string Identifier { get; }
+
+        /// <summary>
+        /// Gets the amount of channels.
+        /// </summary>
+        public int ChannelCount => channels.Count;
 
         /// <summary>
         /// Initializes a new instance of the 
-        /// <see cref="TimelineLayer{T}"/> class.
+        /// <see cref="TimelineLayer"/> class.
         /// </summary>
-        /// <param name="keyframes">
-        /// An enumerable collection of <see cref="Keyframe{T}"/> instances,
-        /// which should be
+        /// <param name="identifier">
+        /// The identifier of the new <see cref="TimelineLayer"/> instance.
         /// </param>
-        /// <param name="interpolationMethod">
-        /// The requested interpolation method, with which the values between 
-        /// the individual keyframes should be calculated.
+        /// <param name="channels">
+        /// An enumeration of <see cref="TimelineChannel"/> instances,
+        /// which will be held by the new <see cref="TimelineLayer"/>
+        /// instance.
         /// </param>
-        /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="identifier"/> or 
-        /// <paramref name="keyframes"/> are null.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when <paramref name="interpolationMethod"/> is 
-        /// invalid or when <paramref name="keyframes"/> contains at least
-        /// two <see cref="Keyframe"/> instances with the same
-        /// <see cref="Keyframe.Position"/>.
-        /// </exception>
         public TimelineLayer(string identifier, 
-            InterpolationMethod interpolationMethod,
-            IEnumerable<Keyframe<T>> keyframes)
+            IEnumerable<TimelineChannel> channels)
         {
             Identifier = identifier ??
                 throw new ArgumentNullException(nameof(identifier));
 
-            if (!Enum.IsDefined(typeof(InterpolationMethod), 
-                interpolationMethod))
-                throw new ArgumentException("The specified interpolation " +
-                    "mode is invalid.");
-
-            InterpolationMethod = interpolationMethod;
-
-            foreach(Keyframe<T> keyframe in keyframes)
+            foreach (TimelineChannel channel in channels)
             {
-                if (keyframe == null) continue;
-                if (data.ContainsKey(keyframe.Position))
-                    throw new ArgumentException("The enumeration contains " +
-                        "at least two keyframes with the same position.");
-                else data[keyframe.Position] = keyframe;
+                if (channel == null) continue;
+                if (this.channels.ContainsKey(channel.Identifier.Identifier))
+                    throw new ArgumentException("The enumeration of " +
+                        "timeline channels contains at least two instances " +
+                        "with the same identifier.");
+                else this.channels[channel.Identifier.Identifier] = channel;
             }
 
-            Start = data.Count > 0 ? data.Keys[0] : TimeSpan.Zero;
-            End = data.Count > 0 ? data.Keys[data.Count - 1] : TimeSpan.Zero;
-            Length = End - Start;
+            TimeSpan start = TimeSpan.MaxValue;
+            TimeSpan end = TimeSpan.MinValue;
+
+            foreach (TimelineChannel channel in channels)
+            {
+                if (channel.Start < start) start = channel.Start;
+                if (channel.End > end) end = channel.End;
+            }
+
+            //The position of the first marker or keyframe.
+            Start = start != TimeSpan.MaxValue ? start : TimeSpan.Zero;
+            //The position of the last marker or keyframe.
+            End = end != TimeSpan.MinValue ? end : TimeSpan.Zero;
+            //The distance between the start and the end alias timeline length.
+            Length = end - start;
         }
 
         /// <summary>
-        /// Initializes a new instance of the 
-        /// <see cref="TimelineLayer{T}"/> class.
+        /// Gets a <see cref="TimelineChannel{T}"/> from the current instance.
         /// </summary>
-        /// <param name="keyframes">
-        /// An enumerable collection of <see cref="Keyframe"/> instances,
-        /// which are casted to <see cref="Keyframe{T}"/> of 
-        /// <typeparamref name="T"/> in the constructor.
+        /// <typeparam name="T">
+        /// The value type of the keyframes in the 
+        /// <see cref="TimelineChannel{T}"/>.
+        /// </typeparam>
+        /// <param name="channelIdentifier">
+        /// The channel identifier of the <see cref="TimelineChannel{T}"/>
+        /// to be returned.
         /// </param>
-        /// <param name="interpolationMethod">
-        /// The requested interpolation method, with which the values between 
-        /// the individual keyframes should be calculated.
-        /// </param>
+        /// <returns>
+        /// The requested <see cref="TimelineChannel{T}"/> instance.
+        /// </returns>
         /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="identifier"/> or 
-        /// <paramref name="keyframes"/> are null.
+        /// Is thrown when <paramref name="channelIdentifier"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when <paramref name="interpolationMethod"/> is 
-        /// invalid, when <paramref name="keyframes"/> contains at least
-        /// two <see cref="Keyframe"/> instances with the same
-        /// <see cref="Keyframe.Position"/> or when one of the
-        /// <see cref="Keyframe"/> instances in <paramref name="keyframes"/>
-        /// contains an instance which is not of type
-        /// <see cref="Keyframe{T}"/> with <c>T</c> being 
-        /// <typeparamref name="T"/>.
+        /// Is thrown when no <see cref="TimelineChannel{T}"/> with the
+        /// specified <paramref name="channelIdentifier"/> was found, when
+        /// the type constraint in the specfieid 
+        /// <paramref name="channelIdentifier"/> doesn't match with the 
+        /// <see cref="TimelineChannel.ValueType"/> of the 
+        /// <see cref="TimelineChannel{T}"/> or when
+        /// the type specified through <typeparamref name="T"/> doesn't match
+        /// with the type of the <see cref="TimelineChannel{T}"/>.
         /// </exception>
-        public TimelineLayer(string identifier,
-            InterpolationMethod interpolationMethod,
-            IEnumerable<Keyframe> keyframes)
+        public TimelineChannel<T> GetChannel<T>(
+            ChannelIdentifier channelIdentifier)
+            where T : unmanaged
         {
-            Identifier = identifier ??
-                throw new ArgumentNullException(nameof(identifier));
+            if (channelIdentifier == null)
+                throw new ArgumentNullException(nameof(channelIdentifier));
 
-            if (!Enum.IsDefined(typeof(InterpolationMethod),
-                interpolationMethod))
-                throw new ArgumentException("The specified interpolation " +
-                    "mode is invalid.");
-
-            InterpolationMethod = interpolationMethod;
-
-            foreach (Keyframe keyframe in keyframes)
+            if (channels.TryGetValue(channelIdentifier.Identifier,
+                out TimelineChannel channel))
             {
-                if (keyframe == null) continue;
-                if (data.ContainsKey(keyframe.Position))
-                    throw new ArgumentException("The enumeration contains " +
-                        "at least two keyframes with the same position.");
-                else try { data[keyframe.Position] = (Keyframe<T>)keyframe; }
-                    catch (Exception exc)
-                    {
-                        throw new ArgumentException("One of the keyframe " +
-                            "instances in the enumeration has an invalid " +
-                            "type.", exc);
-                    }
-            }
-
-            Start = data.Count > 0 ? data.Keys[0] : TimeSpan.Zero;
-            End = data.Count > 0 ? data.Keys[data.Count - 1] : TimeSpan.Zero;
-            Length = End - Start;
-        }
-
-        /// <summary>
-        /// Gets a keyframe by its index.
-        /// </summary>
-        /// <param name="index">
-        /// The index of the <see cref="Keyframe"/> to be retrieved.
-        /// </param>
-        /// <returns>
-        /// The requested <see cref="Keyframe"/> instance.
-        /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="index"/> is less than 0 or
-        /// greater than/equal to <see cref="KeyframeCount"/>.
-        /// </exception>
-        internal protected override Keyframe GetKeyframeUntyped(int index)
-        {
-            if (index >= 0 && index < KeyframeCount)
-                return data.Values[index];
-            else throw new ArgumentOutOfRangeException(nameof(index));
-        }
-
-        /// <summary>
-        /// Gets a keyframe by its index.
-        /// </summary>
-        /// <param name="index">
-        /// The index of the <see cref="Keyframe{T}"/> to be retrieved.
-        /// </param>
-        /// <returns>
-        /// The requested <see cref="Keyframe{T}"/> instance.
-        /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="index"/> is less than 0 or
-        /// greater than/equal to <see cref="KeyframeCount"/>.
-        /// </exception>
-        public Keyframe<T> GetKeyframe(int index)
-        {
-            if (index >= 0 && index < KeyframeCount)
-                return data.Values[index];
-            else throw new ArgumentOutOfRangeException(nameof(index));
-        }
-
-        /// <summary>
-        /// Finds the closest keyframe after or equal to a timeline position.
-        /// </summary>
-        /// <param name="position">
-        /// The timeline position.
-        /// </param>
-        /// <param name="keyframeOffset">
-        /// The offset (in keyframes), if a keyframe before (negative value) 
-        /// or after (positive value) the keyframe nearest to the 
-        /// <paramref name="position"/> should be returned instead, or 0 to 
-        /// retrieve the closest keyframe.
-        /// </param>
-        /// <param name="frame">
-        /// The closest keyframe after to the specified
-        /// <paramref name="position"/> or <see cref="Keyframe{T}.Empty"/>, if
-        /// no keyframe with the specified criteria was found.
-        /// </param>
-        /// <returns>
-        /// <c>true</c> if the closest keyframe before <see cref="position"/>
-        /// with the specified <paramref name="keyframeOffset"/> was found,
-        /// <c>false</c> otherwise.
-        /// </returns>
-        /// <remarks>
-        /// If no keyframe after the specified <paramref name="position"/>
-        /// was found, the method will return false even if the value
-        /// <paramref name="keyframeOffset"/> is less than 0.
-        /// </remarks>
-        public bool TryFindKeyframeAfter(TimeSpan position, int keyframeOffset,
-            out Keyframe<T> frame)
-        {
-            int index = GetNearestKeyframeIndex(position);
-            if (data.Keys[index] <= position) index += keyframeOffset + 1;
-            else index += keyframeOffset;
-
-            if (index >= 0 && index < KeyframeCount)
-            {
-                frame = data.Values[index];
-                return true;
-            }
-
-            frame = Keyframe<T>.Empty;
-            return false;
-        }
-
-        /// <summary>
-        /// Finds the closest keyframe before or equal to a timeline position.
-        /// </summary>
-        /// <param name="position">
-        /// The timeline position.
-        /// </param>
-        /// <param name="keyframeOffset">
-        /// The offset (in keyframes), if a keyframe before (negative value) 
-        /// or after (positive value) the keyframe nearest to the 
-        /// <paramref name="position"/> should be returned instead, or 0 to 
-        /// retrieve the closest keyframe.
-        /// </param>
-        /// <param name="frame">
-        /// The closest keyframe before to the specified
-        /// <paramref name="position"/> or <see cref="Keyframe{T}.Empty"/>, if
-        /// no keyframe with the specified criteria was found.
-        /// </param>
-        /// <returns>
-        /// <c>true</c> if the closest keyframe before <see cref="position"/>
-        /// with the specified <paramref name="keyframeOffset"/> was found,
-        /// <c>false</c> otherwise.
-        /// </returns>
-        /// <remarks>
-        /// If no keyframe before the specified <paramref name="position"/>
-        /// was found, the method will return false even if the value
-        /// <paramref name="keyframeOffset"/> is greater than 0.
-        /// </remarks>
-        public bool TryFindKeyframeBefore(TimeSpan position, 
-            int keyframeOffset, out Keyframe<T> frame)
-        {
-            int index = GetNearestKeyframeIndex(position) + keyframeOffset;
-
-            if (index >= 0 && index < KeyframeCount)
-            {
-                if (data.Keys[index] <= position)
+                if (channelIdentifier.ValueTypeConstraint.IsAssignableFrom(
+                    channel.Identifier.ValueTypeConstraint))
                 {
-                    frame = data.Values[index];
-                    return true;
+                    if (channel is TimelineChannel<T> typedChannel)
+                        return typedChannel;
+                    else throw new ArgumentException("A channel with the " +
+                        "specified identifier was found, but couldn't be " +
+                        "converted to the specified type.");
                 }
+                else throw new ArgumentException("A channel with the " +
+                    "specified identifier name was found, but with an " +
+                    "incompatible type.");
             }
-
-            frame = Keyframe<T>.Empty;
-            return false;
+            else throw new ArgumentException("A channel with the " +
+              "specified identifier name couldn't be found.");
         }
 
         /// <summary>
-        /// Finds the closest keyframe to a timeline position.
+        /// Gets a <see cref="TimelineChannel"/> from the current instance.
         /// </summary>
-        /// <param name="position">
-        /// The timeline position.
-        /// </param>
-        /// <param name="keyframeOffset">
-        /// The offset (in keyframes), if a keyframe before or after the
-        /// keyframe nearest to the <paramref name="position"/> should be
-        /// returned instead, or 0 to retrieve the closest keyframe.
-        /// </param>
-        /// <param name="frame">
-        /// The keyframe closest to the specified <paramref name="position"/>
-        /// or <see cref="Keyframe{T}.Empty"/>, if no keyframe with the
-        /// specified criteria was found.
+        /// <param name="channelIdentifier">
+        /// The channel identifier of the <see cref="TimelineChannel"/>
+        /// to be returned.
         /// </param>
         /// <returns>
-        /// <c>true</c> if a keyframe near <see cref="position"/> with the
-        /// specified <paramref name="keyframeOffset"/> was found,
-        /// <c>false</c> otherwise.
+        /// The requested <see cref="TimelineChannel"/> instance.
         /// </returns>
-        public bool TryFindKeyframe(TimeSpan position, int keyframeOffset,
-            out Keyframe<T> frame)
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="channelIdentifier"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when no <see cref="TimelineChannel"/> with the
+        /// specified <paramref name="channelIdentifier"/> was found or when
+        /// the type constraint in the specfieid 
+        /// <paramref name="channelIdentifier"/> doesn't match with the 
+        /// <see cref="TimelineChannel.ValueType"/> of the 
+        /// <see cref="TimelineChannel"/>.
+        /// </exception>
+        public TimelineChannel GetChannel(ChannelIdentifier channelIdentifier)
         {
-            int count = KeyframeCount;
-            int index = GetNearestKeyframeIndex(position);
+            if (channelIdentifier == null)
+                throw new ArgumentNullException(nameof(channelIdentifier));
 
-            //Ensure that the keyframe with the previously retrieved index is
-            //actually the closest one to the requested time position
-            if (index >= 0 && (index + 1) < count) //Covers count == 0
+            if (channels.TryGetValue(channelIdentifier.Identifier,
+                out TimelineChannel channel))
             {
-                TimeSpan left = data.Keys[index];
-                TimeSpan right = data.Keys[index + 1];
-                if (position - left < right - position)
-                    index = index + 1;
+                if (channelIdentifier.ValueTypeConstraint.IsAssignableFrom(
+                    channel.ValueType))
+                {
+                    return channel;
+                }
+                else throw new ArgumentException("A channel with the " +
+                    "specified identifier name was found, but with an " +
+                    "incompatible type.");
             }
-
-            int indexOffset = index + keyframeOffset;
-            if (count > 0 && indexOffset < count && indexOffset >= 0)
-            {
-                frame = data.Values[indexOffset];
-                return true;
-            }
-            else
-            {
-                frame = Keyframe<T>.Empty;
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Get the index of the nearest keyframe before - or, if there are no
-        /// keyframes before the specified position - after a
-        /// timeline position.
-        /// </summary>
-        /// <param name="position">
-        /// The position to be used to search the keyframe.
-        /// </param>
-        /// <returns>The index of the keyframe.</returns>
-        private int GetNearestKeyframeIndex(TimeSpan position)
-        {
-            int lower = 0;
-            int upper = KeyframeCount - 1;
-            while (lower <= upper)
-            {
-                int middle = lower + (upper - lower) / 2;
-                int compareResult = position.CompareTo(data.Keys[middle]);
-                if (compareResult == 0) return middle;
-                else if (compareResult < 0) upper = middle - 1;
-                else lower = middle + 1;
-            }
-
-            return Math.Max(Math.Min(lower, upper), 0);
+            else throw new ArgumentException("A channel with the " +
+              "specified identifier name couldn't be found.");
         }
 
         /// <summary>
@@ -541,9 +205,9 @@ namespace Eterra.Common
         /// current instance.
         /// </summary>
         /// <returns>A new <see cref="IEnumerator{T}"/> instance.</returns>
-        public IEnumerator<Keyframe<T>> GetEnumerator()
+        public IEnumerator<TimelineChannel> GetEnumerator()
         {
-            return new KeyframeEnumerator(this);
+            return channels.Values.GetEnumerator();
         }
 
         /// <summary>
@@ -553,19 +217,7 @@ namespace Eterra.Common
         /// <returns>A new <see cref="IEnumerator"/> instance.</returns>
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return GetEnumerator();
-        }
-
-        /// <summary>
-        /// Returns a string that represents the current object.
-        /// </summary>
-        /// <returns>
-        /// A <see cref="string"/> that represents the current object.
-        /// </returns>
-        public override string ToString()
-        {
-            return "Value type = \"" + ValueType.Name + "\" Keyframe Count = "
-                + KeyframeCount + " Duration = " + Length.ToString();
+            return channels.Values.GetEnumerator();
         }
     }
 }

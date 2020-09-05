@@ -19,6 +19,7 @@
 
 using Eterra.IO;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -26,20 +27,18 @@ using System.Runtime.InteropServices;
 namespace Eterra.Common
 {
     /// <summary>
-    /// Represents a collection of sorted values at specific points in time, 
-    /// spread among multiple layers with different value types per each.
+    /// Provides a collection of <see cref="Keyframe"/> instances, 
+    /// hierarchically structured into contained <see cref="TimelineLayer"/> 
+    /// instances per object and <see cref="TimelineChannel"/> instances 
+    /// per object parameter.
+    /// Can be used to create an <see cref="Animation"/>.
     /// </summary>
-    public class Timeline
+    public class Timeline : IEnumerable<TimelineLayer>
     {
         /// <summary>
         /// Gets a sorted list of all markers.
         /// </summary>
-        public IList<Marker> Markers => markerPositions.Values;
-
-        /// <summary>
-        /// Gets a collection of the identifiers of all markers.
-        /// </summary>
-        public ICollection<string> MarkerIdentifiers => markers.Keys;
+        public ICollection<Marker> Markers => markers.Values;
 
         /// <summary>
         /// Gets a collection of all layers.
@@ -47,27 +46,22 @@ namespace Eterra.Common
         public ICollection<TimelineLayer> Layers => layers.Values;
 
         /// <summary>
-        /// Gets a collection of the identifiers of all layers.
-        /// </summary>
-        public ICollection<string> LayerIdentifiers => layers.Keys;
-
-        /// <summary>
         /// Gets the length of the current <see cref="Timeline"/>
         /// (the distance between <see cref="Start"/> and <see cref="End"/>).
         /// </summary>
-        public TimeSpan Length { get; private set; }
+        public TimeSpan Length { get; }
 
         /// <summary>
         /// Gets the position of the first keyframe or marker, which defines 
         /// the start of the current <see cref="Timeline"/>.
         /// </summary>
-        public TimeSpan Start { get; private set; }
+        public TimeSpan Start { get; }
 
         /// <summary>
         /// Gets the position of the last keyframe or marker, which defines 
         /// the end of the current <see cref="Timeline"/>.
         /// </summary>
-        public TimeSpan End { get; private set; }
+        public TimeSpan End { get; }
 
         //Changes to the markers need to be applied to both collections below!
         private readonly Dictionary<string, Marker> markers
@@ -179,77 +173,29 @@ namespace Eterra.Common
                 }
             }
 
-            UpdateStartEnd();
-        }
-
-        private void UpdateStartEnd()
-        {
             TimeSpan start = markerPositions.Count > 0 ?
-                markerPositions.Keys[0] : TimeSpan.Zero;
+                markerPositions.Keys[0] : TimeSpan.MaxValue;
             TimeSpan end = markerPositions.Count > 0 ?
                 markerPositions.Keys[markerPositions.Count - 1]
-                : TimeSpan.Zero;
+                : TimeSpan.MinValue;
 
-            foreach (TimelineLayer layer in layers.Values)
+            foreach (TimelineLayer layer in layers)
             {
                 if (layer.Start < start) start = layer.Start;
                 if (layer.End > end) end = layer.End;
             }
 
             //The position of the first marker or keyframe.
-            Start = start;
+            Start = start != TimeSpan.MaxValue ? start : TimeSpan.Zero;
             //The position of the last marker or keyframe.
-            End = end;
+            End = end != TimeSpan.MinValue ? end : TimeSpan.Zero;
             //The distance between the start and the end alias timeline length.
             Length = end - start;
         }
 
         /// <summary>
-        /// Gets a <see cref="TimelineLayer{T}"/> from the current 
-        /// <see cref="Timeline"/>, which provides access to the animation 
-        /// data of a single layer.
-        /// </summary>
-        /// <typeparam name="T">
-        /// The type of the values stored in the new 
-        /// <see cref="TimelineLayer{T}"/>.
-        /// </typeparam>
-        /// <param name="identifier">
-        /// The identifier of the requested <see cref="TimelineLayer{T}"/>.
-        /// </param>
-        /// <returns>
-        /// The requested <see cref="TimelineLayer{T}"/> instance.
-        /// </returns>
-        /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="identifier"/> is null.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when no <see cref="TimelineLayer{T}"/> with the specified
-        /// <paramref name="identifier"/> exists in the current
-        /// <see cref="Timeline"/>.
-        /// </exception>
-        /// <exception cref="InvalidCastException">
-        /// Is thrown when the type specified by <typeparamref name="T"/>
-        /// doesn't match the exact type of the requested 
-        /// <see cref="TimelineLayer{T}"/>. 
-        /// </exception>
-        public TimelineLayer<T> GetLayer<T>(string identifier)
-            where T : unmanaged
-        {
-            TimelineLayer layer = GetLayer(identifier);
-            try { return (TimelineLayer<T>)layer; }
-            catch (InvalidCastException)
-            {
-                throw new InvalidCastException("Couldn't convert the " +
-                    "layer with the value type \"" + layer.ValueType.Name
-                    + "\" to a layer with the (requested) value type \"" +
-                    typeof(T).Name + "\".");
-            }
-        }
-
-        /// <summary>
         /// Gets a <see cref="TimelineLayer"/> from the current 
-        /// <see cref="Timeline"/>, which provides access to the animation 
-        /// data of a single layer.
+        /// <see cref="Timeline"/>.
         /// </summary>
         /// <param name="identifier">
         /// The identifier of the requested <see cref="TimelineLayer"/>.
@@ -272,26 +218,50 @@ namespace Eterra.Common
 
             if (layers.TryGetValue(identifier, out TimelineLayer layer))
                 return layer;
-            else throw new ArgumentException("The current timeline doesn't " +
+            else throw new ArgumentException("The timeline doesn't " +
                     "contain a layer with the specified identifier.");
         }
 
         /// <summary>
-        /// Gets the position of a marker.
+        /// Attempts to get a <see cref="TimelineLayer"/> from the current 
+        /// <see cref="Timeline"/>.
+        /// </summary>
+        /// <param name="identifier">
+        /// The identifier of the requested <see cref="TimelineLayer"/>.
+        /// </param>
+        /// <param name="layer">
+        /// The requested <see cref="TimelineLayer"/> or null.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if a <see cref="TimelineLayer"/> with the specified
+        /// <paramref name="identifier"/> was found, <c>false</c> otherwise.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="identifier"/> is null.
+        /// </exception>
+        public bool TryGetLayer(string identifier, out TimelineLayer layer)
+        {
+            if (identifier == null)
+                throw new ArgumentNullException(nameof(identifier));
+
+            return layers.TryGetValue(identifier, out layer);
+        }
+
+        /// <summary>
+        /// Gets a marker via its identifier.
         /// </summary>
         /// <param name="identifier">
         /// The identifier of the marker.
         /// </param>
         /// <returns>
-        /// The position of the marker.
+        /// The <see cref="Marker"/> instance with the specified identifier.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="identifier"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
         /// Is thrown when no marker with the specified 
-        /// <paramref name="identifier"/> was defined in the current
-        /// <see cref="Timeline"/>.
+        /// <paramref name="identifier"/> was defined.
         /// </exception>
         /// <remarks>
         /// This method performs a binary search; therefore, this method is an 
@@ -310,7 +280,7 @@ namespace Eterra.Common
         }
 
         /// <summary>
-        /// Tries to get the position of a marker.
+        /// Attempts to get a marker via its identifier.
         /// </summary>
         /// <param name="identifier">
         /// The identifier of the marker.
@@ -425,7 +395,7 @@ namespace Eterra.Common
         /// Is thrown when <paramref name="stream"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when <see cref="StreamWrapper.CanRead"/> of 
+        /// Is thrown when <see cref="Stream.CanRead"/> of 
         /// <paramref name="stream"/> is <c>false</c>.
         /// </exception>
         /// <exception cref="FormatException">
@@ -439,8 +409,7 @@ namespace Eterra.Common
         /// Is thrown when an I/O error occurs.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
-        /// Is thrown when <see cref="BaseStream"/> of 
-        /// <paramref name="streamWrapper"/> was disposed.
+        /// Is thrown when <paramref name="stream"/> was disposed.
         /// </exception>
         internal static Timeline Load(Stream stream,
             bool expectFormatHeader)
@@ -479,65 +448,93 @@ namespace Eterra.Common
             uint layerCount = stream.ReadUnsignedInteger();
             for (int li = 0; li < layerCount; li++)
             {
-                List<Keyframe> keyframes = new List<Keyframe>();
+                string timelineLayerIdentifier = stream.ReadString();
+                uint channelCount = stream.ReadUnsignedInteger();
+                List<TimelineChannel> timelineChannels = 
+                    new List<TimelineChannel>();
 
-                string layerIdentifier = stream.ReadString();
-                string layerValueTypeName = stream.ReadString();
-                InterpolationMethod layerInterpolationMethod =
-                    (InterpolationMethod)stream.ReadSignedInteger();
-                uint layerKeyframeCount = stream.ReadUnsignedInteger();
-
-                Type layerValueType = Type.GetType(layerValueTypeName, false);
-                if (layerValueType == null)
-                    throw new FormatException("The type of one or more " +
-                        "layers isn't available or supported.");
-                if (!Enum.IsDefined(typeof(InterpolationMethod),
-                    layerInterpolationMethod))
-                    throw new FormatException("The interpolation method of " +
-                        "the layer is invalid.");
-
-                uint keyframeSizeBytes;
-                Type keyframeType;
-                try
+                for (int ci = 0; ci < channelCount; ci++)
                 {
-                    keyframeType = typeof(Keyframe<>).MakeGenericType(
-                        layerValueType);
-                    keyframeSizeBytes = (uint)Marshal.SizeOf(keyframeType);
-                }
-                catch (Exception exc)
-                {
-                    throw new FormatException("The value type of the " +
-                        "timeline layer #" + li + " is invalid.", exc);
-                }
+                    string channelIdentifierName = stream.ReadString();
+                    string channelIdentifierTypeConstraintName = 
+                        stream.ReadString();
+                    string channelValueTypeName = stream.ReadString();
+                    InterpolationMethod channelInterpolationMethod =
+                        (InterpolationMethod)stream.ReadSignedInteger();
+                    uint channelKeyframeCount = stream.ReadUnsignedInteger();
 
-                for (int ki = 0; ki < layerKeyframeCount; ki++)
-                {
-                    byte[] keyframeBuffer = stream.ReadBuffer(
-                        keyframeSizeBytes);
+                    Type channelValueType = Type.GetType(channelValueTypeName, 
+                        false);
+                    Type channelIdentifierTypeConstraint = Type.GetType(
+                        channelIdentifierTypeConstraintName, false);
 
-                    Keyframe keyframe;
+                    if (channelValueType == null)
+                        throw new FormatException("The type of one or more " +
+                            "channels isn't available or supported.");
+                    if (channelValueType == null)
+                        throw new FormatException("The type constraint of " +
+                            "one or more channels isn't available " +
+                            "or supported.");
+
+                    ChannelIdentifier channelIdentifier =
+                        ChannelIdentifier.Create(channelIdentifierName,
+                        channelIdentifierTypeConstraint);
+                    if (!channelIdentifier.MatchesConstraint(channelValueType))
+                        throw new FormatException("The value type of the " +
+                            "channel doesn't match with the type constraint " +
+                            "defined by the identifier.");
+
+                    if (!Enum.IsDefined(typeof(InterpolationMethod),
+                        channelInterpolationMethod))
+                        throw new FormatException("The interpolation method " +
+                            "of the layer is invalid.");
+
+                    List<Keyframe> keyframes = new List<Keyframe>();
+                    uint keyframeSizeBytes;
+                    Type keyframeType;
+
                     try
                     {
-                        keyframe = Keyframe.FromBytes(layerValueType, 
-                            keyframeBuffer);
+                        keyframeType = typeof(Keyframe<>).MakeGenericType(
+                            channelValueType);
+                        keyframeSizeBytes = (uint)Marshal.SizeOf(keyframeType);
                     }
                     catch (Exception exc)
                     {
-                        throw new FormatException("The keyframe with the " +
-                            "index " + ki + " is invalid.", exc);
+                        throw new FormatException("The value type of the " +
+                            "timeline channel #" + ci + " is invalid.", exc);
                     }
-                    keyframes.Add(keyframe);
+
+                    for (int ki = 0; ki < channelKeyframeCount; ki++)
+                    {
+                        byte[] keyframeBuffer = stream.ReadBuffer(
+                            keyframeSizeBytes);
+
+                        Keyframe keyframe;
+                        try
+                        {
+                            keyframe = Keyframe.FromBytes(channelValueType,
+                                keyframeBuffer);
+                        }
+                        catch (Exception exc)
+                        {
+                            throw new FormatException("The keyframe with the " +
+                                "index " + ki + " is invalid.", exc);
+                        }
+                        keyframes.Add(keyframe);
+                    }
+
+                    Type channelType = typeof(TimelineChannel<>)
+                        .MakeGenericType(channelValueType);
+
+                    timelineChannels.Add(
+                        (TimelineChannel)Activator.CreateInstance(
+                        channelType, channelIdentifier, 
+                        channelInterpolationMethod, keyframes));
                 }
 
-                //The following statement shouldn't throw any exception which
-                //wouldn't have been thrown (and caught) when initializing the
-                //"keyframeType" variable.
-                Type layerType = typeof(TimelineLayer<>).MakeGenericType(
-                    layerValueType);
-
-                timelineLayers.Add((TimelineLayer)Activator.CreateInstance(
-                    layerType, layerIdentifier, layerInterpolationMethod, 
-                    keyframes));
+                timelineLayers.Add(new TimelineLayer(timelineLayerIdentifier,
+                    timelineChannels));
             }
 
             try { return new Timeline(timelineLayers, markers); }
@@ -565,15 +562,14 @@ namespace Eterra.Common
         /// Is thrown when <paramref name="stream"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when <see cref="StreamWrapper.CanWrite"/> of 
+        /// Is thrown when <see cref="Stream.CanWrite"/> of 
         /// <paramref name="stream"/> is <c>false</c>.
         /// </exception>
         /// <exception cref="IOException">
         /// Is thrown when an I/O error occurs.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
-        /// Is thrown when <see cref="BaseStream"/> of 
-        /// <paramref name="streamWrapper"/> was disposed.
+        /// Is thrown when <paramref name="stream"/> was disposed.
         /// </exception>
         internal void Save(Stream stream, bool includeFormatHeader)
         {
@@ -587,27 +583,55 @@ namespace Eterra.Common
                 NativeFormatHandler.WriteEntryHeader(ResourceType.Timeline,
                     stream);
 
-            stream.WriteUnsignedInteger((uint)Markers.Count);
+            stream.WriteUnsignedInteger((uint)markers.Count);
             foreach (Marker marker in Markers)
             {
                 stream.WriteBuffer(marker.ToBytes(), true);
             }
 
-            stream.WriteUnsignedInteger((uint)Layers.Count);
+            stream.WriteUnsignedInteger((uint)layers.Count);
             foreach (TimelineLayer layer in Layers)
             {
                 stream.WriteString(layer.Identifier);
-                stream.WriteString(layer.ValueType.FullName);
-                stream.WriteSignedInteger((int)layer.InterpolationMethod);
-                stream.WriteUnsignedInteger((uint)layer.KeyframeCount);
-
-                for (int i = 0; i < layer.KeyframeCount; i++)
+                stream.WriteUnsignedInteger((uint)layer.ChannelCount);
+                
+                foreach (TimelineChannel channel in layer)
                 {
-                    byte[] keyframeBuffer = 
-                        layer.GetKeyframeUntyped(i).ToBytes();
-                    stream.WriteBuffer(keyframeBuffer, false);
-                }
+                    stream.WriteString(channel.Identifier.Identifier);
+                    stream.WriteString(
+                        channel.Identifier.ValueTypeConstraint.FullName);
+                    stream.WriteString(channel.ValueType.FullName);
+                    stream.WriteSignedInteger(
+                        (int)channel.InterpolationMethod);
+                    stream.WriteUnsignedInteger((uint)channel.KeyframeCount);
+
+                    foreach (Keyframe keyframe in channel)
+                    {
+                        byte[] keyframeBuffer = keyframe.ToBytes();
+                        stream.WriteBuffer(keyframeBuffer, false);
+                    }
+                }                
             }
+        }
+
+        /// <summary>
+        /// Returns an <see cref="IEnumerator{T}"/> for the 
+        /// current instance.
+        /// </summary>
+        /// <returns>A new <see cref="IEnumerator{T}"/> instance.</returns>
+        public IEnumerator<TimelineLayer> GetEnumerator()
+        {
+            return Layers.GetEnumerator();
+        }
+
+        /// <summary>
+        /// Returns an <see cref="IEnumerator"/> for the 
+        /// current instance.
+        /// </summary>
+        /// <returns>A new <see cref="IEnumerator"/> instance.</returns>
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable)Layers).GetEnumerator();
         }
     }
 }
