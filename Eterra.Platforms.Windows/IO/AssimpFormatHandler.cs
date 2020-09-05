@@ -873,23 +873,19 @@ namespace Eterra.Platforms.Windows.IO
                 //the keys of the scale-/rotationLayers with the same results.
                 foreach (string timelineName in positionLayers.Keys)
                 {
-                    //To ensure the position, scale and rotation layers are
-                    //picked up by the DeformerAnimationPlayer (which will
-                    //later use this timeline) correctly, the name of the 
-                    //node (= name of the bone) plus the suffix for position,
-                    //scale and rotation are used as TimelineLayer identifier.
-                    layers.Add(new TimelineLayer<Vector3>(timelineName + 
-                        DeformerAnimationPlayer.PositionLayerSuffix,
-                        InterpolationMethod.Linear, 
+                    List<TimelineChannel> channels = 
+                        new List<TimelineChannel>();
+                    channels.Add(new TimelineChannel<Vector3>(
+                        ChannelIdentifier.Position, InterpolationMethod.Linear,
                         positionLayers[timelineName]));
-                    layers.Add(new TimelineLayer<Vector3>(timelineName + 
-                        DeformerAnimationPlayer.ScaleLayerSuffix,
-                        InterpolationMethod.Linear, 
+                    channels.Add(new TimelineChannel<Vector3>(
+                        ChannelIdentifier.Scale, InterpolationMethod.Linear,
                         scaleLayers[timelineName]));
-                    layers.Add(new TimelineLayer<Quaternion>(timelineName 
-                        + DeformerAnimationPlayer.RotationLayerSuffix,
-                        InterpolationMethod.Linear, 
+                    channels.Add(new TimelineChannel<Quaternion>(
+                        ChannelIdentifier.Rotation, InterpolationMethod.Linear,
                         rotationLayers[timelineName]));
+
+                    layers.Add(new TimelineLayer(timelineName, channels));
                 }
 
                 timelines.Add(animation.Name, new Timeline(layers));
