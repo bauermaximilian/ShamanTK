@@ -19,6 +19,7 @@
 
 using Eterra.Common;
 using Eterra.IO;
+using SharpGLTF.Animations;
 using SharpGLTF.IO;
 using SharpGLTF.Runtime;
 using SharpGLTF.Schema2;
@@ -65,6 +66,28 @@ namespace Eterra.Platforms.Windows.IO
 
     class GLTFormatHandler : IResourceFormatHandler
     {
+        /// <summary>
+        /// Defines the "step size" in seconds in which cubic spline 
+        /// interpolated animations are rasterized and converted to
+        /// either an animation with <see cref="InterpolationMethod.Linear"/>
+        /// (if <see cref="CubicSplineInterpolationUseLinearInterpolation"/>
+        /// is <c>true</c>) or with <see cref="InterpolationMethod.None"/>
+        /// otherwise.
+        /// </summary>
+        private const float CubicSplineInterpolationRasterisationFrequency =
+            1 / 25f;
+
+        /// <summary>
+        /// Defines whether an animation with cubic spline interpolation should
+        /// be rasterized into an animation with 
+        /// <see cref="InterpolationMethod.Linear"/> so that, for higher 
+        /// framerates, the animation is still fluent (<c>true</c>) or if there
+        /// should be no interpolation between the rasterized frames in the
+        /// target animation which saves processing power (<c>false</c>).
+        /// </summary>
+        private const bool CubicSplineInterpolationUseLinearInterpolation =
+            true;
+
         private const string VertexAttributePosition = "POSITION";
 
         private const string VertexAttributeNormal = "NORMAL";
@@ -140,8 +163,113 @@ namespace Eterra.Platforms.Windows.IO
             throw new NotImplementedException();
         }
 
+        private static TimelineLayer ImportTimelineLayer(Node node, 
+            SharpGLTF.Schema2.Animation sourceAnimation)
+        {
+            if (node == null)
+                throw new ArgumentNullException(nameof(node));
+            if (sourceAnimation == null)
+                throw new ArgumentNullException(nameof(sourceAnimation));
+
+            List<TimelineChannel> timelineChannels = 
+                new List<TimelineChannel>();
+
+            IAnimationSampler<Vector3> translationSampler = 
+                sourceAnimation.FindTranslationSampler(node);
+            if (translationSampler != null)
+            {
+                timelineChannels.Add(ImportTimelineChannel(translationSampler,
+                    ChannelIdentifier.Position));
+            }
+
+            IAnimationSampler<Vector3> scaleSampler =
+                sourceAnimation.FindScaleSampler(node);
+            if (scaleSampler != null)
+            {
+                timelineChannels.Add(ImportTimelineChannel(scaleSampler,
+                    ChannelIdentifier.Scale));
+            }
+
+            IAnimationSampler<Quaternion> rotationSampler =
+                sourceAnimation.FindRotationSampler(node);
+            if (rotationSampler != null)
+            {
+                timelineChannels.Add(ImportTimelineChannel(rotationSampler,
+                    ChannelIdentifier.Rotation));
+            }
+
+            return new TimelineLayer(node.Name, timelineChannels);
+        }
+
+        private static TimelineChannel<T> ImportTimelineChannel<T>(
+            IAnimationSampler<T> sourceAnimationSampler, 
+            ChannelIdentifier channelIdentifier)
+            where T : unmanaged
+        {
+            if (sourceAnimationSampler == null)
+                throw new ArgumentNullException(
+                    nameof(sourceAnimationSampler));
+            if (channelIdentifier == null)
+                throw new ArgumentNullException(nameof(channelIdentifier));
+
+            InterpolationMethod interpolationMethod = InterpolationMethod.None;
+
+            List<Keyframe<T>> keyframes = new List<Keyframe<T>>();
+
+            // As cubic spline interpolation isn't supported by the framework,
+            // this type of animation would need to be "rasterized".
+            if (sourceAnimationSampler.InterpolationMode ==
+                AnimationInterpolationMode.CUBICSPLINE)
+            {
+                interpolationMethod =
+                    CubicSplineInterpolationUseLinearInterpolation ?
+                    InterpolationMethod.Linear : InterpolationMethod.None;
+
+                float begin = float.MaxValue, end = float.MinValue;
+                foreach (var key in sourceAnimationSampler.GetCubicKeys())
+                {
+                    begin = Math.Min(key.Key, begin);
+                    end = Math.Max(key.Key, end);
+                }
+
+                ICurveSampler<T> curveSampler = 
+                    sourceAnimationSampler.CreateCurveSampler();
+
+                for (float p = begin; p <= end;
+                    p += CubicSplineInterpolationRasterisationFrequency)
+                {
+                    T keyframeValue = curveSampler.GetPoint(p);
+                    keyframes.Add(new Keyframe<T>(p, keyframeValue));
+                }
+            }
+            // For the animation types "LINEAR" and "STEP", the keyframes can
+            // just be copied.
+            else
+            {
+                if (sourceAnimationSampler.InterpolationMode ==
+                    AnimationInterpolationMode.LINEAR)
+                    interpolationMethod = InterpolationMethod.Linear;
+                else if (sourceAnimationSampler.InterpolationMode ==
+                    AnimationInterpolationMode.STEP)
+                    interpolationMethod = InterpolationMethod.None;
+
+                foreach (var (position, value) in
+                    sourceAnimationSampler.GetLinearKeys())
+                {
+                    keyframes.Add(new Keyframe<T>(position, value));
+                }
+            }
+
+            try
+            {
+                return new TimelineChannel<T>(channelIdentifier,
+                    interpolationMethod, keyframes);
+            }
+            catch (ArgumentException) { throw; }
+        }
+
         private static MeshData ImportMesh(Node meshNode, 
-            Dictionary<Mesh, MeshData> previouslyImportedMeshes = null)
+            Dictionary<Mesh, MeshData> importedMeshCache = null)
         {
             if (meshNode == null)
                 throw new ArgumentNullException(nameof(meshNode));
@@ -172,9 +300,9 @@ namespace Eterra.Platforms.Windows.IO
             // be specified. If the dictionary contains the mesh of the
             // current node already, its converted MeshData variant 
             // is returned.
-            if (previouslyImportedMeshes != null)
+            if (importedMeshCache != null)
             {
-                if (previouslyImportedMeshes.TryGetValue(meshNode.Mesh,
+                if (importedMeshCache.TryGetValue(meshNode.Mesh,
                     out MeshData mesh)) return mesh;
             }
 
@@ -299,18 +427,18 @@ namespace Eterra.Platforms.Windows.IO
             MeshData meshData;
             if (vertexFormat == VertexPropertyDataFormat.DeformerAttachments)
                 meshData = MeshData.Create(vertices.ToArray(),
-                    faces.ToArray(), ImportSkeleton(meshNode, true));
+                    faces.ToArray(), ImportSkeleton(meshNode));
             else meshData = MeshData.Create(vertices.ToArray(),
                     faces.ToArray(), vertexFormat);
 
-            if (previouslyImportedMeshes != null)
-                previouslyImportedMeshes[meshNode.Mesh] = meshData;
+            if (importedMeshCache != null)
+                importedMeshCache[meshNode.Mesh] = meshData;
 
             return meshData;
         }
 
         private static Skeleton ImportSkeleton(Node skinnedNode, 
-            bool makeReadOnly)
+            bool makeReadOnly = true)
         {
             if (skinnedNode == null)
                 throw new ArgumentNullException(nameof(skinnedNode));
