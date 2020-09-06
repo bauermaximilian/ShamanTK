@@ -88,12 +88,6 @@ namespace Eterra.Platforms.Windows.IO
         private const bool CubicSplineInterpolationUseLinearInterpolation =
             true;
 
-        /// <summary>
-        /// Defines the distance between two connected animation clips in
-        /// seconds.
-        /// </summary>
-        private const double AnimationOffsetSeconds = 1 / 100.0;
-
         private const string VertexAttributePosition = "POSITION";
 
         private const string VertexAttributeNormal = "NORMAL";
@@ -156,27 +150,84 @@ namespace Eterra.Platforms.Windows.IO
 
         private static Common.Scene GenerateScene(ModelRoot root)
         {
-            Dictionary<Mesh, MeshData> importedMeshes = 
+            Dictionary<Mesh, MeshData> meshes = 
                 new Dictionary<Mesh, MeshData>();
 
-            Dictionary<string, TimelineLayer> timelineLayers =
-                new Dictionary<string, TimelineLayer>();
+            var timelines = ImportTimelines(root);
 
             foreach (var node in root.LogicalNodes)
             {
                 if (node.Mesh != null)
-                    ImportMesh(node, importedMeshes);
-
-                SortedList<double, Marker> markerTargetList = 
-                    new SortedList<double, Marker>();
-
-                TimelineLayer timelineLayer = ImportTimelineLayer(node,
-                    markerTargetList, root.LogicalAnimations);
-                timelineLayers.Add(timelineLayer.Identifier, timelineLayer);
+                    ImportMesh(node, meshes);
             }
 
             //root.LogicalAnimations.First().FindTranslationSampler()
             throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Imports all animations into a collection of timelines, associated
+        /// to the visual root nodes the animation belongs to.
+        /// </summary>
+        /// <param name="root">
+        /// The <see cref="ModelRoot"/> of the file to be imported.
+        /// </param>
+        /// <returns>
+        /// The imported <see cref="Timeline"/> instances, associated to the
+        /// visual root nodes which they affect.
+        /// </returns>
+        private static Dictionary<Node, Timeline> ImportTimelines(
+            ModelRoot root)
+        {
+            if (root == null)
+                throw new ArgumentNullException(nameof(root));
+
+            // Import the timeline layers and their associated markers
+            // and associate them to their visual root node with a dictionary.
+            var rootNodeTimelineLayerLinks = new Dictionary<Node,
+                (SortedList<double, Marker> markers, 
+                List<TimelineLayer> layers)>();
+
+            foreach (Node node in root.LogicalNodes)
+            {
+                SortedList<double, Marker> markers;
+                List<TimelineLayer> layers;
+
+                if (rootNodeTimelineLayerLinks.TryGetValue(node.VisualRoot,
+                    out var rootNodeTimelineLayerLink))
+                {
+                    markers = rootNodeTimelineLayerLink.markers;
+                    layers = rootNodeTimelineLayerLink.layers;
+                }
+                else
+                {
+                    markers = new SortedList<double, Marker>();
+                    layers = new List<TimelineLayer>();
+                }
+
+                TimelineLayer timelineLayer = ImportTimelineLayer(node,
+                    markers, root.LogicalAnimations);
+
+                if (timelineLayer.HasKeyframes)
+                {
+                    layers.Add(timelineLayer);
+                    rootNodeTimelineLayerLinks[node.VisualRoot] = 
+                        (markers, layers);
+                }
+            }
+
+            // Convert the previously generated collections into the final
+            // timeline instances, linked to their common visual root node.
+            var rootNodeTimelineLinks = new Dictionary<Node, Timeline>();
+            foreach (var rootNodeTimelineLayerLink in 
+                rootNodeTimelineLayerLinks)
+            {
+                rootNodeTimelineLinks[rootNodeTimelineLayerLink.Key] =
+                    new Timeline(rootNodeTimelineLayerLink.Value.layers,
+                    rootNodeTimelineLayerLink.Value.markers.Values);
+            }
+
+            return rootNodeTimelineLinks;
         }
 
         private static TimelineLayer ImportTimelineLayer(Node node, 
@@ -247,21 +298,26 @@ namespace Eterra.Platforms.Windows.IO
                 markerTargetList[timeOffset] = new Marker(timeOffset,
                         sourceAnimation.Name);
 
-                timeOffset += sourceAnimation.Duration 
-                    + AnimationOffsetSeconds;
+                timeOffset += sourceAnimation.Duration +
+                        Timeline.MarkerBreak.TotalSeconds;
 
+                /*
                 // This could fail if the timeline for one node has a different
                 // length (e.g. missing keyframes at the end) than the other.
                 double timeOffset2 = 0;
                 if (positionKeyframes.Count > 0)
                     timeOffset2 = Math.Max(timeOffset2, positionKeyframes.Keys[
-                        positionKeyframes.Count - 1] + AnimationOffsetSeconds);
+                        positionKeyframes.Count - 1] + 
+                        Timeline.MarkerBreak.TotalSeconds);
                 if (scaleKeyframes.Count > 0)
                     timeOffset2 = Math.Max(timeOffset2, scaleKeyframes.Keys[
-                        scaleKeyframes.Count - 1] + AnimationOffsetSeconds);
+                        scaleKeyframes.Count - 1] +
+                        Timeline.MarkerBreak.TotalSeconds);
                 if (rotationKeyframes.Count > 0)
                     timeOffset2 = Math.Max(timeOffset2, rotationKeyframes.Keys[
-                        rotationKeyframes.Count - 1] + AnimationOffsetSeconds);                
+                        rotationKeyframes.Count - 1] +
+                        Timeline.MarkerBreak.TotalSeconds);      
+                */
             }
 
             TimelineChannel<Vector3> positionChannel =
@@ -280,6 +336,10 @@ namespace Eterra.Platforms.Windows.IO
             });
         }
 
+        /*
+        // Previous approach, only supports one timeline layer per Node
+        // (and doesn't combine multiple animations into one timeline layer
+        // with markers).
         private static TimelineLayer ImportTimelineLayer(Node node, 
             SharpGLTF.Schema2.Animation sourceAnimation)
         {
@@ -342,6 +402,7 @@ namespace Eterra.Platforms.Windows.IO
 
             return new TimelineLayer(node.Name, timelineChannels);
         }
+        */
 
         /// <summary>
         /// Imports an animation from an <see cref="IAnimationSampler{T}"/>.
