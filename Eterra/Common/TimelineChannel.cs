@@ -61,6 +61,13 @@ namespace Eterra.Common
         public abstract ChannelIdentifier Identifier { get; }
 
         /// <summary>
+        /// Gets a value indicating whether the current instance contains 
+        /// at least one <see cref="Keyframe"/> (<c>true</c>) or not 
+        /// (<c>false</c>).
+        /// </summary>
+        public bool HasKeyframes => KeyframeCount > 0;
+
+        /// <summary>
         /// Gets the interpolation method, with which the values between the
         /// individual keyframes should be calculated.
         /// </summary>
@@ -531,7 +538,8 @@ namespace Eterra.Common
         /// </returns>
         public override string ToString()
         {
-            return $"{Identifier} ({ValueType.Name}), {Length}";
+            return $"\"{Identifier}\" (Keyframes: {KeyframeCount}, " +
+                $"Type: {ValueType.Name}), Length: {Length}";
         }
     }
 }

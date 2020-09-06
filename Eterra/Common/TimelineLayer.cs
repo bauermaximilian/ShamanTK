@@ -60,6 +60,20 @@ namespace Eterra.Common
         public int ChannelCount => channels.Count;
 
         /// <summary>
+        /// Gets a value indicating whether the current instance contains at 
+        /// least one <see cref="TimelineChannel"/> that contains at least one 
+        /// <see cref="Keyframe"/> (<c>true</c>) or not (<c>false</c>).
+        /// </summary>
+        public bool HasKeyframes { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the current instance contains at 
+        /// least one <see cref="TimelineChannel"/> (<c>true</c>) or not 
+        /// (<c>false</c>).
+        /// </summary>
+        public bool HasChannels { get; }
+
+        /// <summary>
         /// Initializes a new instance of the 
         /// <see cref="TimelineLayer"/> class.
         /// </summary>
@@ -90,10 +104,16 @@ namespace Eterra.Common
             TimeSpan start = TimeSpan.MaxValue;
             TimeSpan end = TimeSpan.MinValue;
 
+            HasKeyframes = false;
+            HasChannels = false;
+
             foreach (TimelineChannel channel in channels)
             {
+                HasChannels = true;
+                HasKeyframes |= channel.HasKeyframes;
+
                 if (channel.Start < start) start = channel.Start;
-                if (channel.End > end) end = channel.End;
+                if (channel.End > end) end = channel.End;                
             }
 
             //The position of the first marker or keyframe.
@@ -101,7 +121,7 @@ namespace Eterra.Common
             //The position of the last marker or keyframe.
             End = end != TimeSpan.MinValue ? end : TimeSpan.Zero;
             //The distance between the start and the end alias timeline length.
-            Length = end - start;
+            Length = End - Start;
         }
 
         /// <summary>
@@ -218,6 +238,18 @@ namespace Eterra.Common
         IEnumerator IEnumerable.GetEnumerator()
         {
             return channels.Values.GetEnumerator();
+        }
+
+        /// <summary>
+        /// Returns a string that represents the current object.
+        /// </summary>
+        /// <returns>
+        /// A <see cref="string"/> that represents the current object.
+        /// </returns>
+        public override string ToString()
+        {
+            return $"\"{Identifier}\" (Channels: {ChannelCount}, " +
+                $"Length: {Length})";
         }
     }
 }

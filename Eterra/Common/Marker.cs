@@ -222,5 +222,16 @@ namespace Eterra.Common
             identifierBuffer.CopyTo(buffer, positionBuffer.Length);
             return buffer;
         }
+
+        /// <summary>
+        /// Returns a string that represents the current object.
+        /// </summary>
+        /// <returns>
+        /// A <see cref="string"/> that represents the current object.
+        /// </returns>
+        public override string ToString()
+        {
+            return $"\"{Identifier}\" at {Position}";
+        }
     }
 }

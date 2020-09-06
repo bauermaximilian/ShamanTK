@@ -36,6 +36,16 @@ namespace Eterra.Common
     public class Timeline : IEnumerable<TimelineLayer>
     {
         /// <summary>
+        /// Gets the <see cref="TimeSpan"/> which defines the time before a
+        /// <see cref="Marker"/>, that is specified as "break". 
+        /// An animation playback, that should end on a specified 
+        /// <see cref="Marker"/> will end at the time specified by its 
+        /// position minus the value specified by this property.
+        /// </summary>
+        public static TimeSpan MarkerBreak { get; }
+            = TimeSpan.FromSeconds(1 / 30.0);
+        
+        /// <summary>
         /// Gets a sorted list of all markers.
         /// </summary>
         public ICollection<Marker> Markers => markers.Values;
@@ -62,6 +72,45 @@ namespace Eterra.Common
         /// the end of the current <see cref="Timeline"/>.
         /// </summary>
         public TimeSpan End { get; }
+
+        /// <summary>
+        /// Gets the amount of <see cref="TimelineLayer"/>s in the 
+        /// current instance.
+        /// </summary>
+        public int LayerCount => layers.Count;
+
+        /// <summary>
+        /// Gets the amount of <see cref="Marker"/>s in the current instance.
+        /// </summary>
+        public int MarkerCount => markers.Count;
+
+        /// <summary>
+        /// Gets a value indicating whether the current instance contains at 
+        /// least one <see cref="TimelineLayer"/> that contains at least one 
+        /// <see cref="TimelineChannel"/> that contains at least one 
+        /// <see cref="Keyframe"/> (<c>true</c>) or not (<c>false</c>).
+        /// </summary>
+        public bool HasKeyframes { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the current instance contains at 
+        /// least one <see cref="TimelineLayer"/> that contains at least one 
+        /// <see cref="TimelineChannel"/> (<c>true</c>) or not (<c>false</c>).
+        /// </summary>
+        public bool HasChannels { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the current instance contains at 
+        /// least one <see cref="TimelineLayer"/> (<c>true</c>) or not 
+        /// (<c>false</c>).
+        /// </summary>
+        public bool HasLayers { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the current instance contains at 
+        /// least one <see cref="Marker"/> (<c>true</c>) or not (<c>false</c>).
+        /// </summary>
+        public bool HasMarkers => Markers.Count > 0;
 
         //Changes to the markers need to be applied to both collections below!
         private readonly Dictionary<string, Marker> markers
@@ -179,8 +228,16 @@ namespace Eterra.Common
                 markerPositions.Keys[markerPositions.Count - 1]
                 : TimeSpan.MinValue;
 
+            HasKeyframes = false;
+            HasChannels = false;
+            HasLayers = false;
+
             foreach (TimelineLayer layer in layers)
             {
+                HasLayers = true;
+                HasChannels |= layer.HasChannels;
+                HasKeyframes |= layer.HasKeyframes;
+
                 if (layer.Start < start) start = layer.Start;
                 if (layer.End > end) end = layer.End;
             }
@@ -190,7 +247,7 @@ namespace Eterra.Common
             //The position of the last marker or keyframe.
             End = end != TimeSpan.MinValue ? end : TimeSpan.Zero;
             //The distance between the start and the end alias timeline length.
-            Length = end - start;
+            Length = End - Start;
         }
 
         /// <summary>
@@ -632,6 +689,18 @@ namespace Eterra.Common
         IEnumerator IEnumerable.GetEnumerator()
         {
             return ((IEnumerable)Layers).GetEnumerator();
+        }
+
+        /// <summary>
+        /// Returns a string that represents the current object.
+        /// </summary>
+        /// <returns>
+        /// A <see cref="string"/> that represents the current object.
+        /// </returns>
+        public override string ToString()
+        {
+            return $"{nameof(TimelineLayer)} (Layers: {LayerCount}, " +
+                $"Markers: {MarkerCount}, Length: {Length})";
         }
     }
 }

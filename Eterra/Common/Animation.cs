@@ -93,8 +93,10 @@ namespace Eterra.Common
         /// playback, or null.
         /// Setting this property with an existing, non-null marker identifier
         /// will update <see cref="PlaybackEnd"/> with the position of the
-        /// specified marker. Setting this value to null or a non-existing
-        /// marker identifier will have no effect.
+        /// specified marker minus the time specified by
+        /// <see cref="Timeline.MarkerBreak"/>.
+        /// Setting this value to null or a non-existing marker identifier 
+        /// will have no effect.
         /// </summary>
         public string PlaybackEndMarker
         {
@@ -102,7 +104,8 @@ namespace Eterra.Common
             set
             {
                 if (value != null && sourceTimeline.TryGetMarker(value,
-                    out Marker marker)) PlaybackEnd = marker.Position;
+                    out Marker marker)) 
+                    PlaybackEnd = marker.Position - Timeline.MarkerBreak;
                 playbackEndMarker = value;
             }
         }
