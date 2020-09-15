@@ -150,18 +150,14 @@ namespace Eterra.Platforms.Windows.IO
 
         private static Common.Scene GenerateScene(ModelRoot root)
         {
-            Dictionary<Mesh, MeshData> meshes = 
-                new Dictionary<Mesh, MeshData>();
-
             var timelines = ImportTimelines(root);
+            var meshes = ImportMeshes(root);
 
-            foreach (var node in root.LogicalNodes)
+            foreach (Node node in root.LogicalNodes)
             {
-                if (node.Mesh != null)
-                    ImportMesh(node, meshes);
+                //TODO: "Fuse" nodes over their visual root into an entity.
             }
 
-            //root.LogicalAnimations.First().FindTranslationSampler()
             throw new NotImplementedException();
         }
 
@@ -176,8 +172,7 @@ namespace Eterra.Platforms.Windows.IO
         /// The imported <see cref="Timeline"/> instances, associated to the
         /// visual root nodes which they affect.
         /// </returns>
-        private static Dictionary<Node, Timeline> ImportTimelines(
-            ModelRoot root)
+        static Dictionary<Node, Timeline> ImportTimelines(ModelRoot root)
         {
             if (root == null)
                 throw new ArgumentNullException(nameof(root));
@@ -230,7 +225,24 @@ namespace Eterra.Platforms.Windows.IO
             return rootNodeTimelineLinks;
         }
 
-        private static TimelineLayer ImportTimelineLayer(Node node, 
+        //TODO: Rename ChannelIdentifier into ParameterName and use it for
+        //both typed entity parameter names and as channel identifiers.
+        //I think it might even be acceptable that ParameterName is used as
+        //dictionary key (even if that would allow duplicates via the 
+        //identifier). Think about that more.
+        static Dictionary<Node, Dictionary<Node, 
+            Dictionary<ChannelIdentifier, object>>> ImportNodeAttributes(
+            ModelRoot root)
+        {
+            //Idee: Alles über visualroot sammeln, aber ursprungsnode behalten,
+            //dann auf höchster Ebene kontextsensitiv entweder objekte zusammen
+            //führen oder seperate hierarchien erstellen (bzw. kindelemente 
+            //vorerst auslassen)
+
+            throw new NotImplementedException();
+        }
+
+        static TimelineLayer ImportTimelineLayer(Node node, 
             SortedList<double, Marker> markerTargetList,
             IEnumerable<SharpGLTF.Schema2.Animation> sourceAnimations)
         {
@@ -437,7 +449,7 @@ namespace Eterra.Platforms.Windows.IO
         /// Is thrown when <paramref name="sourceAnimationSampler"/> or
         /// <paramref name="targetKeyframeCollection"/> are null.
         /// </exception>
-        private static bool ImportKeyframes<T>(
+        static bool ImportKeyframes<T>(
             IAnimationSampler<T> sourceAnimationSampler,
             SortedList<double, Keyframe<T>> targetKeyframeCollection, 
             double timeOffset,  out InterpolationMethod interpolationMethod)
@@ -507,8 +519,56 @@ namespace Eterra.Platforms.Windows.IO
             return framesImported;
         }
 
-        private static MeshData ImportMesh(Node meshNode, 
-            Dictionary<Mesh, MeshData> importedMeshCache = null)
+        /// <summary>
+        /// Imports all meshes from a <see cref="ModelRoot"/> instance and
+        /// returns them both as association between the <see cref="MeshData"/>
+        /// and their visual root as well as their actual associated source
+        /// node.
+        /// </summary>
+        /// <param name="root">
+        /// The <see cref="ModelRoot"/> instance of the scene.
+        /// </param>
+        /// <returns>
+        /// A dictionary with the visual root of the mesh node as key and
+        /// a dictionary as value, which contains the loaded mesh data 
+        /// associated to the original node.
+        /// </returns>
+        static Dictionary<Node, Dictionary<Node, MeshData>> ImportMeshes(
+            ModelRoot root)
+        {
+            if (root == null)
+                throw new ArgumentNullException(nameof(root));
+
+            var meshes = new Dictionary<Node, Dictionary<Node, MeshData>>();
+            var meshCache = new Dictionary<Mesh, MeshData>();
+
+            foreach (Node node in root.LogicalNodes)
+            {
+                if (node.Mesh != null)
+                {
+                    // To prevent the same logical mesh being loaded more than 
+                    // once, a dictionary which contains previously imported 
+                    // meshes can be specified. If the dictionary contains the 
+                    // mesh of the current node already, its converted MeshData
+                    // variant is returned.
+                    if (!meshCache.TryGetValue(node.Mesh, out MeshData mesh))
+                    {
+                        mesh = meshCache[node.Mesh] = ImportMesh(node);
+                    }
+
+                    if (!meshes.TryGetValue(node.VisualRoot, 
+                        out var rootNodeMeshes))
+                        rootNodeMeshes = meshes[node.VisualRoot] =
+                            new Dictionary<Node, MeshData>();
+
+                    rootNodeMeshes[node] = mesh;
+                }
+            }
+
+            return meshes;
+        }
+
+        static MeshData ImportMesh(Node meshNode)
         {
             if (meshNode == null)
                 throw new ArgumentNullException(nameof(meshNode));
@@ -533,17 +593,6 @@ namespace Eterra.Platforms.Windows.IO
                     $"'{meshNode.Name}' has an unsupported draw primitive " +
                     $"type (only {nameof(PrimitiveType.TRIANGLES)} is " +
                     "supported.");
-
-            // To prevent the same logical mesh being loaded more than once,
-            // a dictionary which contains previously imported meshes can
-            // be specified. If the dictionary contains the mesh of the
-            // current node already, its converted MeshData variant 
-            // is returned.
-            if (importedMeshCache != null)
-            {
-                if (importedMeshCache.TryGetValue(meshNode.Mesh,
-                    out MeshData mesh)) return mesh;
-            }
 
             // For the import of the vertex data, a memory stream "wrapper" 
             // is created around every vertex attribute channel, then we'll 
@@ -670,13 +719,10 @@ namespace Eterra.Platforms.Windows.IO
             else meshData = MeshData.Create(vertices.ToArray(),
                     faces.ToArray(), vertexFormat);
 
-            if (importedMeshCache != null)
-                importedMeshCache[meshNode.Mesh] = meshData;
-
             return meshData;
         }
 
-        private static Skeleton ImportSkeleton(Node skinnedNode, 
+        static Skeleton ImportSkeleton(Node skinnedNode, 
             bool makeReadOnly = true)
         {
             if (skinnedNode == null)
@@ -747,7 +793,7 @@ namespace Eterra.Platforms.Windows.IO
             else return skeleton;
         }
 
-        private static ReadContext CreateReadContext(ResourceManager manager)
+        static ReadContext CreateReadContext(ResourceManager manager)
         {
             ArraySegment<byte> ReadFileSystemFile(string pathString)
             {
