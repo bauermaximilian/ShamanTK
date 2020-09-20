@@ -873,16 +873,16 @@ namespace Eterra.Platforms.Windows.IO
                 //the keys of the scale-/rotationLayers with the same results.
                 foreach (string timelineName in positionLayers.Keys)
                 {
-                    List<TimelineChannel> channels = 
-                        new List<TimelineChannel>();
-                    channels.Add(new TimelineChannel<Vector3>(
-                        ChannelIdentifier.Position, InterpolationMethod.Linear,
+                    List<TimelineParameter> channels = 
+                        new List<TimelineParameter>();
+                    channels.Add(new TimelineParameter<Vector3>(
+                        ParameterIdentifier.Position, InterpolationMethod.Linear,
                         positionLayers[timelineName]));
-                    channels.Add(new TimelineChannel<Vector3>(
-                        ChannelIdentifier.Scale, InterpolationMethod.Linear,
+                    channels.Add(new TimelineParameter<Vector3>(
+                        ParameterIdentifier.Scale, InterpolationMethod.Linear,
                         scaleLayers[timelineName]));
-                    channels.Add(new TimelineChannel<Quaternion>(
-                        ChannelIdentifier.Rotation, InterpolationMethod.Linear,
+                    channels.Add(new TimelineParameter<Quaternion>(
+                        ParameterIdentifier.Rotation, InterpolationMethod.Linear,
                         rotationLayers[timelineName]));
 
                     layers.Add(new TimelineLayer(timelineName, channels));

@@ -21,10 +21,11 @@ using Eterra.Common;
 using Eterra.IO;
 using System;
 using System.Drawing.Imaging;
+using System.IO;
 
 namespace Eterra.Platforms.Windows.IO
 {
-    public class BitmapTextureData : TextureData
+    internal class BitmapTextureData : TextureData
     {
         private System.Drawing.Bitmap bitmap;
         private BitmapData bitmapData;
@@ -126,6 +127,42 @@ namespace Eterra.Platforms.Windows.IO
                 bitmap.Dispose();
                 bitmap = null;
             }
+        }
+
+        /// <summary>
+        /// Imports a <see cref="BitmapTextureData"/> instance from a 
+        /// <see cref="Stream"/>. Supports all file formats supported by
+        /// <see cref="System.Drawing.Image.FromStream(Stream)"/>.
+        /// </summary>
+        /// <param name="stream">
+        /// The source image file stream.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="TextureData"/> instance.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="stream"/> is null.
+        /// </exception>
+        /// <exception cref="FormatException">
+        /// Is thrown when <paramref name="stream"/> doesn't provide a valid
+        /// or supported image file.
+        /// </exception>
+        public static TextureData FromStream(Stream stream)
+        {
+            if (stream == null)
+                throw new ArgumentNullException(nameof(stream));
+
+            try
+            {
+                System.Drawing.Bitmap bitmap =
+                    (System.Drawing.Bitmap)System.Drawing.Image.FromStream(stream);
+                return new BitmapTextureData(bitmap, true);
+            }
+            catch (Exception exc)
+            {
+                throw new FormatException("The specified stream couldn't be " +
+                    "imported as image.", exc);
+            }            
         }
     }
 }

@@ -68,24 +68,17 @@ namespace Eterra.Platforms.Windows.IO
             string extension = path.Path.GetFileExtension();
             if (SupportsImport(extension))
             {
-                using (Stream stream = manager.FileSystem.OpenFile(
-                    path.Path, false))
+                using Stream stream = manager.FileSystem.OpenFile(
+                    path.Path, false);
+                try
                 {
-                    System.Drawing.Bitmap bitmap = (System.Drawing.Bitmap)
-                        System.Drawing.Image.FromStream(stream);
-                    try
-                    {
-                        return (T)(object)(new BitmapTextureData(bitmap,
-                            true));
-                    }
-                    catch (InvalidCastException)
-                    {
-                        throw new FileNotFoundException("No resource with " +
-                            "the specified path and type was found, and a " +
-                            "resource with the specified path but a " +
-                            "different type couldn't be converted into the " +
-                            "requested type.");
-                    }
+                    return (T)(object)BitmapTextureData.FromStream(stream);
+                }
+                catch (InvalidCastException)
+                {
+                    throw new FormatException("The requested resource was " +
+                        "found, but had a different type than requested " +
+                        "and couldn't be converted into the requested type.");
                 }
             }
             else throw new NotSupportedException("The specified image " +
