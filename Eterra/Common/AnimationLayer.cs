@@ -24,10 +24,10 @@ using System.Collections.Generic;
 namespace Eterra.Common
 {
     /// <summary>
-    /// Represents a collection of <see cref="AnimationChannel"/> instances,
+    /// Represents a collection of <see cref="AnimationParameter"/> instances,
     /// where each represents an animation of a single object parameter.
     /// </summary>
-    public class AnimationLayer : IEnumerable<AnimationChannel>
+    public class AnimationLayer : IEnumerable<AnimationParameter>
     {
         /// <summary>
         /// Gets the identifier of the layer, which is used by the current
@@ -35,20 +35,20 @@ namespace Eterra.Common
         /// </summary>
         public string Identifier { get; }
 
-        private Dictionary<string, AnimationChannel> channels =
-            new Dictionary<string, AnimationChannel>();
+        private Dictionary<string, AnimationParameter> parameters =
+            new Dictionary<string, AnimationParameter>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AnimationLayer"/> 
         /// class.
         /// </summary>
         /// <param name="parentAnimation">
-        /// The <see cref="Animation"/> instance this channel belongs to
+        /// The <see cref="Animation"/> instance this parameter belongs to
         /// and takes its playback position updates from.
         /// </param>
         /// <param name="sourceLayer">
         /// The <see cref="TimelineLayer"/> instance the new
-        /// <see cref="AnimationChannel"/> instance will take its channels
+        /// <see cref="AnimationParameter"/> instance will take its parameters
         /// (and the associated keyframe data) from.
         /// </param>
         /// <exception cref="ArgumentNullException">
@@ -62,185 +62,186 @@ namespace Eterra.Common
                 throw new ArgumentNullException(nameof(sourceLayer));
             Identifier = sourceLayer.Identifier;
 
-            foreach (TimelineChannel sourceChannel in sourceLayer)
-                channels[sourceChannel.Identifier.Identifier] =
-                    AnimationChannel.Create(parentAnimation, sourceChannel);
+            foreach (TimelineParameter sourceParameter in sourceLayer)
+                parameters[sourceParameter.Identifier.Name] =
+                    AnimationParameter.Create(parentAnimation, sourceParameter);
         }
 
         /// <summary>
-        /// Attempts to get an <see cref="AnimationChannel"/> from the current 
+        /// Attempts to get an <see cref="AnimationParameter"/> from the current 
         /// <see cref="AnimationLayer"/> instance.
         /// </summary>
         /// <param name="identifier">
-        /// The identifier of the <see cref="AnimationChannel"/>.
+        /// The identifier of the <see cref="AnimationParameter"/>.
         /// </param>
-        /// <param name="animationChannel">
-        /// The requested <see cref="AnimationChannel"/> or null.
+        /// <param name="animationParameter">
+        /// The requested <see cref="AnimationParameter"/> or null.
         /// </param>
         /// <returns>
         /// <c>true</c> if the specified <paramref name="identifier"/> could
-        /// be resolved into an existing <see cref="AnimationChannel"/> which
-        /// matches the <see cref="ChannelIdentifier.ValueTypeConstraint"/>,
+        /// be resolved into an existing <see cref="AnimationParameter"/> which
+        /// matches the <see cref="ParameterIdentifier.ValueTypeConstraint"/>,
         /// <c>false</c> otherwise.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="identifier"/> is null.
         /// </exception>
-        public bool TryGetChannel(ChannelIdentifier identifier,
-            out AnimationChannel animationChannel)
+        public bool TryGetParameter(ParameterIdentifier identifier,
+            out AnimationParameter animationParameter)
         {
             if (identifier == null)
                 throw new ArgumentNullException(nameof(identifier));
 
-            if (channels.TryGetValue(identifier.Identifier,
-                out AnimationChannel animationChannelUntyped))
+            if (parameters.TryGetValue(identifier.Name,
+                out AnimationParameter animationParameterUntyped))
             {
-                if (animationChannelUntyped.Identifier.MatchesConstraint(
+                if (animationParameterUntyped.Identifier.MatchesConstraint(
                         identifier))
                 {
-                    animationChannel = animationChannelUntyped;
+                    animationParameter = animationParameterUntyped;
                     return true;
                 }
             }
 
-            animationChannel = null;
+            animationParameter = null;
             return false;
         }
 
         /// <summary>
-        /// Attempts to get an <see cref="AnimationChannel{T}"/> from the 
+        /// Attempts to get an <see cref="AnimationParameter{T}"/> from the 
         /// current <see cref="AnimationLayer"/> instance.
         /// </summary>
         /// <typeparam name="T">
-        /// The value type of the <see cref="AnimationChannel{T}"/> to be
+        /// The value type of the <see cref="AnimationParameter{T}"/> to be
         /// retrieved.
         /// </typeparam>
         /// <param name="identifier">
-        /// The identifier of the <see cref="AnimationChannel{T}"/>.
+        /// The identifier of the <see cref="AnimationParameter{T}"/>.
         /// </param>
-        /// <param name="animationChannel">
-        /// The requested <see cref="AnimationChannel{T}"/> or null.
+        /// <param name="animationParameter">
+        /// The requested <see cref="AnimationParameter{T}"/> or null.
         /// </param>
         /// <returns>
         /// <c>true</c> if the specified <paramref name="identifier"/> could be
-        /// resolved into an existing <see cref="AnimationChannel{T}"/> which
-        /// matches the <see cref="ChannelIdentifier.ValueTypeConstraint"/> and
+        /// resolved into an existing <see cref="AnimationParameter{T}"/> which
+        /// matches the <see cref="ParameterIdentifier.ValueTypeConstraint"/> and
         /// has the value type specified in <typeparamref name="T"/>,
         /// <c>false</c> otherwise.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="identifier"/> is null.
         /// </exception>
-        public bool TryGetChannel<T>(ChannelIdentifier identifier,
-            out AnimationChannel<T> animationChannel)
+        public bool TryGetParameter<T>(ParameterIdentifier identifier,
+            out AnimationParameter<T> animationParameter)
             where T : unmanaged
         {
             if (identifier == null)
                 throw new ArgumentNullException(nameof(identifier));
 
-            if (channels.TryGetValue(identifier.Identifier,
-                out AnimationChannel animationChannelUntyped))
+            if (parameters.TryGetValue(identifier.Name,
+                out AnimationParameter animationParameterUntyped))
             {
-                if (animationChannelUntyped is
-                    AnimationChannel<T> animationChannelTyped &&
-                    animationChannelUntyped.Identifier.MatchesConstraint(
+                if (animationParameterUntyped is
+                    AnimationParameter<T> animationParameterTyped &&
+                    animationParameterUntyped.Identifier.MatchesConstraint(
                         identifier))
                 {
-                    animationChannel = animationChannelTyped;
+                    animationParameter = animationParameterTyped;
                     return true;
                 }
             }
 
-            animationChannel = null;
+            animationParameter = null;
             return false;
         }
 
         /// <summary>
-        /// Gets a <see cref="AnimationChannel"/> from the current
+        /// Gets a <see cref="AnimationParameter"/> from the current
         /// <see cref="AnimationLayer"/> instance.
         /// </summary>
         /// <param name="identifier">
-        /// The identifier of the <see cref="AnimationChannel"/>.
+        /// The identifier of the <see cref="AnimationParameter"/>.
         /// </param>
         /// <returns>
-        /// The requested <see cref="AnimationChannel"/>.
+        /// The requested <see cref="AnimationParameter"/>.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="identifier"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when no <see cref="AnimationChannel"/> instance that
-        /// matches with the <see cref="ChannelIdentifier.Identifier"/> and the
-        /// <see cref="ChannelIdentifier.ValueTypeConstraint"/> of the 
+        /// Is thrown when no <see cref="AnimationParameter"/> instance that
+        /// matches with the <see cref="ParameterIdentifier.Name"/> and the
+        /// <see cref="ParameterIdentifier.ValueTypeConstraint"/> of the 
         /// specified <paramref name="identifier"/> was found.
         /// </exception>
-        public AnimationChannel GetChannel(ChannelIdentifier identifier)
+        public AnimationParameter GetParameter(ParameterIdentifier identifier)
         {
             if (identifier == null)
                 throw new ArgumentNullException(nameof(identifier));
 
-            if (channels.TryGetValue(identifier.Identifier,
-                out AnimationChannel animationChannelUntyped))
+            if (parameters.TryGetValue(identifier.Name,
+                out AnimationParameter animationParameterUntyped))
             {
-                if (animationChannelUntyped.Identifier.MatchesConstraint(
+                if (animationParameterUntyped.Identifier.MatchesConstraint(
                         identifier))
                 {
-                    return animationChannelUntyped;
+                    return animationParameterUntyped;
                 }
-                else throw new ArgumentException("A channel with the " +
+                else throw new ArgumentException("A parameter with the " +
                     "specified identifier was found, but didn't match " +
                     "the identifiers type constraint.");
             }
-            else throw new ArgumentException("A channel with the specified " +
+            else throw new ArgumentException("A parameter with the specified " +
                 "identifier couldn't be found.");
         }
 
         /// <summary>
-        /// Gets a <see cref="AnimationChannel{T}"/> from the current
+        /// Gets a <see cref="AnimationParameter{T}"/> from the current
         /// <see cref="AnimationLayer"/> instance.
         /// </summary>
         /// <typeparam name="T">
-        /// The value type of the requested <see cref="AnimationChannel{T}"/>.
+        /// The value type of the requested <see cref="AnimationParameter{T}"/>.
         /// </typeparam>
         /// <param name="identifier">
-        /// The identifier of the <see cref="AnimationChannel{T}"/>.
+        /// The identifier of the <see cref="AnimationParameter{T}"/>.
         /// </param>
         /// <returns>
-        /// The requested <see cref="AnimationChannel{T}"/>.
+        /// The requested <see cref="AnimationParameter{T}"/>.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="identifier"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when no <see cref="AnimationChannel{T}"/> instance that
-        /// matches with the <see cref="ChannelIdentifier.Identifier"/> and the
-        /// <see cref="ChannelIdentifier.ValueTypeConstraint"/> of the 
+        /// Is thrown when no <see cref="AnimationParameter{T}"/> instance that
+        /// matches with the <see cref="ParameterIdentifier.Name"/> and the
+        /// <see cref="ParameterIdentifier.ValueTypeConstraint"/> of the 
         /// specified <paramref name="identifier"/> was found or when the
-        /// value type of the requested <see cref="AnimationChannel{T}"/> 
+        /// value type of the requested <see cref="AnimationParameter{T}"/> 
         /// doesn't match with the type specified in <typeparamref name="T"/>.
         /// </exception>
-        public AnimationChannel<T> GetChannel<T>(ChannelIdentifier identifier)
+        public AnimationParameter<T> GetParameter<T>(
+            ParameterIdentifier identifier)
             where T : unmanaged
         {
             if (identifier == null)
                 throw new ArgumentNullException(nameof(identifier));
 
-            if (channels.TryGetValue(identifier.Identifier,
-                out AnimationChannel animationChannelUntyped))
+            if (parameters.TryGetValue(identifier.Name,
+                out AnimationParameter animationParameterUntyped))
             {
-                if (animationChannelUntyped is
-                    AnimationChannel<T> animationChannelTyped &&
-                    animationChannelUntyped.Identifier.MatchesConstraint(
+                if (animationParameterUntyped is
+                    AnimationParameter<T> animationParameterTyped &&
+                    animationParameterUntyped.Identifier.MatchesConstraint(
                         identifier))
                 {
-                    return animationChannelTyped;
+                    return animationParameterTyped;
                 }
-                else throw new ArgumentException("A channel with the " +
+                else throw new ArgumentException("A parameter with the " +
                     "specified identifier was found, but had a different " +
                     "type then what was requested or didn't match the " +
                     "identifier type constraint.");
             }
-            else throw new ArgumentException("A channel with the specified " +
+            else throw new ArgumentException("A parameter with the specified " +
                 "identifier couldn't be found.");
         }
 
@@ -249,9 +250,9 @@ namespace Eterra.Common
         /// current instance.
         /// </summary>
         /// <returns>A new <see cref="IEnumerator{T}"/> instance.</returns>
-        public IEnumerator<AnimationChannel> GetEnumerator()
+        public IEnumerator<AnimationParameter> GetEnumerator()
         {
-            return channels.Values.GetEnumerator();
+            return parameters.Values.GetEnumerator();
         }
 
         /// <summary>
@@ -261,7 +262,7 @@ namespace Eterra.Common
         /// <returns>A new <see cref="IEnumerator"/> instance.</returns>
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return channels.Values.GetEnumerator();
+            return parameters.Values.GetEnumerator();
         }
     }
 }

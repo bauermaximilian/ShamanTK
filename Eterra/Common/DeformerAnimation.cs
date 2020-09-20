@@ -42,14 +42,14 @@ namespace Eterra.Common
 
             private readonly DeformerAnimation deformerPlayer;
 
-            private AnimationChannel<Matrix4x4> transformationChannel,
+            private AnimationParameter<Matrix4x4> transformationChannel,
                 transformationChannelOverlay;
 
-            private AnimationChannel<Vector3> positionChannel,
+            private AnimationParameter<Vector3> positionChannel,
                 positionChannelOverlay;
-            private AnimationChannel<Vector3> scaleChannel,
+            private AnimationParameter<Vector3> scaleChannel,
                 scaleChannelOverlay;
-            private AnimationChannel<Quaternion> rotationChannel,
+            private AnimationParameter<Quaternion> rotationChannel,
                 rotationChannelOverlay;
 
             private bool HasTransformationChannel =>
@@ -114,11 +114,11 @@ namespace Eterra.Common
                     OverlayAnimation.TryGetLayer(
                     bone.Identifier, out AnimationLayer overlayAnimationLayer))
                 {
-                    if (animationLayer.TryGetChannel<Matrix4x4>(
-                        ChannelIdentifier.Transformation,
+                    if (animationLayer.TryGetParameter<Matrix4x4>(
+                        ParameterIdentifier.Transformation,
                         out var transformationChannel)
-                        && overlayAnimationLayer.TryGetChannel<Matrix4x4>(
-                        ChannelIdentifier.Transformation,
+                        && overlayAnimationLayer.TryGetParameter<Matrix4x4>(
+                        ParameterIdentifier.Transformation,
                         out var transformationChannelOverlay))
                     {
                         this.transformationChannel = transformationChannel;
@@ -127,11 +127,11 @@ namespace Eterra.Common
                     }
                     else
                     {
-                        if (animationLayer.TryGetChannel<Vector3>(
-                            ChannelIdentifier.Position,
+                        if (animationLayer.TryGetParameter<Vector3>(
+                            ParameterIdentifier.Position,
                             out var positionChannel) &&
-                            overlayAnimationLayer.TryGetChannel<Vector3>(
-                                ChannelIdentifier.Position,
+                            overlayAnimationLayer.TryGetParameter<Vector3>(
+                                ParameterIdentifier.Position,
                                 out var positionChannelOverlay))
                         {
                             this.positionChannel = positionChannel;
@@ -139,11 +139,11 @@ namespace Eterra.Common
                                 positionChannelOverlay;
                         }
 
-                        if (animationLayer.TryGetChannel<Vector3>(
-                            ChannelIdentifier.Scale,
+                        if (animationLayer.TryGetParameter<Vector3>(
+                            ParameterIdentifier.Scale,
                             out var scaleChannel) &&
-                            overlayAnimationLayer.TryGetChannel<Vector3>(
-                                ChannelIdentifier.Scale,
+                            overlayAnimationLayer.TryGetParameter<Vector3>(
+                                ParameterIdentifier.Scale,
                                 out var scaleChannelOverlay))
                         {
                             this.scaleChannel = scaleChannel;
@@ -151,11 +151,11 @@ namespace Eterra.Common
                                 scaleChannelOverlay;
                         }
 
-                        if (animationLayer.TryGetChannel<Quaternion>(
-                            ChannelIdentifier.Rotation,
+                        if (animationLayer.TryGetParameter<Quaternion>(
+                            ParameterIdentifier.Rotation,
                             out var rotationChannel) &&
-                            overlayAnimationLayer.TryGetChannel<Quaternion>(
-                                ChannelIdentifier.Rotation,
+                            overlayAnimationLayer.TryGetParameter<Quaternion>(
+                                ParameterIdentifier.Rotation,
                                 out var rotationChannelOverlay))
                         {
                             this.rotationChannel = rotationChannel;
@@ -266,7 +266,7 @@ namespace Eterra.Common
 
         /// <summary>
         /// Gets the main <see cref="Common.Animation"/> instance, which 
-        /// provides the various <see cref="AnimationChannel"/> instances for 
+        /// provides the various <see cref="AnimationParameter"/> instances for 
         /// the <see cref="Bone"/> elements in a <see cref="Skeleton"/>.
         /// </summary>
         public Animation Animation { get; }

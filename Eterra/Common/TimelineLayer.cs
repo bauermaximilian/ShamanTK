@@ -26,13 +26,13 @@ namespace Eterra.Common
     /// <summary>
     /// Provides a collection of <see cref="Keyframe"/> instances, 
     /// hierarchically structured into contained 
-    /// <see cref="TimelineChannel"/> instances per
+    /// <see cref="TimelineParameter"/> instances per
     /// object parameter.
     /// </summary>
-    public class TimelineLayer : IEnumerable<TimelineChannel>
+    public class TimelineLayer : IEnumerable<TimelineParameter>
     {
-        private readonly Dictionary<string, TimelineChannel> channels =
-            new Dictionary<string, TimelineChannel>();
+        private readonly Dictionary<string, TimelineParameter> parameters =
+            new Dictionary<string, TimelineParameter>();
 
         /// <summary>
         /// Gets the distance between the first and the last keyframe.
@@ -55,23 +55,23 @@ namespace Eterra.Common
         public string Identifier { get; }
 
         /// <summary>
-        /// Gets the amount of channels.
+        /// Gets the amount of parameters.
         /// </summary>
-        public int ChannelCount => channels.Count;
+        public int ParameterCount => parameters.Count;
 
         /// <summary>
         /// Gets a value indicating whether the current instance contains at 
-        /// least one <see cref="TimelineChannel"/> that contains at least one 
+        /// least one <see cref="TimelineParameter"/> that contains at least one 
         /// <see cref="Keyframe"/> (<c>true</c>) or not (<c>false</c>).
         /// </summary>
         public bool HasKeyframes { get; }
 
         /// <summary>
         /// Gets a value indicating whether the current instance contains at 
-        /// least one <see cref="TimelineChannel"/> (<c>true</c>) or not 
+        /// least one <see cref="TimelineParameter"/> (<c>true</c>) or not 
         /// (<c>false</c>).
         /// </summary>
-        public bool HasChannels { get; }
+        public bool HasParameters { get; }
 
         /// <summary>
         /// Initializes a new instance of the 
@@ -80,40 +80,40 @@ namespace Eterra.Common
         /// <param name="identifier">
         /// The identifier of the new <see cref="TimelineLayer"/> instance.
         /// </param>
-        /// <param name="channels">
-        /// An enumeration of <see cref="TimelineChannel"/> instances,
+        /// <param name="parameters">
+        /// An enumeration of <see cref="TimelineParameter"/> instances,
         /// which will be held by the new <see cref="TimelineLayer"/>
         /// instance.
         /// </param>
         public TimelineLayer(string identifier, 
-            IEnumerable<TimelineChannel> channels)
+            IEnumerable<TimelineParameter> parameters)
         {
             Identifier = identifier ??
                 throw new ArgumentNullException(nameof(identifier));
 
-            foreach (TimelineChannel channel in channels)
+            foreach (TimelineParameter parameter in parameters)
             {
-                if (channel == null) continue;
-                if (this.channels.ContainsKey(channel.Identifier.Identifier))
+                if (parameter == null) continue;
+                if (this.parameters.ContainsKey(parameter.Identifier.Name))
                     throw new ArgumentException("The enumeration of " +
-                        "timeline channels contains at least two instances " +
+                        "timeline parameters contains at least two instances " +
                         "with the same identifier.");
-                else this.channels[channel.Identifier.Identifier] = channel;
+                else this.parameters[parameter.Identifier.Name] = parameter;
             }
 
             TimeSpan start = TimeSpan.MaxValue;
             TimeSpan end = TimeSpan.MinValue;
 
             HasKeyframes = false;
-            HasChannels = false;
+            HasParameters = false;
 
-            foreach (TimelineChannel channel in channels)
+            foreach (TimelineParameter parameter in parameters)
             {
-                HasChannels = true;
-                HasKeyframes |= channel.HasKeyframes;
+                HasParameters = true;
+                HasKeyframes |= parameter.HasKeyframes;
 
-                if (channel.Start < start) start = channel.Start;
-                if (channel.End > end) end = channel.End;                
+                if (parameter.Start < start) start = parameter.Start;
+                if (parameter.End > end) end = parameter.End;                
             }
 
             //The position of the first marker or keyframe.
@@ -125,98 +125,99 @@ namespace Eterra.Common
         }
 
         /// <summary>
-        /// Gets a <see cref="TimelineChannel{T}"/> from the current instance.
+        /// Gets a <see cref="TimelineParameter{T}"/> from the current instance.
         /// </summary>
         /// <typeparam name="T">
         /// The value type of the keyframes in the 
-        /// <see cref="TimelineChannel{T}"/>.
+        /// <see cref="TimelineParameter{T}"/>.
         /// </typeparam>
-        /// <param name="channelIdentifier">
-        /// The channel identifier of the <see cref="TimelineChannel{T}"/>
+        /// <param name="parameterIdentifier">
+        /// The parameter identifier of the <see cref="TimelineParameter{T}"/>
         /// to be returned.
         /// </param>
         /// <returns>
-        /// The requested <see cref="TimelineChannel{T}"/> instance.
+        /// The requested <see cref="TimelineParameter{T}"/> instance.
         /// </returns>
         /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="channelIdentifier"/> is null.
+        /// Is thrown when <paramref name="parameterIdentifier"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when no <see cref="TimelineChannel{T}"/> with the
-        /// specified <paramref name="channelIdentifier"/> was found, when
+        /// Is thrown when no <see cref="TimelineParameter{T}"/> with the
+        /// specified <paramref name="parameterIdentifier"/> was found, when
         /// the type constraint in the specfieid 
-        /// <paramref name="channelIdentifier"/> doesn't match with the 
-        /// <see cref="TimelineChannel.ValueType"/> of the 
-        /// <see cref="TimelineChannel{T}"/> or when
+        /// <paramref name="parameterIdentifier"/> doesn't match with the 
+        /// <see cref="TimelineParameter.ValueType"/> of the 
+        /// <see cref="TimelineParameter{T}"/> or when
         /// the type specified through <typeparamref name="T"/> doesn't match
-        /// with the type of the <see cref="TimelineChannel{T}"/>.
+        /// with the type of the <see cref="TimelineParameter{T}"/>.
         /// </exception>
-        public TimelineChannel<T> GetChannel<T>(
-            ChannelIdentifier channelIdentifier)
+        public TimelineParameter<T> GetParameter<T>(
+            ParameterIdentifier parameterIdentifier)
             where T : unmanaged
         {
-            if (channelIdentifier == null)
-                throw new ArgumentNullException(nameof(channelIdentifier));
+            if (parameterIdentifier == null)
+                throw new ArgumentNullException(nameof(parameterIdentifier));
 
-            if (channels.TryGetValue(channelIdentifier.Identifier,
-                out TimelineChannel channel))
+            if (parameters.TryGetValue(parameterIdentifier.Name,
+                out TimelineParameter parameter))
             {
-                if (channelIdentifier.ValueTypeConstraint.IsAssignableFrom(
-                    channel.Identifier.ValueTypeConstraint))
+                if (parameterIdentifier.ValueTypeConstraint.IsAssignableFrom(
+                    parameter.Identifier.ValueTypeConstraint))
                 {
-                    if (channel is TimelineChannel<T> typedChannel)
-                        return typedChannel;
-                    else throw new ArgumentException("A channel with the " +
+                    if (parameter is TimelineParameter<T> typedParameter)
+                        return typedParameter;
+                    else throw new ArgumentException("A parameter with the " +
                         "specified identifier was found, but couldn't be " +
                         "converted to the specified type.");
                 }
-                else throw new ArgumentException("A channel with the " +
+                else throw new ArgumentException("A parameter with the " +
                     "specified identifier name was found, but with an " +
                     "incompatible type.");
             }
-            else throw new ArgumentException("A channel with the " +
+            else throw new ArgumentException("A parameter with the " +
               "specified identifier name couldn't be found.");
         }
 
         /// <summary>
-        /// Gets a <see cref="TimelineChannel"/> from the current instance.
+        /// Gets a <see cref="TimelineParameter"/> from the current instance.
         /// </summary>
-        /// <param name="channelIdentifier">
-        /// The channel identifier of the <see cref="TimelineChannel"/>
+        /// <param name="parameterIdentifier">
+        /// The parameter name of the <see cref="TimelineParameter"/>
         /// to be returned.
         /// </param>
         /// <returns>
-        /// The requested <see cref="TimelineChannel"/> instance.
+        /// The requested <see cref="TimelineParameter"/> instance.
         /// </returns>
         /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="channelIdentifier"/> is null.
+        /// Is thrown when <paramref name="parameterIdentifier"/> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when no <see cref="TimelineChannel"/> with the
-        /// specified <paramref name="channelIdentifier"/> was found or when
+        /// Is thrown when no <see cref="TimelineParameter"/> with the
+        /// specified <paramref name="parameterIdentifier"/> was found or when
         /// the type constraint in the specfieid 
-        /// <paramref name="channelIdentifier"/> doesn't match with the 
-        /// <see cref="TimelineChannel.ValueType"/> of the 
-        /// <see cref="TimelineChannel"/>.
+        /// <paramref name="parameterIdentifier"/> doesn't match with the 
+        /// <see cref="TimelineParameter.ValueType"/> of the 
+        /// <see cref="TimelineParameter"/>.
         /// </exception>
-        public TimelineChannel GetChannel(ChannelIdentifier channelIdentifier)
+        public TimelineParameter GetParameter(
+            ParameterIdentifier parameterIdentifier)
         {
-            if (channelIdentifier == null)
-                throw new ArgumentNullException(nameof(channelIdentifier));
+            if (parameterIdentifier == null)
+                throw new ArgumentNullException(nameof(parameterIdentifier));
 
-            if (channels.TryGetValue(channelIdentifier.Identifier,
-                out TimelineChannel channel))
+            if (parameters.TryGetValue(parameterIdentifier.Name,
+                out TimelineParameter parameter))
             {
-                if (channelIdentifier.ValueTypeConstraint.IsAssignableFrom(
-                    channel.ValueType))
+                if (parameterIdentifier.ValueTypeConstraint.IsAssignableFrom(
+                    parameter.ValueType))
                 {
-                    return channel;
+                    return parameter;
                 }
-                else throw new ArgumentException("A channel with the " +
+                else throw new ArgumentException("A parameter with the " +
                     "specified identifier name was found, but with an " +
                     "incompatible type.");
             }
-            else throw new ArgumentException("A channel with the " +
+            else throw new ArgumentException("A parameter with the " +
               "specified identifier name couldn't be found.");
         }
 
@@ -225,9 +226,9 @@ namespace Eterra.Common
         /// current instance.
         /// </summary>
         /// <returns>A new <see cref="IEnumerator{T}"/> instance.</returns>
-        public IEnumerator<TimelineChannel> GetEnumerator()
+        public IEnumerator<TimelineParameter> GetEnumerator()
         {
-            return channels.Values.GetEnumerator();
+            return parameters.Values.GetEnumerator();
         }
 
         /// <summary>
@@ -237,7 +238,7 @@ namespace Eterra.Common
         /// <returns>A new <see cref="IEnumerator"/> instance.</returns>
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return channels.Values.GetEnumerator();
+            return parameters.Values.GetEnumerator();
         }
 
         /// <summary>
@@ -248,7 +249,7 @@ namespace Eterra.Common
         /// </returns>
         public override string ToString()
         {
-            return $"\"{Identifier}\" (Channels: {ChannelCount}, " +
+            return $"\"{Identifier}\" (Parameters: {ParameterCount}, " +
                 $"Length: {Length})";
         }
     }

@@ -25,7 +25,7 @@ namespace Eterra.Common
     /// Provides the base class from which classes are derived that
     /// represent an animation of a single object parameter.
     /// </summary>
-    public abstract class AnimationChannel
+    public abstract class AnimationParameter
     {
         /// <summary>
         /// Gets the type of the keyframe values.
@@ -33,40 +33,40 @@ namespace Eterra.Common
         public abstract Type ValueType { get; }
 
         /// <summary>
-        /// Gets the identifier of the current channel.
+        /// Gets the identifier of the current instance.
         /// </summary>
-        public abstract ChannelIdentifier Identifier { get; }
+        public abstract ParameterIdentifier Identifier { get; }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AnimationChannel"/> 
+        /// Initializes a new instance of the <see cref="AnimationParameter"/> 
         /// class.
         /// </summary>
         /// <param name="parentAnimation">
-        /// The <see cref="Animation"/> instance this channel belongs to
+        /// The <see cref="Animation"/> instance this parameter belongs to
         /// and takes its playback position updates from.
         /// </param>
-        /// <param name="sourceChannel">
-        /// The <see cref="TimelineChannel"/> instance the new
-        /// <see cref="AnimationChannel"/> instance will take its keyframe
+        /// <param name="sourceParameter">
+        /// The <see cref="TimelineParameter"/> instance the new
+        /// <see cref="AnimationParameter"/> instance will take its keyframe
         /// data from.
         /// </param>
         /// <returns>
-        /// A new <see cref="AnimationChannel"/> instance.
+        /// A new <see cref="AnimationParameter"/> instance.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="parentAnimation"/> or
-        /// <paramref name="sourceChannel"/> are null.
+        /// <paramref name="sourceParameter"/> are null.
         /// </exception>
-        internal static AnimationChannel Create(Animation parentAnimation,
-            TimelineChannel sourceChannel)
+        internal static AnimationParameter Create(Animation parentAnimation,
+            TimelineParameter sourceParameter)
         {
             if (parentAnimation == null)
                 throw new ArgumentNullException(nameof(parentAnimation));
-            if (sourceChannel == null)
-                throw new ArgumentNullException(nameof(sourceChannel));
+            if (sourceParameter == null)
+                throw new ArgumentNullException(nameof(sourceParameter));
 
-            return (AnimationChannel)Activator.CreateInstance(
-                typeof(AnimationChannel), parentAnimation, sourceChannel);
+            return (AnimationParameter)Activator.CreateInstance(
+                typeof(AnimationParameter), parentAnimation, sourceParameter);
         }
     }
 
@@ -76,7 +76,7 @@ namespace Eterra.Common
     /// <typeparam name="T">
     /// The type of the object parameter values.
     /// </typeparam>
-    public class AnimationChannel<T> : AnimationChannel
+    public class AnimationParameter<T> : AnimationParameter
         where T : unmanaged
     {
         private readonly IInterpolator<T> interpolator;
@@ -95,17 +95,17 @@ namespace Eterra.Common
             = TimeSpan.FromMilliseconds(10);
 
         /// <summary>
-        /// Gets the identifier of the current channel.
+        /// Gets the identifier of the current parameter.
         /// </summary>
-        public override ChannelIdentifier Identifier { get; }
+        public override ParameterIdentifier Identifier { get; }
 
         /// <summary>
         /// Gets the type of the keyframe values.
         /// </summary>
-        public override Type ValueType { get; }        
+        public override Type ValueType { get; }
 
         /// <summary>
-        /// Gets the current animated value of the current layer channel.
+        /// Gets the current animated value of the current layer parameter.
         /// </summary>
         public ref readonly T CurrentValue
         {
@@ -117,33 +117,33 @@ namespace Eterra.Common
         }
 
         private readonly Animation parentAnimation;
-        private readonly TimelineChannel<T> sourceChannel;
+        private readonly TimelineParameter<T> sourceParameter;
 
         /// <summary>
         /// Initializes a new instance of the 
-        /// <see cref="AnimationChannel{T}"/> class.
+        /// <see cref="AnimationParameter{T}"/> class.
         /// </summary>
         /// <param name="parentAnimation">
-        /// The <see cref="Animation"/> instance this channel belongs to
+        /// The <see cref="Animation"/> instance this parameter belongs to
         /// and takes its playback position updates from.
         /// </param>
-        /// <param name="sourceChannel">
-        /// The <see cref="TimelineChannel{T}"/> instance the new
-        /// <see cref="AnimationChannel{T}"/> instance will take its keyframe
+        /// <param name="sourceParameter">
+        /// The <see cref="TimelineParameter{T}"/> instance the new
+        /// <see cref="AnimationParameter{T}"/> instance will take its keyframe
         /// data from.
         /// </param>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="parentAnimation"/> or
-        /// <paramref name="sourceChannel"/> are null.
+        /// <paramref name="sourceParameter"/> are null.
         /// </exception>
-        internal AnimationChannel(Animation parentAnimation,
-            TimelineChannel<T> sourceChannel)
+        internal AnimationParameter(Animation parentAnimation,
+            TimelineParameter<T> sourceParameter)
         {
             this.parentAnimation = parentAnimation ??
                 throw new ArgumentNullException(nameof(parentAnimation));
-            this.sourceChannel = sourceChannel ??
-                throw new ArgumentNullException(nameof(sourceChannel));
-            Identifier = sourceChannel.Identifier;
+            this.sourceParameter = sourceParameter ??
+                throw new ArgumentNullException(nameof(sourceParameter));
+            Identifier = sourceParameter.Identifier;
             ValueType = typeof(T);
 
             interpolator = InterpolatorProvider.GetInterpolator<T>();
@@ -165,17 +165,17 @@ namespace Eterra.Common
             {
                 lastValueTime = parentAnimation.Position;
 
-                if (!sourceChannel.TryFindKeyframeBefore(
+                if (!sourceParameter.TryFindKeyframeBefore(
                     parentAnimation.Position, 0, out Keyframe<T> x))
                     x = new Keyframe<T>(parentAnimation.Position,
                         interpolator.Default);
 
-                if (sourceChannel.InterpolationMethod ==
+                if (sourceParameter.InterpolationMethod ==
                     InterpolationMethod.None)
                     lastCurrentValue = x.Value;
                 else
                 {
-                    if (!sourceChannel.TryFindKeyframeAfter(
+                    if (!sourceParameter.TryFindKeyframeAfter(
                         parentAnimation.Position, 0, out Keyframe<T> y))
                         y = new Keyframe<T>(parentAnimation.Position,
                             interpolator.Default);
@@ -183,7 +183,7 @@ namespace Eterra.Common
                     float ratio = x.CalculateRatioTo(y,
                             parentAnimation.Position);
 
-                    if (sourceChannel.InterpolationMethod ==
+                    if (sourceParameter.InterpolationMethod ==
                         InterpolationMethod.Linear)
                     {
                         lastCurrentValue = interpolator.InterpolateLinear(
@@ -191,11 +191,11 @@ namespace Eterra.Common
                     }
                     else
                     {
-                        if (!sourceChannel.TryFindKeyframeBefore(
+                        if (!sourceParameter.TryFindKeyframeBefore(
                             parentAnimation.Position, -1,
                             out Keyframe<T> beforeX))
                             beforeX = x;
-                        if (!sourceChannel.TryFindKeyframeAfter(
+                        if (!sourceParameter.TryFindKeyframeAfter(
                             parentAnimation.Position, 1,
                             out Keyframe<T> afterY))
                             afterY = y;

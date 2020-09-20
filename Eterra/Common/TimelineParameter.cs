@@ -28,7 +28,7 @@ namespace Eterra.Common
     /// provides a collection of <see cref="Keyframe"/> instances for a 
     /// specific object parameter.
     /// </summary>
-    public abstract class TimelineChannel : IEnumerable<Keyframe>
+    public abstract class TimelineParameter : IEnumerable<Keyframe>
     {
         /// <summary>
         /// Gets the amount of keyframes.
@@ -58,7 +58,7 @@ namespace Eterra.Common
         /// <summary>
         /// Gets the identifier of the current instance.
         /// </summary>
-        public abstract ChannelIdentifier Identifier { get; }
+        public abstract ParameterIdentifier Identifier { get; }
 
         /// <summary>
         /// Gets a value indicating whether the current instance contains 
@@ -98,7 +98,7 @@ namespace Eterra.Common
     /// <typeparam name="T">
     /// The type of the object parameter values.
     /// </typeparam>
-    public class TimelineChannel<T> : TimelineChannel, 
+    public class TimelineParameter<T> : TimelineParameter, 
         IEnumerable<Keyframe<T>> where T : unmanaged
     {
         #region Internally used IEnumerator implementation for TimelineLayer
@@ -109,22 +109,22 @@ namespace Eterra.Common
                 get
                 {
                     if (currentKeyframeIndex >= 0
-                        && currentKeyframeIndex < channel.KeyframeCount)
-                        return channel.GetKeyframe(currentKeyframeIndex);
+                        && currentKeyframeIndex < parameter.KeyframeCount)
+                        return parameter.GetKeyframe(currentKeyframeIndex);
                     else return Keyframe<T>.Empty;
                 }
             }
 
             object IEnumerator.Current => Current;
 
-            private readonly TimelineChannel<T> channel;
+            private readonly TimelineParameter<T> parameter;
 
             private int currentKeyframeIndex = 0;
 
-            public KeyframeEnumerator(TimelineChannel<T> channel)
+            public KeyframeEnumerator(TimelineParameter<T> parameter)
             {
-                this.channel = channel ??
-                    throw new ArgumentNullException(nameof(channel));
+                this.parameter = parameter ??
+                    throw new ArgumentNullException(nameof(parameter));
             }
 
             public void Dispose()
@@ -133,7 +133,7 @@ namespace Eterra.Common
 
             public bool MoveNext()
             {
-                if (currentKeyframeIndex + 1 < channel.KeyframeCount)
+                if (currentKeyframeIndex + 1 < parameter.KeyframeCount)
                 {
                     currentKeyframeIndex++;
                     return true;
@@ -186,18 +186,18 @@ namespace Eterra.Common
         /// Gets the identifier of the current instance, which needs to be 
         /// unique within any parent <see cref="TimelineLayer"/>.
         /// </summary>
-        public override ChannelIdentifier Identifier { get; }
+        public override ParameterIdentifier Identifier { get; }
 
         /// <summary>
         /// Initializes a new instance of the 
-        /// <see cref="TimelineChannel{T}"/> class.
+        /// <see cref="TimelineParameter{T}"/> class.
         /// </summary>
         /// <param name="identifier">
-        /// The identifier of the new channel instance.
+        /// The identifier of the new instance.
         /// </param>
         /// <param name="keyframes">
         /// An enumerable collection of <see cref="Keyframe{T}"/> instances,
-        /// which make up the new channel instance.
+        /// which make up the new instance.
         /// </param>
         /// <param name="interpolationMethod">
         /// The requested interpolation method, with which the values between 
@@ -208,22 +208,23 @@ namespace Eterra.Common
         /// <paramref name="keyframes"/> are null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when the <see cref="ChannelIdentifier.ValueTypeConstraint"/>
-        /// doesn't match with the type specified by <typeparamref name="T"/>,
-        /// when <paramref name="interpolationMethod"/> is 
-        /// invalid or when <paramref name="keyframes"/> contains at least
-        /// two <see cref="Keyframe"/> instances with the same
+        /// Is thrown when the 
+        /// <see cref="ParameterIdentifier.ValueTypeConstraint"/> doesn't match 
+        /// with the type specified by <typeparamref name="T"/>, when 
+        /// <paramref name="interpolationMethod"/> is invalid or when 
+        /// <paramref name="keyframes"/> contains at least two 
+        /// <see cref="Keyframe"/> instances with the same 
         /// <see cref="Keyframe.Position"/>.
         /// </exception>
-        public TimelineChannel(ChannelIdentifier identifier,
+        public TimelineParameter(ParameterIdentifier identifier,
             InterpolationMethod interpolationMethod,
             IEnumerable<Keyframe<T>> keyframes)
         {
             Identifier = identifier ??
                 throw new ArgumentNullException(nameof(identifier));
             if (!identifier.ValueTypeConstraint.IsAssignableFrom(typeof(T)))
-                throw new ArgumentException("The specified channel " +
-                    "identifier can not be used on a channel with the " +
+                throw new ArgumentException("The specified " +
+                    "identifier can not be used on a parameter with the " +
                     $"type {typeof(T).Name}.");
 
             if (!Enum.IsDefined(typeof(InterpolationMethod),
@@ -252,7 +253,7 @@ namespace Eterra.Common
         /// <see cref="TimelineLayer{T}"/> class.
         /// </summary>
         /// <param name="identifier">
-        /// The identifier of the new channel instance.
+        /// The identifier of the new instance.
         /// </param>
         /// <param name="keyframes">
         /// An enumerable collection of <see cref="Keyframe"/> instances,
@@ -268,26 +269,27 @@ namespace Eterra.Common
         /// <paramref name="keyframes"/> are null.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// Is thrown when the <see cref="ChannelIdentifier.ValueTypeConstraint"/>
-        /// doesn't match with the type specified by <typeparamref name="T"/>,
-        /// when <paramref name="interpolationMethod"/> is 
-        /// invalid, when <paramref name="keyframes"/> contains at least
-        /// two <see cref="Keyframe"/> instances with the same
+        /// Is thrown when the 
+        /// <see cref="ParameterIdentifier.ValueTypeConstraint"/> doesn't match 
+        /// with the type specified by <typeparamref name="T"/>, when 
+        /// <paramref name="interpolationMethod"/> is invalid, when 
+        /// <paramref name="keyframes"/> contains at least two 
+        /// <see cref="Keyframe"/> instances with the same 
         /// <see cref="Keyframe.Position"/> or when one of the
         /// <see cref="Keyframe"/> instances in <paramref name="keyframes"/>
         /// contains an instance which is not of type
         /// <see cref="Keyframe{T}"/> with <c>T</c> being 
         /// <typeparamref name="T"/>.
         /// </exception>
-        public TimelineChannel(ChannelIdentifier identifier,
+        public TimelineParameter(ParameterIdentifier identifier,
             InterpolationMethod interpolationMethod,
             IEnumerable<Keyframe> keyframes)
         {
             Identifier = identifier ??
                 throw new ArgumentNullException(nameof(identifier));
             if (!identifier.ValueTypeConstraint.IsAssignableFrom(typeof(T)))
-                throw new ArgumentException("The specified channel " +
-                    "identifier can not be used on a channel with the " +
+                throw new ArgumentException("The specified " +
+                    "identifier can not be used on a parameter with the " +
                     $"type {typeof(T).Name}.");
 
             if (!Enum.IsDefined(typeof(InterpolationMethod),

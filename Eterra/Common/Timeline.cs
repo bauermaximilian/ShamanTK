@@ -29,7 +29,7 @@ namespace Eterra.Common
     /// <summary>
     /// Provides a collection of <see cref="Keyframe"/> instances, 
     /// hierarchically structured into contained <see cref="TimelineLayer"/> 
-    /// instances per object and <see cref="TimelineChannel"/> instances 
+    /// instances per object and <see cref="TimelineParameter"/> instances 
     /// per object parameter.
     /// Can be used to create an <see cref="Animation"/>.
     /// </summary>
@@ -87,7 +87,7 @@ namespace Eterra.Common
         /// <summary>
         /// Gets a value indicating whether the current instance contains at 
         /// least one <see cref="TimelineLayer"/> that contains at least one 
-        /// <see cref="TimelineChannel"/> that contains at least one 
+        /// <see cref="TimelineParameter"/> that contains at least one 
         /// <see cref="Keyframe"/> (<c>true</c>) or not (<c>false</c>).
         /// </summary>
         public bool HasKeyframes { get; }
@@ -95,9 +95,9 @@ namespace Eterra.Common
         /// <summary>
         /// Gets a value indicating whether the current instance contains at 
         /// least one <see cref="TimelineLayer"/> that contains at least one 
-        /// <see cref="TimelineChannel"/> (<c>true</c>) or not (<c>false</c>).
+        /// <see cref="TimelineParameter"/> (<c>true</c>) or not (<c>false</c>).
         /// </summary>
-        public bool HasChannels { get; }
+        public bool HasParameters { get; }
 
         /// <summary>
         /// Gets a value indicating whether the current instance contains at 
@@ -229,13 +229,13 @@ namespace Eterra.Common
                 : TimeSpan.MinValue;
 
             HasKeyframes = false;
-            HasChannels = false;
+            HasParameters = false;
             HasLayers = false;
 
             foreach (TimelineLayer layer in layers)
             {
                 HasLayers = true;
-                HasChannels |= layer.HasChannels;
+                HasParameters |= layer.HasParameters;
                 HasKeyframes |= layer.HasKeyframes;
 
                 if (layer.Start < start) start = layer.Start;
@@ -506,43 +506,43 @@ namespace Eterra.Common
             for (int li = 0; li < layerCount; li++)
             {
                 string timelineLayerIdentifier = stream.ReadString();
-                uint channelCount = stream.ReadUnsignedInteger();
-                List<TimelineChannel> timelineChannels = 
-                    new List<TimelineChannel>();
+                uint parameterCount = stream.ReadUnsignedInteger();
+                List<TimelineParameter> timelineParameters = 
+                    new List<TimelineParameter>();
 
-                for (int ci = 0; ci < channelCount; ci++)
+                for (int ci = 0; ci < parameterCount; ci++)
                 {
-                    string channelIdentifierName = stream.ReadString();
-                    string channelIdentifierTypeConstraintName = 
+                    string parameterIdentifierName = stream.ReadString();
+                    string parameterIdentifierTypeConstraintName = 
                         stream.ReadString();
-                    string channelValueTypeName = stream.ReadString();
-                    InterpolationMethod channelInterpolationMethod =
+                    string parameterValueTypeName = stream.ReadString();
+                    InterpolationMethod parameterInterpolationMethod =
                         (InterpolationMethod)stream.ReadSignedInteger();
-                    uint channelKeyframeCount = stream.ReadUnsignedInteger();
+                    uint parameterKeyframeCount = stream.ReadUnsignedInteger();
 
-                    Type channelValueType = Type.GetType(channelValueTypeName, 
+                    Type parameterValueType = Type.GetType(parameterValueTypeName, 
                         false);
-                    Type channelIdentifierTypeConstraint = Type.GetType(
-                        channelIdentifierTypeConstraintName, false);
+                    Type parameterIdentifierTypeConstraint = Type.GetType(
+                        parameterIdentifierTypeConstraintName, false);
 
-                    if (channelValueType == null)
+                    if (parameterValueType == null)
                         throw new FormatException("The type of one or more " +
-                            "channels isn't available or supported.");
-                    if (channelValueType == null)
+                            "parameters isn't available or supported.");
+                    if (parameterValueType == null)
                         throw new FormatException("The type constraint of " +
-                            "one or more channels isn't available " +
+                            "one or more parameters isn't available " +
                             "or supported.");
 
-                    ChannelIdentifier channelIdentifier =
-                        ChannelIdentifier.Create(channelIdentifierName,
-                        channelIdentifierTypeConstraint);
-                    if (!channelIdentifier.MatchesConstraint(channelValueType))
+                    ParameterIdentifier parameterIdentifier =
+                        ParameterIdentifier.Create(parameterIdentifierName,
+                        parameterIdentifierTypeConstraint);
+                    if (!parameterIdentifier.MatchesConstraint(parameterValueType))
                         throw new FormatException("The value type of the " +
-                            "channel doesn't match with the type constraint " +
+                            "parameter doesn't match with the type constraint " +
                             "defined by the identifier.");
 
                     if (!Enum.IsDefined(typeof(InterpolationMethod),
-                        channelInterpolationMethod))
+                        parameterInterpolationMethod))
                         throw new FormatException("The interpolation method " +
                             "of the layer is invalid.");
 
@@ -553,16 +553,16 @@ namespace Eterra.Common
                     try
                     {
                         keyframeType = typeof(Keyframe<>).MakeGenericType(
-                            channelValueType);
+                            parameterValueType);
                         keyframeSizeBytes = (uint)Marshal.SizeOf(keyframeType);
                     }
                     catch (Exception exc)
                     {
                         throw new FormatException("The value type of the " +
-                            "timeline channel #" + ci + " is invalid.", exc);
+                            "timeline parameter #" + ci + " is invalid.", exc);
                     }
 
-                    for (int ki = 0; ki < channelKeyframeCount; ki++)
+                    for (int ki = 0; ki < parameterKeyframeCount; ki++)
                     {
                         byte[] keyframeBuffer = stream.ReadBuffer(
                             keyframeSizeBytes);
@@ -570,7 +570,7 @@ namespace Eterra.Common
                         Keyframe keyframe;
                         try
                         {
-                            keyframe = Keyframe.FromBytes(channelValueType,
+                            keyframe = Keyframe.FromBytes(parameterValueType,
                                 keyframeBuffer);
                         }
                         catch (Exception exc)
@@ -581,17 +581,17 @@ namespace Eterra.Common
                         keyframes.Add(keyframe);
                     }
 
-                    Type channelType = typeof(TimelineChannel<>)
-                        .MakeGenericType(channelValueType);
+                    Type parameterType = typeof(TimelineParameter<>)
+                        .MakeGenericType(parameterValueType);
 
-                    timelineChannels.Add(
-                        (TimelineChannel)Activator.CreateInstance(
-                        channelType, channelIdentifier, 
-                        channelInterpolationMethod, keyframes));
+                    timelineParameters.Add(
+                        (TimelineParameter)Activator.CreateInstance(
+                        parameterType, parameterIdentifier, 
+                        parameterInterpolationMethod, keyframes));
                 }
 
                 timelineLayers.Add(new TimelineLayer(timelineLayerIdentifier,
-                    timelineChannels));
+                    timelineParameters));
             }
 
             try { return new Timeline(timelineLayers, markers); }
@@ -650,19 +650,19 @@ namespace Eterra.Common
             foreach (TimelineLayer layer in Layers)
             {
                 stream.WriteString(layer.Identifier);
-                stream.WriteUnsignedInteger((uint)layer.ChannelCount);
+                stream.WriteUnsignedInteger((uint)layer.ParameterCount);
                 
-                foreach (TimelineChannel channel in layer)
+                foreach (TimelineParameter parameter in layer)
                 {
-                    stream.WriteString(channel.Identifier.Identifier);
+                    stream.WriteString(parameter.Identifier.Name);
                     stream.WriteString(
-                        channel.Identifier.ValueTypeConstraint.FullName);
-                    stream.WriteString(channel.ValueType.FullName);
+                        parameter.Identifier.ValueTypeConstraint.FullName);
+                    stream.WriteString(parameter.ValueType.FullName);
                     stream.WriteSignedInteger(
-                        (int)channel.InterpolationMethod);
-                    stream.WriteUnsignedInteger((uint)channel.KeyframeCount);
+                        (int)parameter.InterpolationMethod);
+                    stream.WriteUnsignedInteger((uint)parameter.KeyframeCount);
 
-                    foreach (Keyframe keyframe in channel)
+                    foreach (Keyframe keyframe in parameter)
                     {
                         byte[] keyframeBuffer = keyframe.ToBytes();
                         stream.WriteBuffer(keyframeBuffer, false);
