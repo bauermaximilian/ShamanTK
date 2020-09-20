@@ -23,6 +23,7 @@ using SharpGLTF.Animations;
 using SharpGLTF.IO;
 using SharpGLTF.Runtime;
 using SharpGLTF.Schema2;
+using SharpGLTF.Transforms;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,28 +34,7 @@ using System.Threading.Tasks;
 
 namespace Eterra.Platforms.Windows.IO
 {
-    static class ParameterNames
-    {
-        /// <summary>
-        /// Defines the name of a parameter of type <see cref="Matrix4x4"/>
-        /// that specifies the global, absolute transformation.
-        /// </summary>
-        public const string GlobalTransformation = "GlobalTransformation";
-
-        /// <summary>
-        /// Defines the name of a parameter of type <see cref="Matrix4x4"/>
-        /// that specifies the transformation, relatively to its parent.
-        /// </summary>
-        public const string LocalTransformation = "LocalTransformation";
-
-        /// <summary>
-        /// Defines the name of a parameter of type <see cref="bool"/> 
-        /// that specifies whether an object is visible or not. 
-        /// </summary>
-        public const string Visible = "Visible";
-    }
-
-    public class Parameters : Dictionary<string, object> { }
+    public class Parameters : Dictionary<ParameterIdentifier, object> { }
 
     public class SceneHierarchy : Node<Parameters>
     {
@@ -140,7 +120,7 @@ namespace Eterra.Platforms.Windows.IO
             catch (FormatException) { throw; }
             catch (IOException) { throw; }
 
-            Common.Scene scene = GenerateScene(root);
+            SceneHierarchy scene = GenerateScene(root);
             if (typeof(T).IsAssignableFrom(scene.GetType()))
                 return (T)(object)scene;
             else throw new ArgumentException("The loaded resource of " +
@@ -148,17 +128,105 @@ namespace Eterra.Platforms.Windows.IO
                 $"the requested type '{typeof(T).Name}'.");
         }
 
-        private static Common.Scene GenerateScene(ModelRoot root)
+        private static SceneHierarchy GenerateScene(ModelRoot root)
         {
-            var timelines = ImportTimelines(root);
-            var meshes = ImportMeshes(root);
+            var nodes = ImportNodes(root);
+
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Imports all meshes and their associated material properties from a 
+        /// <see cref="ModelRoot"/> instance and returns them both as association 
+        /// between the <see cref="MeshData"/> and their visual root as well as 
+        /// their actual associated source node.
+        /// </summary>
+        /// <param name="root">
+        /// The <see cref="ModelRoot"/> instance of the scene.
+        /// </param>
+        /// <returns>
+        /// A dictionary with the visual root of the mesh node as key and
+        /// a dictionary as value, which contains the loaded mesh data 
+        /// associated to the original node.
+        /// </returns>
+        static Dictionary<Node, Dictionary<Node, Parameters>> ImportNodes(
+            ModelRoot root)
+        {
+            if (root == null)
+                throw new ArgumentNullException(nameof(root));
+
+            var nodes = new Dictionary<Node, Dictionary<Node, Parameters>>();
+            var meshCache = new Dictionary<Mesh, MeshData>();
+            var textureCache = new Dictionary<Texture, TextureData>();
 
             foreach (Node node in root.LogicalNodes)
             {
-                //TODO: "Fuse" nodes over their visual root into an entity.
+                Parameters nodeParameters = ImportNode(node, meshCache,
+                    textureCache);
+
+                if (nodeParameters.Count > 0)
+                {
+                    if (!nodes.TryGetValue(node.VisualRoot,
+                        out Dictionary<Node, Parameters> rootNodeParameters))
+                        rootNodeParameters = nodes[node.VisualRoot] =
+                            new Dictionary<Node, Parameters>();
+
+                    rootNodeParameters[node] = nodeParameters;
+                }
             }
 
-            throw new NotImplementedException();
+            return nodes;
+        }
+
+        static Parameters ImportNode(Node node,
+            Dictionary<Mesh, MeshData> meshCache,
+            Dictionary<Texture, TextureData> textureCache)
+        {
+            if (node == null)
+                throw new ArgumentNullException(nameof(node));
+
+            Parameters parameters = new Parameters();
+
+            if (node.Mesh != null && node.Mesh.Primitives.Count > 0)
+            {
+                MeshPrimitive meshPrimitive = node.Mesh.Primitives[0];
+
+                if (meshCache == null ||
+                    !meshCache.TryGetValue(node.Mesh, out MeshData mesh))
+                {
+                    if (node.Mesh.Primitives.Count > 1)
+                        Log.Warning($"The mesh '{node.Mesh.Name}' contains " +
+                            "more than one mesh primitive - only the first " +
+                            "mesh primitive will be imported, the others " +
+                            "will be ignored.", nameof(GLTFormatHandler));
+
+                    mesh = ImportMeshPrimitive(meshPrimitive,
+                        () => ImportSkeleton(node));
+
+                    if (meshCache != null) meshCache[node.Mesh] = mesh;
+                }
+
+                parameters[ParameterIdentifier.MeshData] = mesh;
+
+                ImportMaterialParameters(meshPrimitive.Material,
+                    parameters, textureCache);
+            }
+
+            if (node.PunctualLight != null)
+                parameters[ParameterIdentifier.Light] =
+                    ImportLight(node.PunctualLight, node.LocalTransform);
+
+            if (node.Extras != null)
+            {
+                JsonDictionary extras = node.TryUseExtrasAsDictionary(false);
+                foreach (KeyValuePair<string, object> parameter in extras)
+                {
+                    parameters[ParameterIdentifier.Create(parameter.Key)] =
+                        parameter.Value;
+                }
+            }
+
+            return parameters;
         }
 
         /// <summary>
@@ -223,23 +291,6 @@ namespace Eterra.Platforms.Windows.IO
             }
 
             return rootNodeTimelineLinks;
-        }
-
-        //TODO: Rename ChannelIdentifier into ParameterName and use it for
-        //both typed entity parameter names and as channel identifiers.
-        //I think it might even be acceptable that ParameterName is used as
-        //dictionary key (even if that would allow duplicates via the 
-        //identifier). Think about that more.
-        static Dictionary<Node, Dictionary<Node, 
-            Dictionary<ChannelIdentifier, object>>> ImportNodeAttributes(
-            ModelRoot root)
-        {
-            //Idee: Alles über visualroot sammeln, aber ursprungsnode behalten,
-            //dann auf höchster Ebene kontextsensitiv entweder objekte zusammen
-            //führen oder seperate hierarchien erstellen (bzw. kindelemente 
-            //vorerst auslassen)
-
-            throw new NotImplementedException();
         }
 
         static TimelineLayer ImportTimelineLayer(Node node, 
@@ -332,17 +383,17 @@ namespace Eterra.Platforms.Windows.IO
                 */
             }
 
-            TimelineChannel<Vector3> positionChannel =
-                new TimelineChannel<Vector3>(ChannelIdentifier.Position,
+            TimelineParameter<Vector3> positionChannel =
+                new TimelineParameter<Vector3>(ParameterIdentifier.Position,
                 positionInterpolationMethod, positionKeyframes.Values);
-            TimelineChannel<Vector3> scaleChannel =
-                new TimelineChannel<Vector3>(ChannelIdentifier.Scale,
+            TimelineParameter<Vector3> scaleChannel =
+                new TimelineParameter<Vector3>(ParameterIdentifier.Scale,
                 scaleInterpolationMethod, scaleKeyframes.Values);
-            TimelineChannel<Quaternion> rotationChannel =
-                new TimelineChannel<Quaternion>(ChannelIdentifier.Rotation,
+            TimelineParameter<Quaternion> rotationChannel =
+                new TimelineParameter<Quaternion>(ParameterIdentifier.Rotation,
                 rotationInterpolationMethod, rotationKeyframes.Values);
 
-            return new TimelineLayer(node.Name, new TimelineChannel[]
+            return new TimelineLayer(node.Name, new TimelineParameter[]
             {
                 positionChannel, scaleChannel, rotationChannel
             });
@@ -519,80 +570,109 @@ namespace Eterra.Platforms.Windows.IO
             return framesImported;
         }
 
-        /// <summary>
-        /// Imports all meshes from a <see cref="ModelRoot"/> instance and
-        /// returns them both as association between the <see cref="MeshData"/>
-        /// and their visual root as well as their actual associated source
-        /// node.
-        /// </summary>
-        /// <param name="root">
-        /// The <see cref="ModelRoot"/> instance of the scene.
-        /// </param>
-        /// <returns>
-        /// A dictionary with the visual root of the mesh node as key and
-        /// a dictionary as value, which contains the loaded mesh data 
-        /// associated to the original node.
-        /// </returns>
-        static Dictionary<Node, Dictionary<Node, MeshData>> ImportMeshes(
-            ModelRoot root)
+        static Light ImportLight(PunctualLight light, 
+            AffineTransform lightNodeTransformation)
         {
-            if (root == null)
-                throw new ArgumentNullException(nameof(root));
+            if (light == null)
+                throw new ArgumentNullException(nameof(light));
 
-            var meshes = new Dictionary<Node, Dictionary<Node, MeshData>>();
-            var meshCache = new Dictionary<Mesh, MeshData>();
+            Vector3 lightDirection =
+                MathHelper.RotateDirection(Vector3.UnitZ, 
+                lightNodeTransformation.Rotation);
 
-            foreach (Node node in root.LogicalNodes)
-            {
-                if (node.Mesh != null)
-                {
-                    // To prevent the same logical mesh being loaded more than 
-                    // once, a dictionary which contains previously imported 
-                    // meshes can be specified. If the dictionary contains the 
-                    // mesh of the current node already, its converted MeshData
-                    // variant is returned.
-                    if (!meshCache.TryGetValue(node.Mesh, out MeshData mesh))
-                    {
-                        mesh = meshCache[node.Mesh] = ImportMesh(node);
-                    }
-
-                    if (!meshes.TryGetValue(node.VisualRoot, 
-                        out var rootNodeMeshes))
-                        rootNodeMeshes = meshes[node.VisualRoot] =
-                            new Dictionary<Node, MeshData>();
-
-                    rootNodeMeshes[node] = mesh;
-                }
-            }
-
-            return meshes;
+            if (light.LightType == PunctualLightType.Directional)
+                return new Light((Color)light.Color, lightDirection);
+            else if (light.LightType == PunctualLightType.Point)
+                return new Light((Color)light.Color,
+                    lightNodeTransformation.Translation, light.Range);
+            else if (light.LightType == PunctualLightType.Spot)
+                return new Light((Color)light.Color, 
+                    lightNodeTransformation.Translation, light.Range, 
+                    lightDirection, light.InnerConeAngle,
+                    light.OuterConeAngle - light.InnerConeAngle);
+            else throw new ArgumentException("The specified light type is " +
+                "not supported.");
         }
 
-        static MeshData ImportMesh(Node meshNode)
+        static void ImportMaterialParameters(Material material, 
+            Parameters target, Dictionary<Texture, TextureData> textureCache)
         {
-            if (meshNode == null)
-                throw new ArgumentNullException(nameof(meshNode));
-            if (meshNode.Mesh == null)
-                throw new ArgumentException("The specified node doesn't " +
-                    "have a mesh that could be imported.");
+            if (material == null)
+                throw new ArgumentNullException(nameof(material));
+            if (target == null)
+                throw new ArgumentNullException(nameof(target));    
 
-            if (meshNode.Mesh.Primitives.Count == 0)
-                throw new ArgumentException("The specified node contains an " +
-                    "empty mesh (mesh without primitives) that can't " +
-                    "be imported.");
-            if (meshNode.Mesh.Primitives.Count > 1)
-                Log.Warning($"The mesh node '{meshNode.Name}' contains more " +
-                    "than one mesh primitive - only the first mesh " +
-                    "primitive will be imported, the others will be ignored.",
-                        nameof(GLTFormatHandler));
+            foreach (MaterialChannel channel in material.Channels)
+            {
+                void tryAssignTexture(ParameterIdentifier identifier)
+                {
+                    if (channel.Texture != null)
+                    {
+                        if (textureCache == null || 
+                            !textureCache.TryGetValue(channel.Texture,
+                            out TextureData data))
+                        {
+                            data = ImportTexture(channel.Texture);
 
-            MeshPrimitive meshPrimitive = meshNode.Mesh.Primitives[0];
+                            if (textureCache != null) 
+                                textureCache[channel.Texture] = data;
+                        }
 
+                        target[identifier] = data;
+                    }
+                }
+
+                switch (channel.Key)
+                {
+                    case "BaseColor":
+                        target[ParameterIdentifier.BaseColor] =
+                            (Color)channel.Parameter;
+                        tryAssignTexture(ParameterIdentifier.BaseColorMap);
+                        break;
+                    case "Metallic":
+                        tryAssignTexture(ParameterIdentifier.MetallicMap);
+                        break;
+                    case "Normal":
+                        tryAssignTexture(ParameterIdentifier.NormalMap);
+                        break;
+                    case "Occlusion":
+                        tryAssignTexture(ParameterIdentifier.OcclusionMap);
+                        break;
+                    case "Emissive":
+                        tryAssignTexture(ParameterIdentifier.EmissiveMap);
+                        break;
+                    case "Specular":
+                        tryAssignTexture(ParameterIdentifier.SpecularMap);
+                        break;
+                    default:
+                        Log.Trace("Unsupported material channel " +
+                            $"'{channel.Key}' will be ignored.",
+                            nameof(GLTFormatHandler));
+                        break;
+                }
+            }
+        }
+
+        static TextureData ImportTexture(Texture texture)
+        {
+            if (texture == null)
+                throw new ArgumentNullException(nameof(texture));
+
+            using Stream stream = texture.PrimaryImage.Content.Open();
+
+            return BitmapTextureData.FromStream(stream);
+        }
+
+        static MeshData ImportMeshPrimitive(MeshPrimitive meshPrimitive,
+            Func<Skeleton> skeletonFactory)
+        {
+            if (meshPrimitive == null)
+                throw new ArgumentNullException(nameof(meshPrimitive));
             if (meshPrimitive.DrawPrimitiveType != PrimitiveType.TRIANGLES)
-                throw new ArgumentException("The mesh of node " +
-                    $"'{meshNode.Name}' has an unsupported draw primitive " +
-                    $"type (only {nameof(PrimitiveType.TRIANGLES)} is " +
-                    "supported.");
+                throw new ArgumentException("The mesh " +
+                    $"'{meshPrimitive.LogicalParent.Name}' has an unsupported " +
+                    "draw primitive type " +
+                    $"(only {nameof(PrimitiveType.TRIANGLES)} is supported.");
 
             // For the import of the vertex data, a memory stream "wrapper" 
             // is created around every vertex attribute channel, then we'll 
@@ -622,9 +702,9 @@ namespace Eterra.Platforms.Windows.IO
             MemoryStream positions = getVertexData(VertexAttributePosition,
                 out int positionStride);
             if (positions == null)
-                throw new ArgumentException("The specified node contains a " +
-                    "mesh with a primitive, but without vertex positions, " +
-                    "which is invalid and can't be imported.");
+                throw new ArgumentException("The mesh " +
+                    $"'{meshPrimitive.LogicalParent.Name}' doesn't contain " +
+                    "vertex positions, which is invalid and can't be imported.");
 
             MemoryStream normals = getVertexData(VertexAttributeNormal,
                 out int normalStride);
@@ -644,16 +724,16 @@ namespace Eterra.Platforms.Windows.IO
             // ignored in such cases.
             if (joints != null && weights != null && colors != null)
             {
-                Log.Warning($"The mesh node '{meshNode.Name}' contains " +
-                    "vertices with both bone attachments and a color, which " +
-                    "is currently not supported - the color channel is " +
+                Log.Warning($"The mesh '{meshPrimitive.LogicalParent.Name}' " +
+                    "contains vertices with both bone attachments and a color, " +
+                    "which is currently not supported - the color channel is " +
                     "ignored in that case.", nameof(GLTFormatHandler));
                 colors.Dispose();
                 colors = null;
             }
 
             VertexPropertyDataFormat vertexFormat;
-            if (joints != null && weights != null)
+            if (joints != null && weights != null && skeletonFactory != null)
                 vertexFormat = VertexPropertyDataFormat.DeformerAttachments;
             else if (colors != null)
                 vertexFormat = VertexPropertyDataFormat.ColorLight;
@@ -708,18 +788,15 @@ namespace Eterra.Platforms.Windows.IO
 
             // The import of the faces is much more straightforward, luckily.
             List<Face> faces = new List<Face>();
-            foreach ((uint, uint, uint) face in 
+            foreach ((uint, uint, uint) face in
                 meshPrimitive.GetTriangleIndices())
                 faces.Add(new Face(face.Item1, face.Item2, face.Item3));
 
-            MeshData meshData;
             if (vertexFormat == VertexPropertyDataFormat.DeformerAttachments)
-                meshData = MeshData.Create(vertices.ToArray(),
-                    faces.ToArray(), ImportSkeleton(meshNode));
-            else meshData = MeshData.Create(vertices.ToArray(),
-                    faces.ToArray(), vertexFormat);
-
-            return meshData;
+                return MeshData.Create(vertices.ToArray(), faces.ToArray(),
+                    skeletonFactory());
+            else return MeshData.Create(vertices.ToArray(), faces.ToArray(), 
+                vertexFormat);
         }
 
         static Skeleton ImportSkeleton(Node skinnedNode, 
