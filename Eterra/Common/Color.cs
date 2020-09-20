@@ -19,6 +19,7 @@
 
 using System;
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Eterra.Common
@@ -681,6 +682,40 @@ namespace Eterra.Common
                 (byte)Math.Min(Math.Max((color1.G - color2.G), 0), max),
                 (byte)Math.Min(Math.Max((color1.B - color2.B), 0), max),
                 color1.Alpha);
+        }
+
+        /// <summary>
+        /// Explicitely converts a <see cref="Vector3"/> instance to a
+        /// <see cref="Color"/> instance by multiplying every component to
+        /// <see cref="byte.MaxValue"/> and then clamping them to be between
+        /// <see cref="byte.MinValue"/> and <see cref="byte.MaxValue"/>.
+        /// </summary>
+        /// <param name="vector">
+        /// The <see cref="Vector3"/> instance.
+        /// </param>
+        public static explicit operator Color(Vector3 vector)
+        {
+            byte convert(float v) => (byte)Math.Max(Math.Min(v * byte.MaxValue,
+                byte.MaxValue), byte.MinValue);
+            return new Color(convert(vector.X), convert(vector.Y),
+                convert(vector.Z));
+        }
+
+        /// <summary>
+        /// Explicitely converts a <see cref="Vector4"/> instance to a
+        /// <see cref="Color"/> instance by multiplying every component to
+        /// <see cref="byte.MaxValue"/> and then clamping them to be between
+        /// <see cref="byte.MinValue"/> and <see cref="byte.MaxValue"/>.
+        /// </summary>
+        /// <param name="vector">
+        /// The <see cref="Vector4"/> instance.
+        /// </param>
+        public static explicit operator Color(Vector4 vector)
+        {
+            byte convert(float v) => (byte)Math.Max(Math.Min(v * byte.MaxValue,
+                byte.MaxValue), byte.MinValue);
+            return new Color(convert(vector.X), convert(vector.Y),
+                convert(vector.Z), convert(vector.W));
         }
 
         /// <summary>
