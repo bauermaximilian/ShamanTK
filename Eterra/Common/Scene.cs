@@ -1,222 +1,359 @@
-﻿/* 
- * Eterra Framework
- * A simple framework for creating multimedia applications.
- * Copyright (C) 2020, Maximilian Bauer (contact@lengo.cc)
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
-
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace Eterra.Common
 {
-    public class Scene : IEnumerable<Entity>, IDisposable
+    /// <summary>
+    /// Represents a hierarchical collection of 
+    /// <see cref="Node{ParameterCollection}"/> instances.
+    /// </summary>
+    public class Scene : Node<ParameterCollection>
     {
-        public class EntityCollectionUpdatedEventArgs : EventArgs
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Scene"/> class.
+        /// </summary>
+        /// <param name="sceneParameters">
+        /// The <see cref="ParameterCollection"/> instance that provides the
+        /// parameters of the new <see cref="Scene"/> instance.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="sceneParameters"/> is null.
+        /// </exception>
+        public Scene(ParameterCollection sceneParameters)
+            : base(sceneParameters) { }
+
+        /// <summary>
+        /// Removes nodes from the current <see cref="Scene"/> instance which 
+        /// don't match with a 
+        /// their <see cref="Node{T}.Children"/> into their 
+        /// <see cref="Node{T}.Parent"/>.
+        /// </summary>
+        /// <param name="requireAllIdentifiers">
+        /// <c>true</c> to specify that every <see cref="ParameterIdentifier"/>
+        /// from the <paramref name="requiredIdentifiers"/> needs to be defined
+        /// in a <see cref="Node{T}"/> for it to be retained,
+        /// <c>false</c> if at least one of the 
+        /// <see cref="ParameterIdentifier"/> from the 
+        /// <paramref name="requiredIdentifiers"/> needs to be defined in a
+        /// <see cref="Node{T}"/> to be retained.
+        /// </param>
+        /// <param name="requiredIdentifiers">
+        /// The list of <see cref="ParameterIdentifier"/> which either have
+        /// to be present completely in a <see cref="Node{T}"/> instance for it
+        /// to be retained in the <see cref="Scene"/> (if 
+        /// <paramref name="requireAllIdentifiers"/> is <c>true</c>) or
+        /// where at least one needs to be present in a <see cref="Node{T}"/>
+        /// for it to be retained in the <see cref="Scene"/> (if 
+        /// <paramref name="requireAllIdentifiers"/> is <c>false</c>).
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="requiredIdentifiers"/>
+        /// is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when no <see cref="ParameterIdentifier"/> is provided.
+        /// </exception>
+        public void DissolveNodesWithout(bool requireAllIdentifiers,
+            params ParameterIdentifier[] requiredIdentifiers)
         {
-            public bool WasAdded { get; }
+            if (requiredIdentifiers == null)
+                throw new ArgumentNullException(nameof(
+                    requiredIdentifiers));
+            if (requiredIdentifiers.Length == 0)
+                throw new ArgumentException("At least one parameter " +
+                    "identifier needs to be specified!");
 
-            public bool WasRemoved => !WasAdded;
-
-            public Entity Entity { get; }
-
-            public EntityCollectionUpdatedEventArgs(Entity entity, 
-                bool entityAdded)
+            DissolveNodes(delegate (Node<ParameterCollection> node)
             {
-                Entity = entity ??
-                    throw new ArgumentNullException(nameof(entity));
-                WasAdded = entityAdded;
-            }
-        }
-
-        private readonly List<Entity> entities = new List<Entity>();
-        private readonly Dictionary<string, List<Entity>> namedEntities
-            = new Dictionary<string, List<Entity>>();
-
-        public int Count => entities.Count;
-
-        public event EventHandler<EntityCollectionUpdatedEventArgs>
-            EntityRemoved;
-
-        public event EventHandler<EntityCollectionUpdatedEventArgs>
-            EntityAdded;
-
-        public Scene() { }
-
-        public bool TryGet(string name, out Entity[] entities)
-        {
-            if (name == null)
-                throw new ArgumentNullException(nameof(name));
-
-            if (namedEntities.TryGetValue(name,
-                out List<Entity> entitySelection))
-            {
-                entities = entitySelection.ToArray();
-                return true;
-            }
-            else
-            {
-                entities = new Entity[0];
-                return false;
-            }
-        }
-
-        public bool TryGetFirst(string name, out Entity entity)
-        {
-            if (name == null)
-                throw new ArgumentNullException(nameof(name));
-
-            if (namedEntities.TryGetValue(name,
-                out List<Entity> entitySelection))
-            {
-                entity = entitySelection[0];
-                return true;
-            }
-            else
-            {
-                entity = null;
-                return false;
-            }
-        }
-
-        public Entity[] Get(string name)
-        {
-            if (TryGet(name, out Entity[] entities))
-                return entities;
-            else throw new ArgumentException("No entities with the " +
-                "specified name exist in the current scene.");
-        }
-
-        public Entity GetFirst(string name)
-        {
-            if (TryGetFirst(name, out Entity entity))
-                return entity;
-            else throw new ArgumentException("No entity with the " +
-                "specified name exists in the current scene.");
-        }
-
-        public Entity Add()
-        {
-            Entity item = new Entity(this);
-
-            item.NameChanged += EntityNameChanged;
-            item.LocationChanged += EntityLocationChanged;
-
-            entities.Add(item);
-
-            EntityAdded?.Invoke(this, new EntityCollectionUpdatedEventArgs(
-                item, true));
-
-            return item;
-        }
-
-        private void AddEntityToNamedCollection(Entity entity)
-        {
-            if (entity == null)
-                throw new ArgumentNullException(nameof(entity));
-
-            if (namedEntities.TryGetValue(entity.Name, 
-                out List<Entity> entitySelection))
-                entitySelection.Add(entity);
-            else namedEntities.Add(entity.Name, new List<Entity>() { entity });
-        }
-
-        private void RemoveEntityFromNamedCollection(Entity entity,
-            string nameInCollection = null)
-        {
-            if (entity == null)
-                throw new ArgumentNullException(nameof(entity));
-            if (nameInCollection == null) nameInCollection = entity.Name;
-
-            if (nameInCollection != null &&
-                namedEntities.TryGetValue(nameInCollection,
-                out List<Entity> entitySelection))
-            {
-                entitySelection.Remove(entity);
-                if (entitySelection.Count == 0)
-                    namedEntities.Remove(nameInCollection);
-            }
-        }
-
-        private void EntityLocationChanged(object sender, EventArgs e) { }
-
-        private void EntityNameChanged(object sender, 
-            Entity.NameUpdatedEventArgs e)
-        {
-            if (e.PreviousName != null)
-                RemoveEntityFromNamedCollection(e.Entity, e.PreviousName);
-            if (e.Entity.Name != null)
-                AddEntityToNamedCollection(e.Entity);
-        }
-
-        public void Clear()
-        {
-            while (entities.Count > 0) Remove(entities[0]);
-        }
-
-        public bool Contains(Entity item)
-        {
-            if (item == null)
-                throw new ArgumentNullException(nameof(item));
-
-            return entities.Contains(item);
-        }
-
-        public void CopyTo(Entity[] array, int arrayIndex)
-        {
-            try { entities.CopyTo(array, arrayIndex); }
-            catch (ArgumentNullException) { throw; }
-            catch (ArgumentOutOfRangeException) { throw; }
-            catch (ArgumentException) { throw; }
-        }
-
-        public IEnumerator<Entity> GetEnumerator()
-        {
-            return entities.GetEnumerator();
-        }
-
-        public bool Remove(Entity item, bool disposeEntity = true)
-        {
-            try
-            {
-                if (Contains(item))
+                foreach (ParameterIdentifier identifier in
+                    requiredIdentifiers)
                 {
-                    item.NameChanged -= EntityNameChanged;
-                    item.LocationChanged -= EntityLocationChanged;
-                    RemoveEntityFromNamedCollection(item);
-                    entities.Remove(item);
-                    if (disposeEntity) item.Dispose();
-                    EntityRemoved?.Invoke(this, 
-                        new EntityCollectionUpdatedEventArgs(item, false));
-
-                    return true;
+                    if (node.Value.ContainsKey(identifier))
+                    {
+                        if (!requireAllIdentifiers) return false;
+                    }
+                    else
+                    {
+                        if (requireAllIdentifiers) return true;
+                    }
                 }
-                else return false;
+                return true;
+            }, InheritParametersFromParent);
+        }
+
+        /// <summary>
+        /// Removes nodes from the current <see cref="Scene"/> instance which 
+        /// match a certain selector and move their 
+        /// <see cref="Node{T}.Children"/> into their 
+        /// <see cref="Node{T}.Parent"/>.
+        /// </summary>
+        /// <param name="isRemovalCandidate">
+        /// The function that, when provided with one of the
+        /// <see cref="Node{T}"/> instances from this <see cref="Scene"/>, 
+        /// decides whether to remove the instance from this 
+        /// <see cref="Scene"/> (<c>true</c>) or to leave it in (<c>false</c>).
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="isRemovalCandidate"/> is null.
+        /// </exception>
+        public void DissolveNodes(
+            Func<Node<ParameterCollection>, bool> isRemovalCandidate)
+        {
+            DissolveNodes(isRemovalCandidate, InheritParametersFromParent);
+        }
+
+        /// <summary>
+        /// Removes nodes from the current <see cref="Scene"/> instance which 
+        /// match a certain selector and move their 
+        /// <see cref="Node{T}.Children"/> into their 
+        /// <see cref="Node{T}.Parent"/>.
+        /// </summary>
+        /// <param name="isRemovalCandidate">
+        /// The function that, when provided with one of the
+        /// <see cref="Node{T}"/> instances from this <see cref="Scene"/>, 
+        /// decides whether to remove the instance from this 
+        /// <see cref="Scene"/> (<c>true</c>) or to leave it in (<c>false</c>).
+        /// </param>
+        /// <param name="childNodeTransformer">
+        /// The transform function, that will be applied to every child of
+        /// the specified <paramref name="node"/> before they are moved into
+        /// this nodes' <see cref="Children"/> and removed from the 
+        /// specified <paramref name="node"/>.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="isRemovalCandidate"/> or
+        /// <paramref name="childNodeTransformer"/> are null.
+        /// </exception>
+        public void DissolveNodes(
+            Func<Node<ParameterCollection>, bool> isRemovalCandidate,
+            Action<Node<ParameterCollection>> childNodeTransformer)
+        {
+            if (isRemovalCandidate == null)
+                throw new ArgumentNullException(nameof(isRemovalCandidate));
+            if (childNodeTransformer == null)
+                throw new ArgumentNullException(nameof(childNodeTransformer));
+
+            var remainingNodesStack = new Stack<Node<ParameterCollection>>();
+
+            remainingNodesStack.Push(this);
+
+            while (remainingNodesStack.Count > 0)
+            {
+                Node<ParameterCollection> currentNode =
+                    remainingNodesStack.Pop();
+
+                if (!currentNode.IsRoot && isRemovalCandidate(currentNode))
+                {
+                    currentNode.Parent.RemoveChild(currentNode,
+                        childNodeTransformer);
+                    remainingNodesStack.Push(currentNode.Parent);
+                }
+
+                foreach (var child in currentNode.Children)
+                    remainingNodesStack.Push(child);
             }
-            catch (ArgumentNullException) { throw; }
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
+        /// <summary>
+        /// Deletes nodes (and their <see cref="Node{T}.Children"/>) 
+        /// from the current <see cref="Scene"/> instance which match a 
+        /// certain selector.
+        /// </summary>
+        /// <param name="isRemovalCandidate">
+        /// The function that, when provided with one of the
+        /// <see cref="Node{T}"/> instances from this <see cref="Scene"/>, 
+        /// decides whether to remove the instance from this 
+        /// <see cref="Scene"/> (<c>true</c>) or to leave it in (<c>false</c>).
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="isRemovalCandidate"/> is null.
+        /// </exception>
+        /// <remarks>
+        /// This method will call the 
+        /// <see cref="OnChildRemoved(Node{ParameterCollection})"/> method
+        /// for every <see cref="Node{T}"/> selected and removed by the
+        /// <paramref name="isRemovalCandidate"/>, but not for eventual 
+        /// children of these nodes.
+        /// </remarks>
+        public void DeleteNodes(
+            Func<Node<ParameterCollection>, bool> isRemovalCandidate)
         {
-            return GetEnumerator();
+            if (isRemovalCandidate == null)
+                throw new ArgumentNullException(nameof(isRemovalCandidate));
+
+            Stack<Node<ParameterCollection>> remainingNodesStack =
+                new Stack<Node<ParameterCollection>>();
+
+            remainingNodesStack.Push(this);
+
+            while (remainingNodesStack.Count > 0)
+            {
+                var currentNode = remainingNodesStack.Pop();
+
+                if (currentNode.Children.Count > 0)
+                {
+                    foreach (var child in currentNode.Children)
+                        remainingNodesStack.Push(child);
+                }
+                else
+                {
+                    if (!currentNode.IsRoot && isRemovalCandidate(currentNode))
+                    {
+                        if (currentNode.Children.Count == 0)
+                        {
+                            currentNode.Parent.RemoveChild(currentNode);
+
+                            if (!currentNode.Parent.IsRoot)
+                                remainingNodesStack.Push(currentNode.Parent);
+                        }
+                    }
+                }
+            }
         }
 
-        public void Dispose()
+        protected override void OnChildAdded(
+            Node<ParameterCollection> newChild)
         {
-            while (entities.Count > 0) Remove(entities[0], true);
+            base.OnChildAdded(newChild);
+        }
+
+        protected override void OnChildRemoved(
+            Node<ParameterCollection> removedChild)
+        {
+            base.OnChildRemoved(removedChild);
+        }
+
+        static void InheritParametersFromParent(
+            Node<ParameterCollection> childNode)
+        {
+            if (childNode == null)
+                throw new ArgumentNullException(nameof(childNode));
+
+            Node<ParameterCollection> parentNode = childNode.Parent;
+
+            if (childNode.IsRoot || parentNode.IsRoot) return;
+
+            if (!parentNode.Value.TryGetValue(ParameterIdentifier.Position,
+                out Vector3 parentPosition)) parentPosition = Vector3.Zero;
+            if (!parentNode.Value.TryGetValue(ParameterIdentifier.Scale,
+                out Vector3 parentScale)) parentScale = Vector3.One;
+            if (!parentNode.Value.TryGetValue(ParameterIdentifier.Rotation,
+                out Quaternion parentRotation))
+                parentRotation = Quaternion.Identity;
+
+            Matrix4x4 parentTransformation = MathHelper.CreateTransformation(
+                parentPosition, parentScale, parentRotation);
+
+            if (!childNode.Value.TryGetValue(ParameterIdentifier.Position,
+                    out Vector3 childPosition)) childPosition = Vector3.Zero;
+            if (!childNode.Value.TryGetValue(ParameterIdentifier.Scale,
+                out Vector3 childScale)) childScale = Vector3.One;
+            if (!childNode.Value.TryGetValue(ParameterIdentifier.Rotation,
+                out Quaternion childRotation))
+                childRotation = Quaternion.Identity;
+
+            Matrix4x4 childTransformation =
+                MathHelper.CreateTransformation(childPosition, childScale,
+                childRotation);
+
+            Matrix4x4 absoluteChildTransformation =
+                MathHelper.CombineTransformations(parentTransformation,
+                childTransformation);
+
+            string nodeName = string.IsNullOrEmpty(childNode.Value.Name) ?
+                "" : $"'{childNode.Value.Name}'";
+
+            if (Matrix4x4.Decompose(absoluteChildTransformation,
+                out Vector3 absoluteChildScale,
+                out Quaternion absoluteChildRotation,
+                out Vector3 absoluteChildPosition))
+            {
+                childNode.Value[ParameterIdentifier.Position] =
+                    absoluteChildPosition;
+                childNode.Value[ParameterIdentifier.Scale] =
+                    absoluteChildScale;
+                childNode.Value[ParameterIdentifier.Rotation] =
+                    absoluteChildRotation;
+
+                foreach (var parentParameter in parentNode.Value)
+                {
+                    if (!childNode.Value.ContainsKey(parentParameter.Key) &&
+                        parentParameter.Key !=
+                        ParameterIdentifier.Transformation &&
+                        parentParameter.Key !=
+                        ParameterIdentifier.TransformationGlobal)
+                    {
+                        childNode.Value[parentParameter.Key] =
+                            parentParameter.Value;
+                    }
+                }
+            }
+            else Log.Warning("Decomposing absolute child " +
+              $"transformation failed for node {nodeName}.",
+              nameof(Scene));
+        }
+
+        static void CompleteTransformationParameters(
+            Node<ParameterCollection> node,
+            bool preferTransformationMatrixAsSource,
+            bool throwOnMissingParentGlobalTransform)
+        {
+            if (node == null)
+                throw new ArgumentNullException(nameof(node));
+
+            bool transformationGiven = node.Value.TryGetValue(
+                ParameterIdentifier.Transformation,
+                out Matrix4x4 transformation);
+
+            bool positionGiven = node.Value.TryGetValue(
+                ParameterIdentifier.Position, out Vector3 position);
+            bool scaleGiven = node.Value.TryGetValue(
+                ParameterIdentifier.Scale, out Vector3 scale);
+            bool rotationGiven = node.Value.TryGetValue(
+                ParameterIdentifier.Rotation, out Quaternion rotation);
+
+            if (transformationGiven && ((!positionGiven && !scaleGiven &&
+                !rotationGiven) || preferTransformationMatrixAsSource))
+            {
+                Matrix4x4.Decompose(transformation, out scale, out rotation,
+                    out position);
+            }
+            else
+            {
+                if (!positionGiven) position = Vector3.Zero;
+                if (!scaleGiven) scale = Vector3.One;
+                if (!rotationGiven) rotation = Quaternion.Identity;
+
+                transformation = MathHelper.CreateTransformation(position,
+                    scale, rotation);
+            }
+
+            node.Value[ParameterIdentifier.Position] = position;
+            node.Value[ParameterIdentifier.Scale] = scale;
+            node.Value[ParameterIdentifier.Rotation] = rotation;
+            node.Value[ParameterIdentifier.Transformation] = transformation;
+
+            if (node.IsRoot)
+            {
+                node.Value[ParameterIdentifier.TransformationGlobal] =
+                    transformation;
+            }
+            else
+            {
+                if (node.Parent.Value.TryGetValue(
+                    ParameterIdentifier.TransformationGlobal,
+                    out Matrix4x4 parentTransformationGlobal))
+                {
+                    node.Value[ParameterIdentifier.TransformationGlobal] =
+                        MathHelper.CombineTransformations(
+                            parentTransformationGlobal, transformation);
+                }
+                else if (throwOnMissingParentGlobalTransform)
+                    throw new InvalidOperationException("The parent node " +
+                    "doesn't contain a value for the parameter " +
+                    $"'{nameof(ParameterIdentifier.TransformationGlobal)}'.");
+            }
         }
     }
 }

@@ -53,44 +53,54 @@ namespace Eterra.Common
     /// assigned value.
     /// </summary>
     /// <remarks>
-    /// Instances of this class can be used as keys for hash maps/dictionaries -
-    /// however, as the <see cref="ValueTypeConstraint"/> is part of the hash
-    /// value of each <see cref="ParameterIdentifier"/> instance, it is possible
-    /// to add parameters with the same identifier <see cref="Name"/> but a 
-    /// different <see cref="ValueTypeConstraint"/>.
+    /// Instances of this class can be used as keys for hash maps/dictionaries 
+    /// - however, as the <see cref="ValueTypeConstraint"/> is part of the hash
+    /// value of each <see cref="ParameterIdentifier"/> instance, it is 
+    /// possible to add parameters with the same identifier <see cref="Name"/> 
+    /// but a different <see cref="ValueTypeConstraint"/>.
     /// If this behaviour is not wanted, the <see cref="Name"/> of each 
-    /// <see cref="ParameterIdentifier"/> instance should be used as key instead.
+    /// <see cref="ParameterIdentifier"/> instance should be used as key 
+    /// instead.
     /// </remarks>
     public class ParameterIdentifier : IEquatable<ParameterIdentifier>
     {
         /// <summary>
         /// Gets a <see cref="ParameterIdentifier{T}"/> instance for a 
-        /// parameter that provides a position as <see cref="Vector3"/>.
+        /// parameter that provides a local position as <see cref="Vector3"/>.
         /// </summary>
         public static ParameterIdentifier<Vector3> Position { get; }
             = Create<Vector3>(nameof(Position));
 
         /// <summary>
         /// Gets a <see cref="ParameterIdentifier{T}"/> instance for a 
-        /// parameter that provides a scale as <see cref="Vector3"/>.
+        /// parameter that provides a local scale as <see cref="Vector3"/>.
         /// </summary>
         public static ParameterIdentifier<Vector3> Scale { get; }
             = Create<Vector3>(nameof(Scale));
 
         /// <summary>
         /// Gets a <see cref="ParameterIdentifier{T}"/> instance for a 
-        /// parameter that provides a rotation as <see cref="Quaternion"/>.
+        /// parameter that provides a local rotation as 
+        /// <see cref="Quaternion"/>.
         /// </summary>
         public static ParameterIdentifier<Quaternion> Rotation { get; }
             = Create<Quaternion>(nameof(Rotation));
 
         /// <summary>
         /// Gets a <see cref="ParameterIdentifier{T}"/> instance for a 
-        /// parameter that provides an transformation (with position,
+        /// parameter that provides a local transformation (with position,
         /// scale and rotation) as a <see cref="Matrix4x4"/>.
         /// </summary>
         public static ParameterIdentifier<Matrix4x4> Transformation { get; }
             = Create<Matrix4x4>(nameof(Transformation));
+
+        /// <summary>
+        /// Gets a <see cref="ParameterIdentifier{T}"/> instance for a 
+        /// parameter that provides a global transformation (with position,
+        /// scale and rotation) as a <see cref="Matrix4x4"/>.
+        /// </summary>
+        public static ParameterIdentifier<Matrix4x4> TransformationGlobal 
+            { get; } = Create<Matrix4x4>(nameof(TransformationGlobal));
 
         /// <summary>
         /// Gets a <see cref="ParameterIdentifier{T}"/> instance for a 
@@ -99,6 +109,13 @@ namespace Eterra.Common
         /// </summary>
         public static ParameterIdentifier<bool> Visible { get; }
             = Create<bool>(nameof(Visible));
+
+        /// <summary>
+        /// Gets a <see cref="ParameterIdentifier{T}"/> instance for a 
+        /// parameter that provides a <see cref="Timeline"/> instance.
+        /// </summary>
+        public static ParameterIdentifier<Timeline> Timeline { get; }
+            = Create<Timeline>(nameof(Timeline));
 
         /// <summary>
         /// Gets a <see cref="ParameterIdentifier{T}"/> instance for a 
@@ -312,6 +329,25 @@ namespace Eterra.Common
             if (valueTypeConstraint == null)
                 throw new ArgumentNullException(nameof(valueTypeConstraint));
             return ValueTypeConstraint.IsAssignableFrom(valueTypeConstraint);
+        }
+
+        /// <summary>
+        /// Checks whether a specific value type matches the type constraint
+        /// of the current <see cref="ParameterIdentifier"/> instance.
+        /// </summary>
+        /// <param name="value">
+        /// The value, which type should be checked whether it matches
+        /// the current <see cref="ValueTypeConstraint"/> or not.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if the <paramref name="value"/> matches with the 
+        /// current <see cref="ValueTypeConstraint"/>, <c>false</c> otherwise
+        /// (or when <paramref name="value"/> is null).
+        /// </returns>
+        public bool MatchesConstraint(object value)
+        {
+            if (value == null) return false;
+            return ValueTypeConstraint.IsAssignableFrom(value.GetType());
         }
 
         /// <summary>
