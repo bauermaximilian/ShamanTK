@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Eterra.Common
 {
@@ -166,19 +167,35 @@ namespace Eterra.Common
         /// Gets the parent <see cref="Node{T}"/> or null, if the
         /// current element is the root element of the hierarchy.
         /// </summary>
-        public Node<T> Parent { get; }
+        public Node<T> Parent { get; private set; }
 
         /// <summary>
-        /// Gets the value of the current <see cref="Node{T}"/> node.
+        /// Gets or sets the value of the current <see cref="Node{T}"/> node.
         /// </summary>
-        public T Value { get; private set; }
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when the assigned value is null.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// Is thrown when <see cref="IsReadOnly"/> is <c>true</c>.
+        /// </exception>
+        public T Value
+        {
+            get => value;
+            set
+            {
+                if (IsReadOnly) throw ReadOnlyViolationException;
+                this.value = value ?? 
+                    throw new ArgumentNullException(nameof(value));
+            }
+        }
+        private T value;
 
         /// <summary>
-        /// Gets the depth of the current <see cref="Node{T}"/> instance
+        /// Gets the depth level of the current <see cref="Node{T}"/> instance
         /// in the hierarchy in relation to <see cref="Root"/>.
         /// For <see cref="Root"/>, this value is 0.
         /// </summary>
-        public int Depth { get; } = 0;
+        public int DepthLevel { get; private set; } = 0;
 
         private int rootHighestIndex = 0;
 
@@ -187,8 +204,6 @@ namespace Eterra.Common
         /// This value is assigned when the node is created and doesn't
         /// change, even if nodes with an index smaller than the current one
         /// get removed.
-        /// This can therefore be used as a faster alternative to the 
-        /// <see cref="object.GetHashCode"/> method.
         /// </summary>
         internal int Index { get; }
 
@@ -200,7 +215,6 @@ namespace Eterra.Common
 
         private Node()
         {
-            Value = default;
             readOnlyChildren =
                 new ReadOnlyCollection<Node<T>>(children);
             Root = this;
@@ -227,10 +241,10 @@ namespace Eterra.Common
         {
             Parent = parent ?? throw new ArgumentNullException(nameof(parent));
             Root = parent.Root;
-            Depth = parent.Depth + 1;
+            DepthLevel = parent.DepthLevel + 1;
 
-            //Assign the currently highest index, which is stored in the root,
-            //as index of the current node and increment that value by one.
+            // Assign the currently highest index, which is stored in the root,
+            // as index of the current node and increment that value by one.
             Index = Root.rootHighestIndex++;
         }
 
@@ -264,10 +278,67 @@ namespace Eterra.Common
                     children.Add(childNode);
             }
 
-            //Copies the highest index from the previous root node.
+            // Copies the highest index from the previous root node.
             rootHighestIndex = otherRoot.rootHighestIndex;
 
             isReadOnly = true;
+        }
+
+        /// <summary>
+        /// When overridden, this method defines the behaviour when a new child
+        /// <see cref="Node{T}"/> instance is added anywhere in the hierarchy.
+        /// Only accepts calls in <see cref="Root"/>.
+        /// </summary>
+        /// <param name="newChild">The new child instance.</param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="newChild"/> is null.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// Is thrown when this method is called when <see cref="IsRoot"/> of
+        /// the current instance is <c>false</c>.
+        /// </exception>
+        /// <remarks>
+        /// This behaviour only needs to be overridden in the root element 
+        /// instance class.
+        /// </remarks>
+        protected virtual void OnChildAdded(Node<T> newChild)
+        {
+            if (newChild == null)
+                throw new ArgumentNullException(nameof(newChild));
+            if (!IsRoot)
+                throw new InvalidOperationException("This method must only " +
+                    "be called in the root node.");
+            return;
+        }
+
+        /// <summary>
+        /// When overridden, this method defines the behaviour when a child
+        /// <see cref="Node{T}"/> instance is removed anywhere from the 
+        /// hierarchy. Only accepts calls in <see cref="Root"/>.
+        /// </summary>
+        /// <param name="removedChild">The removed child instance.</param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="removedChild"/> is null.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// Is thrown when this method is called when <see cref="IsRoot"/> of
+        /// the current instance is <c>false</c>.
+        /// </exception>
+        /// <remarks>
+        /// This behaviour only needs to be overridden in the root element 
+        /// instance class.
+        /// This method only gets called when an element is actually removed
+        /// from the hierarchy - if it's attempted to remove a non-existing
+        /// element from the hierarchy, this method will not be called then.
+        /// </remarks>
+        protected virtual void OnChildRemoved(Node<T> removedChild)
+        {
+            if (removedChild == null)
+                throw new ArgumentNullException(nameof(removedChild));
+            if (!IsRoot)
+                throw new InvalidOperationException("This method must only " +
+                    "be called in the root node.");
+            return;
         }
 
         /// <summary>
@@ -293,14 +364,17 @@ namespace Eterra.Common
             if (value == null)
                 throw new ArgumentNullException(nameof(value));
 
-            Node<T> childIdem = new Node<T>(value, this);
-            children.Add(childIdem);
-            return childIdem;
+            Node<T> childItem = new Node<T>(value, this);
+            children.Add(childItem);
+
+            Root.OnChildAdded(childItem);
+
+            return childItem;
         }
 
         /// <summary>
-        /// Removes a child node from the current 
-        /// <see cref="Node{ValueT}"/>.
+        /// Removes a child node (and all its <see cref="Children"/>) from the 
+        /// current <see cref="Node{ValueT}"/> instance.
         /// </summary>
         /// <param name="node">The node instance to be removed.</param>
         /// <returns>
@@ -320,27 +394,80 @@ namespace Eterra.Common
                 throw new ArgumentNullException(nameof(node));
             if (IsReadOnly) throw ReadOnlyViolationException;
 
-            return children.Remove(node);
+            bool childWasRemoved = children.Remove(node);
+
+            if (childWasRemoved) Root.OnChildRemoved(node);
+
+            return childWasRemoved;
         }
 
         /// <summary>
-        /// Assigns a new value to <see cref="Value"/>.
+        /// Removes a child node from the current <see cref="Node{ValueT}"/> 
+        /// instance after transforming and moving its children into this 
+        /// instance.
         /// </summary>
-        /// <param name="newValue">
-        /// The new value for <see cref="Value"/>.
+        /// <param name="node">The node instance to be removed.</param>
+        /// <param name="childNodeTransformer">
+        /// The transform function, that will be applied to every child of
+        /// the specified <paramref name="node"/> before they are moved into
+        /// this nodes' <see cref="Children"/> and removed from the 
+        /// specified <paramref name="node"/>.
         /// </param>
+        /// <returns>
+        /// <c>true</c> if the specified <paramref name="node"/> was found and 
+        /// removed, <c>false</c> if the instance wasn't present in 
+        /// <see cref="Children"/> and no changes were made.
+        /// </returns>
         /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="newValue"/> is null.
+        /// Is thrown when <paramref name="node"/> or
+        /// <paramref name="childNodeTransformer"/> are null.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// Is thrown when <see cref="IsReadOnly"/> is <c>true</c>.
         /// </exception>
-        public void SetValue(T newValue)
+        /// <remarks>
+        /// This method causes the <see cref="OnChildRemoved(Node{T})"/> 
+        /// method to be called once for <paramref name="node"/> and 
+        /// the <see cref="OnChildAdded(Node{T})"/>
+        /// </remarks>
+        public bool RemoveChild(Node<T> node, 
+            Action<Node<T>> childNodeTransformer)
         {
+            if (node == null)
+                throw new ArgumentNullException(nameof(node));
+            if (childNodeTransformer == null)
+                throw new ArgumentNullException(nameof(childNodeTransformer));
             if (IsReadOnly) throw ReadOnlyViolationException;
 
-            Value = newValue ?? 
-                throw new ArgumentNullException(nameof(newValue));
+            if (children.Contains(node))
+            {
+                Stack<Node<T>> nodeTransfer = new Stack<Node<T>>();
+                foreach (Node<T> childNodeChild in node)
+                {
+                    childNodeTransformer(childNodeChild);
+                    nodeTransfer.Push(childNodeChild);
+                }
+
+                node.children.Clear();
+
+                children.Remove(node);
+
+                Root.OnChildRemoved(node);
+
+                while (nodeTransfer.Count > 0)
+                {
+                    Node<T> childNode = nodeTransfer.Pop();
+
+                    childNode.Parent = this;
+                    childNode.DepthLevel = DepthLevel + 1;
+                    children.Add(childNode);
+
+                    Root.OnChildAdded(childNode);
+                }                
+
+                return true;
+            }
+            else return false;
         }
 
         /// <summary>
@@ -639,9 +766,9 @@ namespace Eterra.Common
                         nextBranch = true;
                     }
 
-                    if (lastDepth < node.Depth)
+                    if (lastDepth < node.DepthLevel)
                     {
-                        lastDepth = node.Depth;
+                        lastDepth = node.DepthLevel;
                         deeper = true;//Hgnnnn...
                     }
 
