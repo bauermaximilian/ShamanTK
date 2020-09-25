@@ -21,29 +21,15 @@ using Eterra.Common;
 using Eterra.IO;
 using SharpGLTF.Animations;
 using SharpGLTF.IO;
-using SharpGLTF.Runtime;
 using SharpGLTF.Schema2;
 using SharpGLTF.Transforms;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Eterra.Platforms.Windows.IO
 {
-    public class Parameters : Dictionary<ParameterIdentifier, object> { }
-
-    public class SceneHierarchy : Node<Parameters>
-    {
-        public SceneHierarchy() : base(new Parameters())
-        {
-
-        }
-    }
-
     class GLTFormatHandler : IResourceFormatHandler
     {
         /// <summary>
@@ -120,7 +106,7 @@ namespace Eterra.Platforms.Windows.IO
             catch (FormatException) { throw; }
             catch (IOException) { throw; }
 
-            SceneHierarchy scene = GenerateScene(root);
+            Common.Scene scene = ImportScene(root.DefaultScene);
             if (typeof(T).IsAssignableFrom(scene.GetType()))
                 return (T)(object)scene;
             else throw new ArgumentException("The loaded resource of " +
@@ -128,64 +114,76 @@ namespace Eterra.Platforms.Windows.IO
                 $"the requested type '{typeof(T).Name}'.");
         }
 
-        private static SceneHierarchy GenerateScene(ModelRoot root)
+        static Common.Scene ImportScene(SharpGLTF.Schema2.Scene scene)
         {
-            var nodes = ImportNodes(root);
+            if (scene == null)
+                throw new ArgumentNullException(nameof(scene));
 
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Imports all meshes and their associated material properties from a 
-        /// <see cref="ModelRoot"/> instance and returns them both as association 
-        /// between the <see cref="MeshData"/> and their visual root as well as 
-        /// their actual associated source node.
-        /// </summary>
-        /// <param name="root">
-        /// The <see cref="ModelRoot"/> instance of the scene.
-        /// </param>
-        /// <returns>
-        /// A dictionary with the visual root of the mesh node as key and
-        /// a dictionary as value, which contains the loaded mesh data 
-        /// associated to the original node.
-        /// </returns>
-        static Dictionary<Node, Dictionary<Node, Parameters>> ImportNodes(
-            ModelRoot root)
-        {
-            if (root == null)
-                throw new ArgumentNullException(nameof(root));
-
-            var nodes = new Dictionary<Node, Dictionary<Node, Parameters>>();
             var meshCache = new Dictionary<Mesh, MeshData>();
             var textureCache = new Dictionary<Texture, TextureData>();
 
-            foreach (Node node in root.LogicalNodes)
+            var timelines = ImportTimelines(scene.LogicalParent);
+
+            ParameterCollection targetSceneParameters = 
+                new ParameterCollection("Scene");
+
+            if (scene.Extras != null)
             {
-                Parameters nodeParameters = ImportNode(node, meshCache,
-                    textureCache);
-
-                if (nodeParameters.Count > 0)
+                JsonDictionary extras = scene.TryUseExtrasAsDictionary(false);
+                foreach (KeyValuePair<string, object> parameter in extras)
                 {
-                    if (!nodes.TryGetValue(node.VisualRoot,
-                        out Dictionary<Node, Parameters> rootNodeParameters))
-                        rootNodeParameters = nodes[node.VisualRoot] =
-                            new Dictionary<Node, Parameters>();
-
-                    rootNodeParameters[node] = nodeParameters;
+                    targetSceneParameters[
+                        ParameterIdentifier.Create(parameter.Key)] =
+                        parameter.Value;
                 }
             }
 
-            return nodes;
+            Common.Scene targetSceneHierarchy = 
+                new Common.Scene(targetSceneParameters);
+
+            var importStack = new Stack<(Node source, 
+                Node<ParameterCollection> targetParent)>();
+
+            foreach (Node source in scene.VisualChildren)
+                importStack.Push((source, targetSceneHierarchy));
+
+            while (importStack.Count > 0)
+            {
+                (Node source, Node<ParameterCollection> targetParent) = 
+                    importStack.Pop();
+
+                ParameterCollection targetParameters =
+                    ImportNode(source, meshCache, textureCache);
+
+                if (timelines.TryGetValue(source, out Timeline timeline))
+                    targetParameters[ParameterIdentifier.Timeline] = timeline;
+
+                Node<ParameterCollection> target =
+                    targetParent.AddChild(targetParameters);
+
+                int childrenCount = 0;
+                foreach (Node sourceChild in source.VisualChildren)
+                {
+                    importStack.Push((sourceChild, target));
+                    childrenCount++;
+                }
+            }
+
+            targetSceneHierarchy.DissolveNodesWithout(false,
+                ParameterIdentifier.MeshData, ParameterIdentifier.Light);
+
+            return targetSceneHierarchy;
         }
 
-        static Parameters ImportNode(Node node,
+        static ParameterCollection ImportNode(Node node,
             Dictionary<Mesh, MeshData> meshCache,
             Dictionary<Texture, TextureData> textureCache)
         {
             if (node == null)
                 throw new ArgumentNullException(nameof(node));
 
-            Parameters parameters = new Parameters();
+            ParameterCollection parameters = 
+                new ParameterCollection(node.Name ?? "");
 
             if (node.Mesh != null && node.Mesh.Primitives.Count > 0)
             {
@@ -225,6 +223,13 @@ namespace Eterra.Platforms.Windows.IO
                         parameter.Value;
                 }
             }
+
+            parameters[ParameterIdentifier.Position] =
+                node.LocalTransform.Translation;
+            parameters[ParameterIdentifier.Scale] =
+                node.LocalTransform.Scale;
+            parameters[ParameterIdentifier.Rotation] =
+                node.LocalTransform.Rotation;
 
             return parameters;
         }
@@ -399,74 +404,6 @@ namespace Eterra.Platforms.Windows.IO
             });
         }
 
-        /*
-        // Previous approach, only supports one timeline layer per Node
-        // (and doesn't combine multiple animations into one timeline layer
-        // with markers).
-        private static TimelineLayer ImportTimelineLayer(Node node, 
-            SharpGLTF.Schema2.Animation sourceAnimation)
-        {
-            if (node == null)
-                throw new ArgumentNullException(nameof(node));
-            if (sourceAnimation == null)
-                throw new ArgumentNullException(nameof(sourceAnimation));
-
-            static TimelineChannel<T> ImportTimelineChannel<T>(
-                ChannelIdentifier channelIdentifier,
-                IAnimationSampler<T> sourceAnimationSampler)
-                where T : unmanaged
-            {
-                if (sourceAnimationSampler == null)
-                    throw new ArgumentNullException(
-                        nameof(sourceAnimationSampler));
-                if (channelIdentifier == null)
-                    throw new ArgumentNullException(nameof(channelIdentifier));
-
-                SortedList<double, Keyframe<T>> keyframes =
-                    new SortedList<double, Keyframe<T>>();
-
-                ImportKeyframes<T>(sourceAnimationSampler, keyframes, 0,
-                    out InterpolationMethod interpolationMethod);
-
-                try
-                {
-                    return new TimelineChannel<T>(channelIdentifier,
-                        interpolationMethod, keyframes.Values);
-                }
-                catch (ArgumentException) { throw; }
-            }
-
-            List<TimelineChannel> timelineChannels = 
-                new List<TimelineChannel>();
-
-            IAnimationSampler<Vector3> translationSampler = 
-                sourceAnimation.FindTranslationSampler(node);
-            if (translationSampler != null)
-            {
-                timelineChannels.Add(ImportTimelineChannel(
-                    ChannelIdentifier.Position, translationSampler));
-            }
-
-            IAnimationSampler<Vector3> scaleSampler =
-                sourceAnimation.FindScaleSampler(node);
-            if (scaleSampler != null)
-            {
-                timelineChannels.Add(ImportTimelineChannel(
-                    ChannelIdentifier.Scale, scaleSampler));
-            }
-
-            IAnimationSampler<Quaternion> rotationSampler =
-                sourceAnimation.FindRotationSampler(node);
-            if (rotationSampler != null)
-            {
-                timelineChannels.Add(ImportTimelineChannel(
-                    ChannelIdentifier.Rotation, rotationSampler));
-            }
-
-            return new TimelineLayer(node.Name, timelineChannels);
-        }
-        */
-
         /// <summary>
         /// Imports an animation from an <see cref="IAnimationSampler{T}"/>.
         /// </summary>
@@ -595,7 +532,8 @@ namespace Eterra.Platforms.Windows.IO
         }
 
         static void ImportMaterialParameters(Material material, 
-            Parameters target, Dictionary<Texture, TextureData> textureCache)
+            ParameterCollection target, 
+            Dictionary<Texture, TextureData> textureCache)
         {
             if (material == null)
                 throw new ArgumentNullException(nameof(material));
@@ -630,6 +568,7 @@ namespace Eterra.Platforms.Windows.IO
                         tryAssignTexture(ParameterIdentifier.BaseColorMap);
                         break;
                     case "Metallic":
+                    case "MetallicRoughness":
                         tryAssignTexture(ParameterIdentifier.MetallicMap);
                         break;
                     case "Normal":
@@ -670,8 +609,8 @@ namespace Eterra.Platforms.Windows.IO
                 throw new ArgumentNullException(nameof(meshPrimitive));
             if (meshPrimitive.DrawPrimitiveType != PrimitiveType.TRIANGLES)
                 throw new ArgumentException("The mesh " +
-                    $"'{meshPrimitive.LogicalParent.Name}' has an unsupported " +
-                    "draw primitive type " +
+                    $"'{meshPrimitive.LogicalParent.Name}' has an " +
+                    "unsupported draw primitive type " +
                     $"(only {nameof(PrimitiveType.TRIANGLES)} is supported.");
 
             // For the import of the vertex data, a memory stream "wrapper" 
@@ -704,7 +643,8 @@ namespace Eterra.Platforms.Windows.IO
             if (positions == null)
                 throw new ArgumentException("The mesh " +
                     $"'{meshPrimitive.LogicalParent.Name}' doesn't contain " +
-                    "vertex positions, which is invalid and can't be imported.");
+                    "vertex positions, which is invalid and can't be " +
+                    "imported.");
 
             MemoryStream normals = getVertexData(VertexAttributeNormal,
                 out int normalStride);
@@ -725,9 +665,10 @@ namespace Eterra.Platforms.Windows.IO
             if (joints != null && weights != null && colors != null)
             {
                 Log.Warning($"The mesh '{meshPrimitive.LogicalParent.Name}' " +
-                    "contains vertices with both bone attachments and a color, " +
-                    "which is currently not supported - the color channel is " +
-                    "ignored in that case.", nameof(GLTFormatHandler));
+                    "contains vertices with both bone attachments and a " +
+                    "color, which is currently not supported - the color " +
+                    "channel is ignored in that case.", 
+                    nameof(GLTFormatHandler));
                 colors.Dispose();
                 colors = null;
             }
