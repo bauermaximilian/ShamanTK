@@ -247,7 +247,7 @@ namespace Eterra.Platforms.Windows.IO
                     ColorFloatToByte(color.B / 10.0f));
             }
 
-            Scene scene = new Scene();
+            Scene scene = new Scene(new ParameterCollection("Scene"));
 
             Dictionary<string, Light> lights = new Dictionary<string, Light>();
             foreach (Assimp.Light light in assimpScene.Lights)
@@ -298,8 +298,10 @@ namespace Eterra.Platforms.Windows.IO
             Dictionary<string, Timeline> animations =
                 ExtractAnimations(assimpScene);
 
-            bool LoadTextureData(string filePath, Entity targetEntity,
-                EntityParameter targetEntityParameter, bool throwOnError)
+            bool LoadTextureData(string filePath, 
+                ParameterCollection targetParameters,
+                ParameterIdentifier targetParameterIdentifier, 
+                bool throwOnError)
             {
                 if (string.IsNullOrWhiteSpace(filePath)) return false;
 
@@ -323,7 +325,7 @@ namespace Eterra.Platforms.Windows.IO
                         resourceManager.ImportResourceFile<TextureData>(
                             resourcePath);
 
-                    targetEntity.Set(targetEntityParameter, textureData);
+                    targetParameters[targetParameterIdentifier] = textureData;
 
                     return true;
                 }
@@ -337,14 +339,19 @@ namespace Eterra.Platforms.Windows.IO
             }
 
             void ApplyAssimpMetadataToEntity(Assimp.Node node, 
-                Entity entity)
+                ParameterCollection parameters)
             {
                 foreach (var metadata in node.Metadata)
                 {
                     string id = metadata.Key;
                     string valueStr = metadata.Value.Data as string;
 
-                    if (id == EntityParameter.IsVisible.ToString())
+                    parameters[ParameterIdentifier.Create(id)] = valueStr;
+
+                    /*
+                    // TODO: Rewrite this so it works with the new 
+                    // ParameterCollection concept.
+                    if (id == ParameterIdentifier.Visible.Name)
                     {
                         try
                         {
@@ -502,7 +509,7 @@ namespace Eterra.Platforms.Windows.IO
                                     entity.Set(id, valueDouble.Value);
                             }
                         }
-                    }
+                    }*/
                 }
 
                 /*
@@ -538,7 +545,7 @@ namespace Eterra.Platforms.Windows.IO
 
             void CopyEntityRecursive(Assimp.Node node, Assimp.Matrix4x4 parent)
             {
-                Entity entity = null;
+                Node<ParameterCollection> targetNode = null;
 
                 Assimp.Matrix4x4 absoluteTransform = node.Transform * parent;
                 absoluteTransform.Decompose(out Assimp.Vector3D s,
@@ -550,44 +557,58 @@ namespace Eterra.Platforms.Windows.IO
                     Assimp.Material assimpMaterial =
                         assimpScene.Materials[assimpMesh.MaterialIndex];
 
-                    entity = scene.Add();
+                    ParameterCollection targetParams =
+                        new ParameterCollection(node.Name);
 
-                    entity.Name = node.Name;
-                    entity.Position = new Vector3(t.X, t.Y, t.Z);
-                    entity.Scale = new Vector3(s.X, s.Y, s.Z);
-                    entity.Rotation = new Quaternion(r.X, r.Y, r.Z, r.W);
+                    targetParams[ParameterIdentifier.Position] = 
+                        new Vector3(t.X, t.Y, t.Z);
+                    targetParams[ParameterIdentifier.Scale] =
+                        new Vector3(s.X, s.Y, s.Z);
+                    targetParams[ParameterIdentifier.Rotation] =
+                        new Quaternion(r.X, r.Y, r.Z, r.W);
 
-                    entity.Set(EntityParameter.MeshData, ExtractMesh(
-                        assimpMesh, assimpScene));
+                    targetParams[ParameterIdentifier.MeshData] =
+                        ExtractMesh(assimpMesh, assimpScene);
 
-                    entity.Set(EntityParameter.Color,
-                        ConvertAssimpColor4D(assimpMaterial.ColorDiffuse));
+                    targetParams[ParameterIdentifier.BaseColor] =
+                        ConvertAssimpColor4D(assimpMaterial.ColorDiffuse);
+                    
                     LoadTextureData(assimpMaterial.TextureDiffuse.FilePath,
-                        entity, EntityParameter.TextureDataMain, true);
+                        targetParams, ParameterIdentifier.BaseColorMap, true);
                     LoadTextureData(assimpMaterial.TextureSpecular.FilePath,
-                        entity, EntityParameter.TextureDataEffect01, false);
+                        targetParams, ParameterIdentifier.SpecularMap, false);
                     LoadTextureData(assimpMaterial.TextureNormal.FilePath,
-                        entity, EntityParameter.TextureDataEffect02, false);
+                        targetParams, ParameterIdentifier.NormalMap, false);
                     LoadTextureData(assimpMaterial.TextureEmissive.FilePath,
-                        entity, EntityParameter.TextureDataEffect03, false);
+                        targetParams, ParameterIdentifier.EmissiveMap, false);
 
-                    ApplyAssimpMetadataToEntity(node, entity);
+                    ApplyAssimpMetadataToEntity(node, targetParams);
+
+                    targetNode = scene.AddChild(targetParams);
                 }
 
-                if (entity == null)
+                if (targetNode == null)
                 {
-                    entity = scene.Add();
-                    entity.Name = node.Name;
-                    entity.Position = new Vector3(t.X, t.Y, t.Z);
-                    entity.Scale = new Vector3(s.X, s.Y, s.Z);
-                    entity.Rotation = new Quaternion(r.X, r.Y, r.Z, r.W);
-                    ApplyAssimpMetadataToEntity(node, entity);
+                    ParameterCollection targetParams =
+                        new ParameterCollection(node.Name);
+
+                    targetParams[ParameterIdentifier.Position] =
+                        new Vector3(t.X, t.Y, t.Z);
+                    targetParams[ParameterIdentifier.Scale] =
+                        new Vector3(s.X, s.Y, s.Z);
+                    targetParams[ParameterIdentifier.Rotation] =
+                        new Quaternion(r.X, r.Y, r.Z, r.W);
+
+                    ApplyAssimpMetadataToEntity(node, targetParams);
+
+                    targetNode = scene.AddChild(targetParams);
                 }
 
                 if (node.Name != null && lights.TryGetValue(node.Name,
                     out Light light))
-                    entity.Set(EntityParameter.Light,
-                        light.Moved(entity.Position));
+                    targetNode.Value[ParameterIdentifier.Light] = 
+                        light.Moved((Vector3)
+                            targetNode.Value[ParameterIdentifier.Position]);
 
                 foreach (Assimp.Node childNode in node.Children)
                     CopyEntityRecursive(childNode, absoluteTransform);
