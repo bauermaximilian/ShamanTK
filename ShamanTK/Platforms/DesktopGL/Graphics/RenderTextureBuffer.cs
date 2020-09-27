@@ -60,13 +60,9 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         /// </summary>
         protected override void Dispose(bool disposing)
         {
-            if (GraphicsContext.CurrentContext != null
-                && !GraphicsContext.CurrentContext.IsDisposed)
-            {
-                GL.DeleteFramebuffer(frameBufferHandle);
-                GL.DeleteTexture(frameBufferTextureHandle);
-                GL.DeleteRenderbuffer(renderBufferHandle);
-            }
+            GL.DeleteFramebuffer(frameBufferHandle);
+            GL.DeleteTexture(frameBufferTextureHandle);
+            GL.DeleteRenderbuffer(renderBufferHandle);
         }
 
         /// <summary>

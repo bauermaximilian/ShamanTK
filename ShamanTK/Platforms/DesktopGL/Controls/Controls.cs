@@ -23,6 +23,11 @@ using System.Numerics;
 using OpenTK.Input;
 using System.Text;
 using System.Drawing;
+using OpenTK.Windowing.Common.Input;
+using MouseButton = OpenTK.Windowing.Common.Input.MouseButton;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.Common;
 
 namespace ShamanTK.Platforms.DesktopGL.Controls
 {
@@ -37,14 +42,14 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// This value doesn't change during the lifetime of the current 
         /// instance.
         /// </summary>
-        public bool SupportsKeyboard => keyboard.IsConnected;
+        public bool SupportsKeyboard => true;
 
         /// <summary>
         /// Gets a value indicating whether the current control unit supports
         /// access to a mouse (<c>true</c>) or not (<c>false</c>).
         /// This value doesn't change during the lifetime of the current 
         /// instance.
-        public bool SupportsMouse => mouse.IsConnected;
+        public bool SupportsMouse => true;
 
         /// <summary>
         /// Gets a value indicating whether the current control unit supports
@@ -52,7 +57,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// This value doesn't change during the lifetime of the current 
         /// instance.
         /// </summary>
-        public virtual bool SupportsAccelerometer { get; } = false;
+        public virtual bool SupportsAccelerometer => false;
 
         /// <summary>
         /// Gets a value indicating whether the current control unit supports
@@ -60,7 +65,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// This value doesn't change during the lifetime of the current 
         /// instance.
         /// </summary>
-        public virtual bool SupportsGyroscope { get; } = false;
+        public virtual bool SupportsGyroscope => false;
 
         /// <summary>
         /// Gets a value indicating whether the current control unit supports
@@ -68,7 +73,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// This value doesn't change during the lifetime of the current 
         /// instance.
         /// </summary>
-        public virtual bool SupportsTouch { get; } = false;
+        public virtual bool SupportsTouch => false;
 
         /// <summary>
         /// Gets a value indicating whether the current control unit supports
@@ -76,7 +81,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// This value doesn't change during the lifetime of the current 
         /// instance.
         /// </summary>
-        public bool SupportsGamepads { get; } = true;
+        public bool SupportsGamepads => true;
 
         /// <summary>
         /// Gets the amount of currently connected gamepads or 0, if no 
@@ -86,13 +91,11 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         public int AvailableGamepadsCount { get; }
 
         private readonly Graphics.Graphics graphics;
-        private OpenTK.GameWindow Window => graphics.Window;
-        private KeyboardState keyboard;
-        private MouseState mouse, mousePrevious;
-        private MouseMode mouseMode, mouseModePrevious;
-        private Vector3 mouseSpeed;
-        private readonly GamePadState[] gamepads;
+        private GameWindow Window => graphics.Window;
         private readonly StringBuilder typedCharacters = new StringBuilder();
+
+        private const float MouseWheelMax = 5.0f;
+        private const float MouseMovementDampFactor = 0.02f;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Controls"/> class.
@@ -111,22 +114,13 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             this.graphics = graphics ??
                 throw new ArgumentNullException(nameof(graphics));
 
-            graphics.Window.KeyPress += KeyTyped;
+            graphics.Window.TextInput += KeyTyped;
             graphics.PreUpdate += FramePreUpdate;
             graphics.PostUpdate += FramePostUpdate;
 
-            int connectedGamepads = 0;
-            for (int i = 0; i < 4; i++)
-            {
-                if (GamePad.GetCapabilities(i).IsConnected)
-                    connectedGamepads = i + 1;
-                else break;
-            }
-            gamepads = new GamePadState[connectedGamepads];
-
             //Perform an initial state update to ensure the properties of
             //the implementeted IControls interface return valid values.
-            FramePreUpdate(this, new OpenTK.FrameEventArgs(0.1));
+            FramePreUpdate(this, EventArgs.Empty);
         }
 
         private void FramePostUpdate(object sender, EventArgs e)
@@ -134,16 +128,9 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             typedCharacters.Clear();
         }
 
-        private const float MouseWheelMax = 5.0f;
-        private const float MouseMovementDampFactor = 0.02f;
-
         private void FramePreUpdate(object sender, EventArgs e)
         {
-            keyboard = Keyboard.GetState();
-
-            for (int i = 0; i < gamepads.Length; i++)
-                gamepads[i] = GamePad.GetState(i);
-
+            /*
             bool mouseModeChanged = mouseModePrevious != mouseMode;
 
             mousePrevious = mouse;
@@ -153,12 +140,13 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             Vector2 mouseOrigin;
 
             if (mouseMode == MouseMode.InvisibleFixed
-                && graphics.Window.Focused)
+                && graphics.Window.IsFocused)
             {
                 Window.CursorVisible = false;
-                Window.Cursor = OpenTK.MouseCursor.Empty;
-                Mouse.SetPosition(Window.X + (Window.Width / 2.0),
-                    Window.Y + (Window.Height / 2.0));
+                Window.Cursor = MouseCursor.Empty;
+                Window.MousePosition = new OpenTK.Mathematics.Vector2(
+                    Window.Location.X + (Window.Size.X / 2.0f),
+                    Window.Location.Y + (Window.Size.Y / 2.0f));
                 //Required to reliably compare the position of the mouse 
                 //before and after moving it to the center of the screen.
                 MouseState centeredState = Mouse.GetCursorState();
@@ -191,14 +179,13 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
                     (mouseOrigin.Y - mouse.Y) * MouseMovementDampFactor,
                     Math.Min(1.0f, Math.Max(-1.0f, (mouse.WheelPrecise - 
                         mousePrevious.WheelPrecise) / MouseWheelMax)));
-            }
+            }*/
         }
 
-        private void KeyTyped(object sender, 
-            OpenTK.KeyPressEventArgs e)
+        private void KeyTyped(TextInputEventArgs e)
         {
-            if (!Window.Focused) return;
-            typedCharacters.Append(e.KeyChar);
+            if (!Window.IsFocused) return;
+            typedCharacters.Append(e.AsString);
         }
 
         /// <summary>
@@ -214,7 +201,8 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// </returns>
         public bool IsPressed(KeyboardKey button)
         {
-            if (!Window.Focused) return false;
+            if (!Window.IsFocused) return false;
+            KeyboardState keyboard = Window.KeyboardState;
             return button switch
             {
                 KeyboardKey.A => keyboard.IsKeyDown(Key.A),
@@ -337,22 +325,23 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// </returns>
         public bool IsPressed(ShamanTK.Controls.MouseButton button)
         {
-            if (!Window.Focused)
-                return false;
+            if (!Window.IsFocused) return false;
+
+            MouseState mouse = Window.MouseState;
             return button switch
             {
                 ShamanTK.Controls.MouseButton.Left => 
-                mouse.IsButtonDown(OpenTK.Input.MouseButton.Left),
+                mouse.IsButtonDown(MouseButton.Left),
                 ShamanTK.Controls.MouseButton.Right => 
-                mouse.IsButtonDown(OpenTK.Input.MouseButton.Right),
+                mouse.IsButtonDown(MouseButton.Right),
                 ShamanTK.Controls.MouseButton.Middle => 
-                mouse.IsButtonDown(OpenTK.Input.MouseButton.Middle),
+                mouse.IsButtonDown(MouseButton.Middle),
                 ShamanTK.Controls.MouseButton.Extra1 => 
-                mouse.IsButtonDown(OpenTK.Input.MouseButton.Button1),
+                mouse.IsButtonDown(MouseButton.Button1),
                 ShamanTK.Controls.MouseButton.Extra2 => 
-                mouse.IsButtonDown(OpenTK.Input.MouseButton.Button2),
+                mouse.IsButtonDown(MouseButton.Button2),
                 ShamanTK.Controls.MouseButton.Extra3 => 
-                mouse.IsButtonDown(OpenTK.Input.MouseButton.Button3),
+                mouse.IsButtonDown(MouseButton.Button3),
                 ShamanTK.Controls.MouseButton.None => false,
                 _ => false,
             };
@@ -375,48 +364,54 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// </returns>
         public virtual bool IsPressed(GamepadButton button, int gamepadIndex)
         {
-            if (!Window.Focused) return false;
-            if (gamepadIndex < gamepads.Length)
+            if (!Window.IsFocused) return false;
+
+            return false;
+
+            /*
+            if (gamepadIndex < Window.JoystickStates.Length)
             {
-                GamePadState gamepad = gamepads[gamepadIndex];
+                JoystickState joystick = Window.JoystickStates[gamepadIndex];
+
                 return button switch
                 {
                     GamepadButton.A => 
-                    gamepad.Buttons.A == ButtonState.Pressed,
+                    joystick.Buttons.A == InputAction.Press,
                     GamepadButton.B => 
-                    gamepad.Buttons.B == ButtonState.Pressed,
+                    joystick.Buttons.B == InputAction.Press,
                     GamepadButton.X => 
-                    gamepad.Buttons.X == ButtonState.Pressed,
+                    joystick.Buttons.X == InputAction.Press
                     GamepadButton.Y => 
-                    gamepad.Buttons.Y == ButtonState.Pressed,
+                    joystick.Buttons.Y == InputAction.Press,
                     GamepadButton.BigButton => 
-                    gamepad.Buttons.BigButton == ButtonState.Pressed,
+                    joystick.Buttons.BigButton == InputAction.Press,
                     GamepadButton.Start => 
-                    gamepad.Buttons.Start == ButtonState.Pressed,
+                    joystick.Buttons.Start == InputAction.Press,
                     GamepadButton.Back => 
-                    gamepad.Buttons.Back == ButtonState.Pressed,
+                    joystick.Buttons.Back == InputAction.Press,
                     GamepadButton.LeftShoulder => 
-                    gamepad.Buttons.LeftShoulder == ButtonState.Pressed,
+                    joystick.Buttons.LeftShoulder == InputAction.Press,
                     GamepadButton.RightShoulder => 
-                    gamepad.Buttons.RightShoulder == ButtonState.Pressed,
+                    joystick.Buttons.RightShoulder == InputAction.Press,
                     GamepadButton.LeftStick => 
-                    gamepad.Buttons.LeftStick == ButtonState.Pressed,
+                    joystick.Buttons.LeftStick == InputAction.Press,
                     GamepadButton.RightStick => 
-                    gamepad.Buttons.RightStick == ButtonState.Pressed,
+                    joystick.Buttons.RightStick == InputAction.Press,
                     GamepadButton.DPadDown => 
-                    gamepad.DPad.Down == ButtonState.Pressed,
+                    joystick.DPad.Down == InputAction.Press,
                     GamepadButton.DPadLeft => 
-                    gamepad.DPad.Left == ButtonState.Pressed,
+                    joystick.DPad.Left == InputAction.Press,
                     GamepadButton.DPadRight => 
-                    gamepad.DPad.Right == ButtonState.Pressed,
+                    joystick.DPad.Right == InputAction.Press,
                     GamepadButton.DPadUp => 
-                    gamepad.DPad.Up == ButtonState.Pressed,
+                    joystick.DPad.Up == InputAction.Press,
                     GamepadButton.None => 
                     false,
                     _ => false,
                 };
             }
             return false;
+            */
         }
 
         /// <summary>
@@ -462,8 +457,12 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// </returns>
         public float GetGamepadAxis(GamepadAxis axis, int gamepadIndex)
         {
-            if (!Window.Focused) return 0;
-            GamePadState state = GamePad.GetState(gamepadIndex);
+            if (!Window.IsFocused) return 0;
+
+            return 0;
+
+            /*
+            GamepadState state = GamePad.GetState(gamepadIndex);
             if (!state.IsConnected) return 0;
             var value = axis switch
             {
@@ -489,6 +488,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
                 _ => 0,
             };
             return Math.Min(1.0f, Math.Max(value - 0.1f, 0) / 0.9f);
+            */
         }
 
         /// <summary>
@@ -507,15 +507,16 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// </returns>
         public float GetMouseSpeed(MouseSpeedAxis axis)
         {
-            if (!Window.Focused) return 0;
+            if (!Window.IsFocused) return 0;
+            
             var value = axis switch
             {
-                MouseSpeedAxis.Up => Math.Max(0, mouseSpeed.Y),
-                MouseSpeedAxis.Right => Math.Max(0, mouseSpeed.X),
-                MouseSpeedAxis.Down => Math.Max(0, -mouseSpeed.Y),
-                MouseSpeedAxis.Left => Math.Max(0, -mouseSpeed.X),
-                MouseSpeedAxis.WheelUp => Math.Max(0, mouseSpeed.Z),
-                MouseSpeedAxis.WheelDown => Math.Max(0, -mouseSpeed.Z),
+                MouseSpeedAxis.Up => Math.Max(0, Window.MouseDelta.Y),
+                MouseSpeedAxis.Right => Math.Max(0, Window.MouseDelta.X),
+                MouseSpeedAxis.Down => Math.Max(0, -Window.MouseDelta.Y),
+                MouseSpeedAxis.Left => Math.Max(0, -Window.MouseDelta.X),
+                MouseSpeedAxis.WheelUp => 0,//Math.Max(0, mouseSpeed.Z),
+                MouseSpeedAxis.WheelDown => 0,//Math.Max(0, -mouseSpeed.Z),
                 _ => 0,
             };
             return value;
@@ -532,11 +533,11 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// </returns>
         public Vector2 GetMousePosition()
         {
-            if (!Window.Focused) return Vector2.Zero;
-            Point position = Window.PointToClient(new Point(mouse.X, mouse.Y));
+            if (!Window.IsFocused) return Vector2.Zero;
+
             Vector2 relativePosition = new Vector2(
-                position.X / (float)Window.Width,
-                position.Y / (float)Window.Height);
+                Window.MousePosition.X / (float)Window.Size.X,
+                Window.MousePosition.Y / (float)Window.Size.Y);
             return relativePosition;            
         }
 
@@ -597,7 +598,16 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// </remarks>
         public void SetMouse(MouseMode mode)
         {
-            mouseMode = mode;
+            if (mode == MouseMode.VisibleFree)
+            {
+                Window.CursorGrabbed = false;
+                Window.CursorVisible = true;
+            }
+            else if (mode == MouseMode.InvisibleFixed)
+            {
+                Window.CursorGrabbed = true;
+                Window.CursorVisible = false;
+            }
         }
     }
 }

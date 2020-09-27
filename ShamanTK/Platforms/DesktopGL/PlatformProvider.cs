@@ -79,14 +79,21 @@ namespace ShamanTK.Platforms.DesktopGL
             try
             {
                 graphics = new Graphics.Graphics();
-                sound = new Sound.Sound();
+
+                try { sound = new Sound.Sound(); }
+                catch (Exception exc)
+                {
+                    Log.Error("Sound unit couldn't be initialized - the " +
+                        "application will not support audio playback.", exc);
+                    sound = new SoundDummy();
+                }
+
                 controls = new Controls.Controls((Graphics.Graphics)graphics);
 
-                resourceFormatHandlers.Add(new IO.FontFormatHandler());
-                resourceFormatHandlers.Add(new IO.ImageFormatHandler());
-                resourceFormatHandlers.Add(new IO.SoundFormatHandler());
-                resourceFormatHandlers.Add(new IO.GLTFormatHandler());
-                resourceFormatHandlers.Add(new IO.AssimpFormatHandler());
+                resourceFormatHandlers.Add(new Common.IO.FontFormatHandler());
+                resourceFormatHandlers.Add(new Common.IO.ImageFormatHandler());
+                resourceFormatHandlers.Add(new Common.IO.SoundFormatHandler());
+                resourceFormatHandlers.Add(new Common.IO.GLTFormatHandler());
             }
             catch (Exception exc)
             {

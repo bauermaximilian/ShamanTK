@@ -466,11 +466,11 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
 @"const int MAX_BONES = %MAX_BONES%;
 
 const int PROPERTYFORMAT_NONE = " 
-+ (int)Common.VertexPropertyDataFormat.None + @";
++ (int)ShamanTK.Common.VertexPropertyDataFormat.None + @";
 const int PROPERTYFORMAT_DEFORMER_ATTACHMENTS = " 
-+ (int)Common.VertexPropertyDataFormat.DeformerAttachments + @";
++ (int)ShamanTK.Common.VertexPropertyDataFormat.DeformerAttachments + @";
 const int PROPERTYFORMAT_COLOR_LIGHT = " 
-+ (int)Common.VertexPropertyDataFormat.ColorLight + @";
++ (int)ShamanTK.Common.VertexPropertyDataFormat.ColorLight + @";
 
 struct BoneList {
     int size;
@@ -853,7 +853,7 @@ vec4 CalculateFragmentWithPhong()
         /// Gets the shader uniform value accessor for the
         /// view transformation matrix.
         /// </summary>
-        public Uniform<OpenTK.Matrix4> View { get; }
+        public Uniform<OpenTK.Mathematics.Matrix4> View { get; }
 
         /// <summary>
         /// Gets the shader uniform value accessor for the 

@@ -26,6 +26,9 @@ using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System;
 using System.Collections.Generic;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
 
 namespace ShamanTK.Platforms.DesktopGL.Graphics
 {
@@ -601,7 +604,7 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                 {
                     try
                     {
-                        Window.Size = new System.Drawing.Size(value.Width,
+                        Window.Size = new OpenTK.Mathematics.Vector2i(value.Width,
                             value.Height);
                         size = value;
                     }
@@ -765,23 +768,20 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         /// </summary>
         private bool isRedrawing = false;
 
-        private bool supportsRenderTextureBuffers = false;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="Graphics"/> class.
         /// </summary>
         public Graphics()
         {
-            Window = new GameWindow()
+            Window = new GameWindow(new GameWindowSettings()
             {
-                TargetRenderFrequency = 
-                EterraApplicationBase.TargetRedrawsPerSecond,
-                TargetUpdateFrequency = 
-                EterraApplicationBase.TargetUpdatesPerSecond,
-                Title = "Application Window"
-            };
-
-            Window.WindowBorder = WindowBorder.Resizable;
+                RenderFrequency = ShamanApplicationBase.TargetRedrawsPerSecond,
+                UpdateFrequency = ShamanApplicationBase.TargetUpdatesPerSecond
+            }, new NativeWindowSettings()
+            {
+                Title = "ApplicationWindow",
+                WindowBorder = WindowBorder.Resizable
+            });
 
             Window.UpdateFrame += OnUpdate;
             Window.RenderFrame += OnRedraw;
@@ -789,14 +789,10 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
             Window.Closing += OnClosing;
             Window.Load += OnInitialized;
 
-            size = new Size(Window.Width, Window.Height);
-
-            string extensions = GL.GetString(StringName.Extensions);
-            supportsRenderTextureBuffers =
-                extensions.Contains("GL_ARB_framebuffer_object");
+            size = new Size(Window.Size.X, Window.Size.Y);
         }
 
-        private void OnInitialized(object sender, EventArgs e)
+        private void OnInitialized()
         {
             if (TryGetPlatformLimit(PlatformLimit.LightCount,
                 out int supportedLightsCount) &&
@@ -810,8 +806,10 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                 Log.Warning("The current platform only supports " +
                     supportedDeformersCount + " of the usually available " +
                     MaximumDeformers + " maximum deformers.");
-            if (!supportsRenderTextureBuffers)
-                Log.Warning("The current platform doesn't support " +
+
+            string extensions = GL.GetString(StringName.Extensions);
+            if (!extensions.Contains("GL_ARB_framebuffer_object"))
+                Log.Warning("The current platform might not support " +
                     "render texture buffers.");
 
             try
@@ -836,36 +834,35 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
             Initialized?.Invoke(this, EventArgs.Empty);    
         }
 
-        private void OnClosing(object sender, 
-            System.ComponentModel.CancelEventArgs e)
+        private void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             Closing?.Invoke(this, EventArgs.Empty);
             IsRunning = false;
         }
 
-        private void OnResize(object sender, EventArgs e)
+        private void OnResize(ResizeEventArgs e)
         {
             //When the window is minimized, the window state doesn't instantly
             //change to WindowState.Minimized - but instead, the Width and
             //Height of the window are suddenly 0. So, this should only update
             //the Width and Height of the Graphics if the values from the
             //underlying window are greater than 0.
-            if (Window.Width > 0 && Window.Height > 0)
+            if (Window.Size.X > 0 && Window.Size.Y > 0)
             {
-                size = new Size(Window.Width, Window.Height);
+                size = new Size(Window.Size.X, Window.Size.Y);
 
                 Resized?.Invoke(this, EventArgs.Empty);
             }
         }
 
-        private void OnRedraw(object sender, FrameEventArgs args)
+        private void OnRedraw(FrameEventArgs args)
         {
             isRedrawing = true;
             Redraw?.Invoke(this, TimeSpan.FromSeconds(args.Time));
             isRedrawing = false;
         }
 
-        private void OnUpdate(object sender, FrameEventArgs args)
+        private void OnUpdate(FrameEventArgs args)
         {
             PreUpdate?.Invoke(this, EventArgs.Empty);
             Update?.Invoke(this, TimeSpan.FromSeconds(args.Time));

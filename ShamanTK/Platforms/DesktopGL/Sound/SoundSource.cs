@@ -386,7 +386,7 @@ namespace ShamanTK.Platforms.DesktopGL.Sound
                     ALFormat.Stereo16 : ALFormat.Mono16;
 
                 AL.BufferData(bufferHandle.Value, bufferFormat, streamBuffer,
-                    actualBufferSize, dataStream.SampleRate);
+                    dataStream.SampleRate);
             }
             else bufferHandle = null;
 

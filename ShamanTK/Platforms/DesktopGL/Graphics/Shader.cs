@@ -333,8 +333,8 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
             {
                 if (!IsAccessible) return false;
 
-                OpenTK.Matrix4 originalMatrix =
-                    new OpenTK.Matrix4(
+                OpenTK.Mathematics.Matrix4 originalMatrix =
+                    new OpenTK.Mathematics.Matrix4(
                         value.M11, value.M12, value.M13, value.M14,
                         value.M21, value.M22, value.M23, value.M24,
                         value.M31, value.M32, value.M33, value.M34,
@@ -346,15 +346,15 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         }
 
         protected class UniformMatrix4 : 
-            UniformSingleValue<OpenTK.Matrix4>
+            UniformSingleValue<OpenTK.Mathematics.Matrix4>
         {
             public UniformMatrix4(int programHandle,
                 string identifier) : base(programHandle, identifier) { }
 
-            protected override bool OnSet(OpenTK.Matrix4 value)
+            protected override bool OnSet(OpenTK.Mathematics.Matrix4 value)
             {
                 if (!IsAccessible) return false;
-                OpenTK.Matrix4 matrix = value;
+                OpenTK.Mathematics.Matrix4 matrix = value;
                 GL.UniformMatrix4(Location, false, ref matrix);
                 return base.OnSet(value);
             }
@@ -578,7 +578,7 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         /// Gets the shader uniform value accessor for the 
         /// projection transformation matrix.
         /// </summary>
-        public Uniform<OpenTK.Matrix4> Projection { get; }
+        public Uniform<OpenTK.Mathematics.Matrix4> Projection { get; }
 
         /// <summary>
         /// Gets the vertex attribute of the shader, which defines the 

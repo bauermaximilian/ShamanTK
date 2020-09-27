@@ -22,6 +22,7 @@ using ShamanTK.IO;
 using ShamanTK.Sound;
 using OpenTK.Audio;
 using System;
+using OpenTK.Audio.OpenAL;
 
 namespace ShamanTK.Platforms.DesktopGL.Sound
 {
@@ -30,7 +31,7 @@ namespace ShamanTK.Platforms.DesktopGL.Sound
     /// </summary>
     class Sound : DisposableBase, ISound
     {
-        private readonly AudioContext context;
+        private readonly ALContext context;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Sound"/> class.
@@ -49,8 +50,12 @@ namespace ShamanTK.Platforms.DesktopGL.Sound
         {
             try
             {
-                context = new AudioContext();
-                context.MakeCurrent();
+                string defaultDeviceName = ALC.GetString(ALDevice.Null, 
+                    AlcGetString.DefaultDeviceSpecifier);
+                ALDevice defaultDevice = ALC.OpenDevice(defaultDeviceName);
+                context = ALC.CreateContext(defaultDevice, 
+                    new ALContextAttributes());
+                ALC.MakeContextCurrent(context);
             }
             catch (Exception exc)
             {
@@ -101,7 +106,7 @@ namespace ShamanTK.Platforms.DesktopGL.Sound
         /// </param>
         protected override void Dispose(bool disposing)
         {
-            if (disposing) context.Dispose();
+            if (disposing) ALC.DestroyContext(context);
         }
     }
 }

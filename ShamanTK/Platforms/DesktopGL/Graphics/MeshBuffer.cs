@@ -158,13 +158,9 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         /// </summary>
         protected override void Dispose(bool disposing)
         {
-            if (GraphicsContext.CurrentContext != null
-                && !GraphicsContext.CurrentContext.IsDisposed)
-            {
-                GL.DeleteBuffer(vertexBufferHandle);
-                GL.DeleteBuffer(faceBufferHandle);
-                GL.DeleteVertexArray(vertexArrayObjectHandle);
-            }
+            GL.DeleteBuffer(vertexBufferHandle);
+            GL.DeleteBuffer(faceBufferHandle);
+            GL.DeleteVertexArray(vertexArrayObjectHandle);
         }
 
         /// <summary>
