@@ -1,5 +1,5 @@
-﻿Eterra Framework
-A simple framework for creating multimedia applications.
+﻿ShamanTK
+A toolkit for creating multimedia applications.
 Copyright (C) 2020, Maximilian Bauer (contact@lengo.cc)
 
 This program is free software: you can redistribute it and/or modify
