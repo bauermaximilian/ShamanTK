@@ -22,6 +22,7 @@ using OpenTK.Audio.OpenAL;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ShamanTK.Platforms.DesktopGL.Sound
 {
@@ -129,14 +130,14 @@ namespace ShamanTK.Platforms.DesktopGL.Sound
             subsequentBufferSize = (int)Math.Ceiling(stream.BytesPerSecond *
                 subsequentBufferLength.TotalSeconds);
 
-            new Action(delegate ()
+            Task.Run(delegate ()
             {
                 while (!IsDisposed && !preserveBufferQueue)
                 {
-                    lock(internalLock) RefreshBufferQueue();
+                    lock (internalLock) RefreshBufferQueue();
                     Thread.Sleep(StreamRefreshTimeMs);
                 }
-            }).BeginInvoke(null, null);
+            });
         }
 
         private void RefreshBufferQueue()

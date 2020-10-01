@@ -25,7 +25,7 @@ using System.IO;
 
 namespace ShamanTK.Platforms.Common.IO
 {
-    internal class BitmapTextureData : TextureData
+    public class BitmapTextureData : TextureData
     {
         private System.Drawing.Bitmap bitmap;
         private BitmapData bitmapData;

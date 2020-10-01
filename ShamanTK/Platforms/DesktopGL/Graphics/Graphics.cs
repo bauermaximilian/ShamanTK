@@ -807,10 +807,12 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                     supportedDeformersCount + " of the usually available " +
                     MaximumDeformers + " maximum deformers.");
 
+            /*
             string extensions = GL.GetString(StringName.Extensions);
             if (!extensions.Contains("GL_ARB_framebuffer_object"))
                 Log.Warning("The current platform might not support " +
                     "render texture buffers.");
+            */
 
             try
             {

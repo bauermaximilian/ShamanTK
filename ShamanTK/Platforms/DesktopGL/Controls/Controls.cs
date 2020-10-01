@@ -91,11 +91,16 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         public int AvailableGamepadsCount { get; }
 
         private readonly Graphics.Graphics graphics;
+
         private GameWindow Window => graphics.Window;
         private readonly StringBuilder typedCharacters = new StringBuilder();
 
+        private MouseMode mouseMode;
+        private Vector3 mouseSpeed;
+        private bool mouseModeChanged = false;
+
         private const float MouseWheelMax = 5.0f;
-        private const float MouseMovementDampFactor = 0.02f;
+        private const float MouseDampFactor = 0.02f;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Controls"/> class.
@@ -118,25 +123,18 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             graphics.PreUpdate += FramePreUpdate;
             graphics.PostUpdate += FramePostUpdate;
 
-            //Perform an initial state update to ensure the properties of
-            //the implementeted IControls interface return valid values.
+            // Perform an initial state update to ensure the properties of
+            // the implementeted IControls interface return valid values.
             FramePreUpdate(this, EventArgs.Empty);
         }
 
         private void FramePostUpdate(object sender, EventArgs e)
         {
             typedCharacters.Clear();
-        }
+        }        
 
         private void FramePreUpdate(object sender, EventArgs e)
         {
-            /*
-            bool mouseModeChanged = mouseModePrevious != mouseMode;
-
-            mousePrevious = mouse;
-            mouse = Mouse.GetCursorState();
-            mouseModePrevious = mouseMode;
-
             Vector2 mouseOrigin;
 
             if (mouseMode == MouseMode.InvisibleFixed
@@ -144,41 +142,64 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             {
                 Window.CursorVisible = false;
                 Window.Cursor = MouseCursor.Empty;
+
+                // Required to reliably compare the position of the mouse 
+                // before and after moving it to the center of the screen.
+                mouseOrigin = new Vector2(Window.MouseState.X,
+                     Window.MouseState.Y);
+
                 Window.MousePosition = new OpenTK.Mathematics.Vector2(
-                    Window.Location.X + (Window.Size.X / 2.0f),
-                    Window.Location.Y + (Window.Size.Y / 2.0f));
-                //Required to reliably compare the position of the mouse 
-                //before and after moving it to the center of the screen.
-                MouseState centeredState = Mouse.GetCursorState();
-                mouseOrigin = new Vector2(centeredState.X,
-                    centeredState.Y);
+                    Window.Size.X / 2.0f, Window.Size.Y / 2.0f);
             }
             else
             {
-                mouseOrigin = new Vector2(mousePrevious.X,
-                    mousePrevious.Y);
+                mouseOrigin = new Vector2(Window.LastMouseState.X,
+                    Window.LastMouseState.Y);
                 Window.CursorVisible = true;
-                Window.Cursor = OpenTK.MouseCursor.Default;
+                Window.Cursor = MouseCursor.Default;
             }
 
-            //Prevent that the moving of the mouse to the center position
-            //gets misinterpreted as rapid movement and returned as speed.
+            // Prevent that the moving of the mouse to the center position
+            // gets misinterpreted as rapid movement and returned as speed.
             if (mouseModeChanged || 
-            //Fixes an issue which returns a high speed for touch screens
-            //when they are touched the first time (and this touch is used
-            //as trigger to get the current speed).
-                (!mousePrevious.IsAnyButtonDown && mouse.IsAnyButtonDown))
+            // Fixes an issue which returns a high speed for touch screens
+            // when they are touched the first time (and this touch is used
+            // as trigger to get the current speed).
+                (!Window.LastMouseState.IsAnyButtonDown && 
+                Window.MouseState.IsAnyButtonDown))
             {
                 mouseSpeed = Vector3.Zero;
-                mousePrevious = mouse;
+                mouseModeChanged = false;
             }
             else
             {
                 mouseSpeed = new Vector3(
-                    (mouse.X - mouseOrigin.X) * MouseMovementDampFactor,
-                    (mouseOrigin.Y - mouse.Y) * MouseMovementDampFactor,
-                    Math.Min(1.0f, Math.Max(-1.0f, (mouse.WheelPrecise - 
-                        mousePrevious.WheelPrecise) / MouseWheelMax)));
+                    (mouseOrigin.X - Window.MousePosition.X) * MouseDampFactor,
+                    (Window.MousePosition.Y - mouseOrigin.Y) * MouseDampFactor,
+                    0);
+            }
+
+            /*
+            if (Window.JoystickStates.Length > 0)
+            {
+                for (int j = 0; j < Window.JoystickStates.Length; j++)
+                {
+                    if (!Window.JoystickStates[j].IsConnected) break;
+
+                    for (int i = 0; i < 16; i++)
+                    {
+                        if (Window.JoystickStates[j].IsButtonDown(i))
+                            Log.Trace($"Button {i} is pressed.");
+                    }
+
+                    for (int i = 0; i < 6; i++)
+                    {
+                        float axisValue =
+                            Math.Abs(Window.JoystickStates[j].GetAxis(i));
+                        if (axisValue > 0.3f && (1 - axisValue) > 0.3f)
+                            Log.Trace($"Axis {i} is pressed (value={axisValue}).");
+                    }
+                }
             }*/
         }
 
@@ -366,7 +387,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         {
             if (!Window.IsFocused) return false;
 
-            return false;
+            return false;           
 
             /*
             if (gamepadIndex < Window.JoystickStates.Length)
@@ -511,10 +532,10 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             
             var value = axis switch
             {
-                MouseSpeedAxis.Up => Math.Max(0, Window.MouseDelta.Y),
-                MouseSpeedAxis.Right => Math.Max(0, Window.MouseDelta.X),
-                MouseSpeedAxis.Down => Math.Max(0, -Window.MouseDelta.Y),
-                MouseSpeedAxis.Left => Math.Max(0, -Window.MouseDelta.X),
+                MouseSpeedAxis.Up => Math.Max(0, mouseSpeed.Y),
+                MouseSpeedAxis.Right => Math.Max(0, mouseSpeed.X),
+                MouseSpeedAxis.Down => Math.Max(0, -mouseSpeed.Y),
+                MouseSpeedAxis.Left => Math.Max(0, -mouseSpeed.X),
                 MouseSpeedAxis.WheelUp => 0,//Math.Max(0, mouseSpeed.Z),
                 MouseSpeedAxis.WheelDown => 0,//Math.Max(0, -mouseSpeed.Z),
                 _ => 0,
@@ -598,15 +619,10 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// </remarks>
         public void SetMouse(MouseMode mode)
         {
-            if (mode == MouseMode.VisibleFree)
+            if (mouseMode != mode)
             {
-                Window.CursorGrabbed = false;
-                Window.CursorVisible = true;
-            }
-            else if (mode == MouseMode.InvisibleFixed)
-            {
-                Window.CursorGrabbed = true;
-                Window.CursorVisible = false;
+                mouseMode = mode;
+                mouseModeChanged = true;
             }
         }
     }

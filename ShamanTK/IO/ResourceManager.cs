@@ -366,7 +366,7 @@ namespace ShamanTK.IO
                 if (!dataRetrieverInvoked)
                 {
                     dataRetrieverInvoked = true;
-                    dataRetriever.BeginInvoke(null, null);
+                    Task.Run(dataRetriever);
                 }
                 else if (!dataRetrieverTerminated)
                 {
