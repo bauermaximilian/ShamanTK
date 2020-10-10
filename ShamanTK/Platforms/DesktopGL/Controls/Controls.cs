@@ -20,14 +20,13 @@
 using System;
 using ShamanTK.Controls;
 using System.Numerics;
-using OpenTK.Input;
 using System.Text;
-using System.Drawing;
 using OpenTK.Windowing.Common.Input;
-using MouseButton = OpenTK.Windowing.Common.Input.MouseButton;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.Common;
+using GlfwMouseButton = OpenTK.Windowing.GraphicsLibraryFramework.MouseButton;
+using ShamanMouseButton = ShamanTK.Controls.MouseButton;
 
 namespace ShamanTK.Platforms.DesktopGL.Controls
 {
@@ -88,7 +87,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// gamepads are available or <see cref="SupportsGamepads"/> is
         /// <c>false</c>.
         /// </summary>
-        public int AvailableGamepadsCount { get; }
+        public int AvailableGamepadsCount { get; private set; }
 
         private readonly Graphics.Graphics graphics;
 
@@ -96,11 +95,14 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         private readonly StringBuilder typedCharacters = new StringBuilder();
 
         private MouseMode mouseMode;
-        private Vector3 mouseSpeed;
-        private bool mouseModeChanged = false;
+        private Vector2 mouseSpeed;
+        private float mouseWheelSpeed;
+        private bool mouseModeChanged = true;
+
+        private readonly GamepadState[] gamepadStates;
 
         private const float MouseWheelMax = 5.0f;
-        private const float MouseDampFactor = 0.02f;
+        private const float MouseDamp = 0.02f;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Controls"/> class.
@@ -120,22 +122,40 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
                 throw new ArgumentNullException(nameof(graphics));
 
             graphics.Window.TextInput += KeyTyped;
+            graphics.Window.MouseWheel += MouseWheelMoved;
             graphics.PreUpdate += FramePreUpdate;
             graphics.PostUpdate += FramePostUpdate;
+
+            gamepadStates = new GamepadState[Window.JoystickStates.Count];
 
             // Perform an initial state update to ensure the properties of
             // the implementeted IControls interface return valid values.
             FramePreUpdate(this, EventArgs.Empty);
         }
 
+        private void MouseWheelMoved(MouseWheelEventArgs obj)
+        {
+            if (!Window.IsFocused) return;
+            mouseWheelSpeed += obj.OffsetY;
+        }
+
+        private void KeyTyped(TextInputEventArgs e)
+        {
+            if (!Window.IsFocused) return;
+            typedCharacters.Append(e.AsString);
+        }
+
         private void FramePostUpdate(object sender, EventArgs e)
         {
             typedCharacters.Clear();
-        }        
+            mouseWheelSpeed = 0;
+        }
 
         private void FramePreUpdate(object sender, EventArgs e)
         {
             Vector2 mouseOrigin;
+            Vector2 windowCenter = new Vector2(
+                Window.Size.X / 2.0f, Window.Size.Y / 2.0f);
 
             if (mouseMode == MouseMode.InvisibleFixed
                 && graphics.Window.IsFocused)
@@ -145,68 +165,52 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
 
                 // Required to reliably compare the position of the mouse 
                 // before and after moving it to the center of the screen.
-                mouseOrigin = new Vector2(Window.MouseState.X,
-                     Window.MouseState.Y);
+                mouseOrigin = new Vector2(Window.MouseState.PreviousX,
+                     Window.MouseState.PreviousY);
 
                 Window.MousePosition = new OpenTK.Mathematics.Vector2(
-                    Window.Size.X / 2.0f, Window.Size.Y / 2.0f);
+                    windowCenter.X, windowCenter.Y);
             }
             else
             {
-                mouseOrigin = new Vector2(Window.LastMouseState.X,
-                    Window.LastMouseState.Y);
+                mouseOrigin = new Vector2(Window.MouseState.PreviousX,
+                    Window.MouseState.PreviousY);
                 Window.CursorVisible = true;
                 Window.Cursor = MouseCursor.Default;
             }
 
             // Prevent that the moving of the mouse to the center position
             // gets misinterpreted as rapid movement and returned as speed.
-            if (mouseModeChanged || 
-            // Fixes an issue which returns a high speed for touch screens
-            // when they are touched the first time (and this touch is used
-            // as trigger to get the current speed).
-                (!Window.LastMouseState.IsAnyButtonDown && 
-                Window.MouseState.IsAnyButtonDown))
+            if (mouseModeChanged ||
+                // Fixes an issue which returns a high speed for touch screens
+                // when they are touched the first time (and this touch is used
+                // as trigger to get the current speed).
+                (!Window.MouseState.WasButtonDown(GlfwMouseButton.Left) &&
+                Window.MouseState.IsButtonDown(GlfwMouseButton.Left)))
             {
-                mouseSpeed = Vector3.Zero;
+                mouseSpeed = Vector2.Zero;
                 mouseModeChanged = false;
             }
             else
             {
-                mouseSpeed = new Vector3(
-                    (mouseOrigin.X - Window.MousePosition.X) * MouseDampFactor,
-                    (Window.MousePosition.Y - mouseOrigin.Y) * MouseDampFactor,
-                    0);
+                mouseSpeed = new Vector2(
+                    (mouseOrigin.X - windowCenter.X) * MouseDamp,
+                    (windowCenter.Y - mouseOrigin.Y) * MouseDamp);
             }
 
-            /*
-            if (Window.JoystickStates.Length > 0)
+            AvailableGamepadsCount = 0;
+            for (int i = 0; i < gamepadStates.Length; i++)
             {
-                for (int j = 0; j < Window.JoystickStates.Length; j++)
+                if (Window.JoystickStates[i] != null &&
+                    GLFW.GetGamepadState(Window.JoystickStates[i].Id,
+                    out GamepadState gamepadState))
                 {
-                    if (!Window.JoystickStates[j].IsConnected) break;
-
-                    for (int i = 0; i < 16; i++)
-                    {
-                        if (Window.JoystickStates[j].IsButtonDown(i))
-                            Log.Trace($"Button {i} is pressed.");
-                    }
-
-                    for (int i = 0; i < 6; i++)
-                    {
-                        float axisValue =
-                            Math.Abs(Window.JoystickStates[j].GetAxis(i));
-                        if (axisValue > 0.3f && (1 - axisValue) > 0.3f)
-                            Log.Trace($"Axis {i} is pressed (value={axisValue}).");
-                    }
+                    gamepadStates[i] = gamepadState;
+                    AvailableGamepadsCount = Math.Max(AvailableGamepadsCount, 
+                        i + 1);
                 }
-            }*/
-        }
-
-        private void KeyTyped(TextInputEventArgs e)
-        {
-            if (!Window.IsFocused) return;
-            typedCharacters.Append(e.AsString);
+                else gamepadStates[i] = new GamepadState();
+            }
         }
 
         /// <summary>
@@ -226,108 +230,110 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             KeyboardState keyboard = Window.KeyboardState;
             return button switch
             {
-                KeyboardKey.A => keyboard.IsKeyDown(Key.A),
-                KeyboardKey.Alt => keyboard.IsKeyDown(Key.AltLeft)
-                || keyboard.IsKeyDown(Key.AltRight),
-                KeyboardKey.Apostrophe => keyboard.IsKeyDown(Key.Quote),
-                KeyboardKey.B => keyboard.IsKeyDown(Key.B),
-                KeyboardKey.Backslash => keyboard.IsKeyDown(Key.BackSlash),
-                KeyboardKey.Backspace => keyboard.IsKeyDown(Key.BackSpace),
-                KeyboardKey.BracketLeft => keyboard.IsKeyDown(Key.BracketLeft),
-                KeyboardKey.BracketRight => keyboard.IsKeyDown(Key.BracketRight),
-                KeyboardKey.C => keyboard.IsKeyDown(Key.C),
-                KeyboardKey.CapsLock => keyboard.IsKeyDown(Key.CapsLock),
-                KeyboardKey.Circumflex => keyboard.IsKeyDown(Key.Grave),
-                KeyboardKey.Comma => keyboard.IsKeyDown(Key.Comma),
-                KeyboardKey.Control => keyboard.IsKeyDown(Key.ControlLeft) 
-                || keyboard.IsKeyDown(Key.ControlRight),
-                KeyboardKey.D => keyboard.IsKeyDown(Key.D),
-                KeyboardKey.Delete => keyboard.IsKeyDown(Key.Delete),
-                KeyboardKey.Down => keyboard.IsKeyDown(Key.Down),
-                KeyboardKey.E => keyboard.IsKeyDown(Key.E),
-                KeyboardKey.End => keyboard.IsKeyDown(Key.End),
-                KeyboardKey.Enter => keyboard.IsKeyDown(Key.Enter),
-                KeyboardKey.Equal => keyboard.IsKeyDown(Key.Plus),//?
-                KeyboardKey.Escape => keyboard.IsKeyDown(Key.Escape),
-                KeyboardKey.F => keyboard.IsKeyDown(Key.F),
-                KeyboardKey.F1 => keyboard.IsKeyDown(Key.F1),
-                KeyboardKey.F2 => keyboard.IsKeyDown(Key.F2),
-                KeyboardKey.F3 => keyboard.IsKeyDown(Key.F3),
-                KeyboardKey.F4 => keyboard.IsKeyDown(Key.F4),
-                KeyboardKey.F5 => keyboard.IsKeyDown(Key.F5),
-                KeyboardKey.F6 => keyboard.IsKeyDown(Key.F6),
-                KeyboardKey.F7 => keyboard.IsKeyDown(Key.F7),
-                KeyboardKey.F8 => keyboard.IsKeyDown(Key.F8),
-                KeyboardKey.F9 => keyboard.IsKeyDown(Key.F9),
-                KeyboardKey.F10 => keyboard.IsKeyDown(Key.F10),
-                KeyboardKey.F11 => keyboard.IsKeyDown(Key.F11),
-                KeyboardKey.F12 => keyboard.IsKeyDown(Key.F12),
-                KeyboardKey.Home => keyboard.IsKeyDown(Key.Home),
-                KeyboardKey.Hyphen => keyboard.IsKeyDown(Key.Minus),//?
-                KeyboardKey.I => keyboard.IsKeyDown(Key.I),
-                KeyboardKey.Insert => keyboard.IsKeyDown(Key.Insert),
-                KeyboardKey.J => keyboard.IsKeyDown(Key.J),
-                KeyboardKey.K => keyboard.IsKeyDown(Key.K),
-                KeyboardKey.Keypad0 => keyboard.IsKeyDown(Key.Keypad0),
-                KeyboardKey.Keypad1 => keyboard.IsKeyDown(Key.Keypad1),
-                KeyboardKey.Keypad2 => keyboard.IsKeyDown(Key.Keypad2),
-                KeyboardKey.Keypad3 => keyboard.IsKeyDown(Key.Keypad3),
-                KeyboardKey.Keypad4 => keyboard.IsKeyDown(Key.Keypad4),
-                KeyboardKey.Keypad5 => keyboard.IsKeyDown(Key.Keypad5),
-                KeyboardKey.Keypad6 => keyboard.IsKeyDown(Key.Keypad6),
-                KeyboardKey.Keypad7 => keyboard.IsKeyDown(Key.Keypad7),
-                KeyboardKey.Keypad8 => keyboard.IsKeyDown(Key.Keypad8),
-                KeyboardKey.Keypad9 => keyboard.IsKeyDown(Key.Keypad9),
-                KeyboardKey.KeypadDivide => 
-                keyboard.IsKeyDown(Key.KeypadDivide),
-                KeyboardKey.KeypadEnter => keyboard.IsKeyDown(Key.KeypadEnter),
-                KeyboardKey.KeypadMinus => keyboard.IsKeyDown(Key.KeypadMinus),
-                KeyboardKey.KeypadMultiply => 
-                keyboard.IsKeyDown(Key.KeypadMultiply),
-                KeyboardKey.KeypadPlus => keyboard.IsKeyDown(Key.KeypadPlus),
-                KeyboardKey.L => keyboard.IsKeyDown(Key.L),
-                KeyboardKey.Left => keyboard.IsKeyDown(Key.Left),
-                KeyboardKey.M => keyboard.IsKeyDown(Key.M),
-                KeyboardKey.N => keyboard.IsKeyDown(Key.N),
-                KeyboardKey.Number0 => keyboard.IsKeyDown(Key.Number0),
-                KeyboardKey.Number1 => keyboard.IsKeyDown(Key.Number1),
-                KeyboardKey.Number2 => keyboard.IsKeyDown(Key.Number2),
-                KeyboardKey.Number3 => keyboard.IsKeyDown(Key.Number3),
-                KeyboardKey.Number4 => keyboard.IsKeyDown(Key.Number4),
-                KeyboardKey.Number5 => keyboard.IsKeyDown(Key.Number5),
-                KeyboardKey.Number6 => keyboard.IsKeyDown(Key.Number6),
-                KeyboardKey.Number7 => keyboard.IsKeyDown(Key.Number7),
-                KeyboardKey.Number8 => keyboard.IsKeyDown(Key.Number8),
-                KeyboardKey.Number9 => keyboard.IsKeyDown(Key.Number9),
-                KeyboardKey.O => keyboard.IsKeyDown(Key.O),
-                KeyboardKey.P => keyboard.IsKeyDown(Key.P),
-                KeyboardKey.PageDown => keyboard.IsKeyDown(Key.PageDown),
-                KeyboardKey.PageUp => keyboard.IsKeyDown(Key.PageUp),
-                KeyboardKey.PauseBreak => keyboard.IsKeyDown(Key.Pause),
-                KeyboardKey.Period => keyboard.IsKeyDown(Key.Period),
-                KeyboardKey.Print => keyboard.IsKeyDown(Key.PrintScreen),
-                KeyboardKey.Q => keyboard.IsKeyDown(Key.Q),
-                KeyboardKey.R => keyboard.IsKeyDown(Key.R),
-                KeyboardKey.Right => keyboard.IsKeyDown(Key.Right),
-                KeyboardKey.S => keyboard.IsKeyDown(Key.S),
-                KeyboardKey.ScrollLock => keyboard.IsKeyDown(Key.ScrollLock),
-                KeyboardKey.Semicolon => keyboard.IsKeyDown(Key.Semicolon),
-                KeyboardKey.Shift => keyboard.IsKeyDown(Key.ShiftLeft) 
-                || keyboard.IsKeyDown(Key.ShiftRight),
-                KeyboardKey.Slash => keyboard.IsKeyDown(Key.Slash),
-                KeyboardKey.Space => keyboard.IsKeyDown(Key.Space),
-                KeyboardKey.T => keyboard.IsKeyDown(Key.T),
-                KeyboardKey.Tab => keyboard.IsKeyDown(Key.Tab),
-                KeyboardKey.Tilde => keyboard.IsKeyDown(Key.Tilde),
-                KeyboardKey.U => keyboard.IsKeyDown(Key.U),
-                KeyboardKey.Up => keyboard.IsKeyDown(Key.Up),
-                KeyboardKey.V => keyboard.IsKeyDown(Key.V),
-                KeyboardKey.W => keyboard.IsKeyDown(Key.W),
-                KeyboardKey.WindowsCommand => keyboard.IsKeyDown(Key.WinLeft) 
-                || keyboard.IsKeyDown(Key.WinRight),
-                KeyboardKey.X => keyboard.IsKeyDown(Key.X),
-                KeyboardKey.Y => keyboard.IsKeyDown(Key.Y),
-                KeyboardKey.Z => keyboard.IsKeyDown(Key.Z),
+                KeyboardKey.A => keyboard.IsKeyDown(Keys.A),
+                KeyboardKey.Alt => keyboard.IsKeyDown(Keys.LeftAlt)
+                    || keyboard.IsKeyDown(Keys.RightAlt),
+                KeyboardKey.Apostrophe => keyboard.IsKeyDown(Keys.Apostrophe),
+                KeyboardKey.B => keyboard.IsKeyDown(Keys.B),
+                KeyboardKey.Backslash => keyboard.IsKeyDown(Keys.Backslash),
+                KeyboardKey.Backspace => keyboard.IsKeyDown(Keys.Backspace),
+                KeyboardKey.BracketLeft => keyboard.IsKeyDown(Keys.LeftBracket),
+                KeyboardKey.BracketRight => keyboard.IsKeyDown(Keys.RightBracket),
+                KeyboardKey.C => keyboard.IsKeyDown(Keys.C),
+                KeyboardKey.CapsLock => keyboard.IsKeyDown(Keys.CapsLock),
+                KeyboardKey.Comma => keyboard.IsKeyDown(Keys.Comma),
+                KeyboardKey.Control => keyboard.IsKeyDown(Keys.LeftControl)
+                    || keyboard.IsKeyDown(Keys.RightControl),
+                KeyboardKey.D => keyboard.IsKeyDown(Keys.D),
+                KeyboardKey.Delete => keyboard.IsKeyDown(Keys.Delete),
+                KeyboardKey.Down => keyboard.IsKeyDown(Keys.Down),
+                KeyboardKey.E => keyboard.IsKeyDown(Keys.E),
+                KeyboardKey.End => keyboard.IsKeyDown(Keys.End),
+                KeyboardKey.Enter => keyboard.IsKeyDown(Keys.Enter),
+                KeyboardKey.Equal => keyboard.IsKeyDown(Keys.Equal),
+                KeyboardKey.Escape => keyboard.IsKeyDown(Keys.Escape),
+                KeyboardKey.F => keyboard.IsKeyDown(Keys.F),
+                KeyboardKey.F1 => keyboard.IsKeyDown(Keys.F1),
+                KeyboardKey.F2 => keyboard.IsKeyDown(Keys.F2),
+                KeyboardKey.F3 => keyboard.IsKeyDown(Keys.F3),
+                KeyboardKey.F4 => keyboard.IsKeyDown(Keys.F4),
+                KeyboardKey.F5 => keyboard.IsKeyDown(Keys.F5),
+                KeyboardKey.F6 => keyboard.IsKeyDown(Keys.F6),
+                KeyboardKey.F7 => keyboard.IsKeyDown(Keys.F7),
+                KeyboardKey.F8 => keyboard.IsKeyDown(Keys.F8),
+                KeyboardKey.F9 => keyboard.IsKeyDown(Keys.F9),
+                KeyboardKey.F10 => keyboard.IsKeyDown(Keys.F10),
+                KeyboardKey.F11 => keyboard.IsKeyDown(Keys.F11),
+                KeyboardKey.F12 => keyboard.IsKeyDown(Keys.F12),
+                KeyboardKey.Home => keyboard.IsKeyDown(Keys.Home),
+                KeyboardKey.Hyphen => keyboard.IsKeyDown(Keys.Minus),
+                KeyboardKey.I => keyboard.IsKeyDown(Keys.I),
+                KeyboardKey.Insert => keyboard.IsKeyDown(Keys.Insert),
+                KeyboardKey.J => keyboard.IsKeyDown(Keys.J),
+                KeyboardKey.K => keyboard.IsKeyDown(Keys.K),
+                KeyboardKey.Keypad0 => keyboard.IsKeyDown(Keys.KeyPad0),
+                KeyboardKey.Keypad1 => keyboard.IsKeyDown(Keys.KeyPad1),
+                KeyboardKey.Keypad2 => keyboard.IsKeyDown(Keys.KeyPad2),
+                KeyboardKey.Keypad3 => keyboard.IsKeyDown(Keys.KeyPad3),
+                KeyboardKey.Keypad4 => keyboard.IsKeyDown(Keys.KeyPad4),
+                KeyboardKey.Keypad5 => keyboard.IsKeyDown(Keys.KeyPad5),
+                KeyboardKey.Keypad6 => keyboard.IsKeyDown(Keys.KeyPad6),
+                KeyboardKey.Keypad7 => keyboard.IsKeyDown(Keys.KeyPad7),
+                KeyboardKey.Keypad8 => keyboard.IsKeyDown(Keys.KeyPad8),
+                KeyboardKey.Keypad9 => keyboard.IsKeyDown(Keys.KeyPad9),
+                KeyboardKey.KeypadDivide =>
+                    keyboard.IsKeyDown(Keys.KeyPadDivide),
+                KeyboardKey.KeypadEnter =>
+                    keyboard.IsKeyDown(Keys.KeyPadEnter),
+                KeyboardKey.KeypadMinus =>
+                    keyboard.IsKeyDown(Keys.KeyPadSubtract),
+                KeyboardKey.KeypadMultiply =>
+                    keyboard.IsKeyDown(Keys.KeyPadMultiply),
+                KeyboardKey.KeypadPlus => keyboard.IsKeyDown(Keys.KeyPadAdd),
+                KeyboardKey.L => keyboard.IsKeyDown(Keys.L),
+                KeyboardKey.Left => keyboard.IsKeyDown(Keys.Left),
+                KeyboardKey.M => keyboard.IsKeyDown(Keys.M),
+                KeyboardKey.N => keyboard.IsKeyDown(Keys.N),
+                KeyboardKey.N0 => keyboard.IsKeyDown(Keys.D0),
+                KeyboardKey.N1 => keyboard.IsKeyDown(Keys.D1),
+                KeyboardKey.N2 => keyboard.IsKeyDown(Keys.D2),
+                KeyboardKey.N3 => keyboard.IsKeyDown(Keys.D3),
+                KeyboardKey.N4 => keyboard.IsKeyDown(Keys.D4),
+                KeyboardKey.N5 => keyboard.IsKeyDown(Keys.D5),
+                KeyboardKey.N6 => keyboard.IsKeyDown(Keys.D6),
+                KeyboardKey.N7 => keyboard.IsKeyDown(Keys.D7),
+                KeyboardKey.N8 => keyboard.IsKeyDown(Keys.D8),
+                KeyboardKey.N9 => keyboard.IsKeyDown(Keys.D9),
+                KeyboardKey.O => keyboard.IsKeyDown(Keys.O),
+                KeyboardKey.P => keyboard.IsKeyDown(Keys.P),
+                KeyboardKey.PageDown => keyboard.IsKeyDown(Keys.PageDown),
+                KeyboardKey.PageUp => keyboard.IsKeyDown(Keys.PageUp),
+                KeyboardKey.PauseBreak => keyboard.IsKeyDown(Keys.Pause),
+                KeyboardKey.Period => keyboard.IsKeyDown(Keys.Period),
+                KeyboardKey.Print => keyboard.IsKeyDown(Keys.PrintScreen),
+                KeyboardKey.Q => keyboard.IsKeyDown(Keys.Q),
+                KeyboardKey.R => keyboard.IsKeyDown(Keys.R),
+                KeyboardKey.Right => keyboard.IsKeyDown(Keys.Right),
+                KeyboardKey.S => keyboard.IsKeyDown(Keys.S),
+                KeyboardKey.ScrollLock => keyboard.IsKeyDown(Keys.ScrollLock),
+                KeyboardKey.Semicolon => keyboard.IsKeyDown(Keys.Semicolon),
+                KeyboardKey.Shift => keyboard.IsKeyDown(Keys.LeftShift)
+                    || keyboard.IsKeyDown(Keys.RightShift),
+                KeyboardKey.Slash => keyboard.IsKeyDown(Keys.Slash),
+                KeyboardKey.Space => keyboard.IsKeyDown(Keys.Space),
+                KeyboardKey.T => keyboard.IsKeyDown(Keys.T),
+                KeyboardKey.Tab => keyboard.IsKeyDown(Keys.Tab),
+                KeyboardKey.GraveAccent =>
+                    keyboard.IsKeyDown(Keys.GraveAccent),
+                KeyboardKey.U => keyboard.IsKeyDown(Keys.U),
+                KeyboardKey.Up => keyboard.IsKeyDown(Keys.Up),
+                KeyboardKey.V => keyboard.IsKeyDown(Keys.V),
+                KeyboardKey.W => keyboard.IsKeyDown(Keys.W),
+                KeyboardKey.Super => keyboard.IsKeyDown(Keys.LeftSuper)
+                    || keyboard.IsKeyDown(Keys.RightSuper),
+                KeyboardKey.X => keyboard.IsKeyDown(Keys.X),
+                KeyboardKey.Y => keyboard.IsKeyDown(Keys.Y),
+                KeyboardKey.Z => keyboard.IsKeyDown(Keys.Z),
                 KeyboardKey.None => false,
                 _ => false,
             };
@@ -351,19 +357,19 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             MouseState mouse = Window.MouseState;
             return button switch
             {
-                ShamanTK.Controls.MouseButton.Left => 
-                mouse.IsButtonDown(MouseButton.Left),
-                ShamanTK.Controls.MouseButton.Right => 
-                mouse.IsButtonDown(MouseButton.Right),
-                ShamanTK.Controls.MouseButton.Middle => 
-                mouse.IsButtonDown(MouseButton.Middle),
-                ShamanTK.Controls.MouseButton.Extra1 => 
-                mouse.IsButtonDown(MouseButton.Button1),
-                ShamanTK.Controls.MouseButton.Extra2 => 
-                mouse.IsButtonDown(MouseButton.Button2),
-                ShamanTK.Controls.MouseButton.Extra3 => 
-                mouse.IsButtonDown(MouseButton.Button3),
-                ShamanTK.Controls.MouseButton.None => false,
+                ShamanMouseButton.Left =>
+                    mouse.IsButtonDown(GlfwMouseButton.Left),
+                ShamanMouseButton.Right =>
+                    mouse.IsButtonDown(GlfwMouseButton.Right),
+                ShamanMouseButton.Middle =>
+                    mouse.IsButtonDown(GlfwMouseButton.Middle),
+                ShamanMouseButton.Extra1 =>
+                    mouse.IsButtonDown(GlfwMouseButton.Button1),
+                ShamanMouseButton.Extra2 =>
+                    mouse.IsButtonDown(GlfwMouseButton.Button2),
+                ShamanMouseButton.Extra3 =>
+                    mouse.IsButtonDown(GlfwMouseButton.Button3),
+                ShamanMouseButton.None => false,
                 _ => false,
             };
         }
@@ -383,56 +389,94 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         /// <paramref name="gamepadIndex"/> is greater than/equal to
         /// <see cref="AvailableGamepadsCount"/>.
         /// </returns>
-        public virtual bool IsPressed(GamepadButton button, int gamepadIndex)
+        public unsafe virtual bool IsPressed(GamepadButton button,
+            int gamepadIndex)
         {
             if (!Window.IsFocused) return false;
 
-            return false;           
-
-            /*
-            if (gamepadIndex < Window.JoystickStates.Length)
+            if (gamepadIndex < AvailableGamepadsCount)
             {
-                JoystickState joystick = Window.JoystickStates[gamepadIndex];
+                GamepadState gamepad = gamepadStates[gamepadIndex];
+                const byte down = (byte)JoystickInputAction.Press;
 
                 return button switch
                 {
-                    GamepadButton.A => 
-                    joystick.Buttons.A == InputAction.Press,
-                    GamepadButton.B => 
-                    joystick.Buttons.B == InputAction.Press,
-                    GamepadButton.X => 
-                    joystick.Buttons.X == InputAction.Press
-                    GamepadButton.Y => 
-                    joystick.Buttons.Y == InputAction.Press,
-                    GamepadButton.BigButton => 
-                    joystick.Buttons.BigButton == InputAction.Press,
-                    GamepadButton.Start => 
-                    joystick.Buttons.Start == InputAction.Press,
-                    GamepadButton.Back => 
-                    joystick.Buttons.Back == InputAction.Press,
-                    GamepadButton.LeftShoulder => 
-                    joystick.Buttons.LeftShoulder == InputAction.Press,
-                    GamepadButton.RightShoulder => 
-                    joystick.Buttons.RightShoulder == InputAction.Press,
-                    GamepadButton.LeftStick => 
-                    joystick.Buttons.LeftStick == InputAction.Press,
-                    GamepadButton.RightStick => 
-                    joystick.Buttons.RightStick == InputAction.Press,
-                    GamepadButton.DPadDown => 
-                    joystick.DPad.Down == InputAction.Press,
-                    GamepadButton.DPadLeft => 
-                    joystick.DPad.Left == InputAction.Press,
-                    GamepadButton.DPadRight => 
-                    joystick.DPad.Right == InputAction.Press,
-                    GamepadButton.DPadUp => 
-                    joystick.DPad.Up == InputAction.Press,
-                    GamepadButton.None => 
-                    false,
+                    GamepadButton.A => gamepad.Buttons[0] == down,
+                    GamepadButton.B => gamepad.Buttons[1] == down,
+                    GamepadButton.X => gamepad.Buttons[2] == down,
+                    GamepadButton.Y => gamepad.Buttons[3] == down,
+                    GamepadButton.LeftShoulder => gamepad.Buttons[4] == down,
+                    GamepadButton.RightShoulder => gamepad.Buttons[5] == down,
+                    GamepadButton.Back => gamepad.Buttons[6] == down,
+                    GamepadButton.Start => gamepad.Buttons[7] == down,
+                    GamepadButton.BigButton => gamepad.Buttons[8] == down,
+                    GamepadButton.LeftStick => gamepad.Buttons[9] == down,
+                    GamepadButton.RightStick => gamepad.Buttons[10] == down,
+                    GamepadButton.DPadUp => gamepad.Buttons[11] == down,
+                    GamepadButton.DPadRight => gamepad.Buttons[12] == down,
+                    GamepadButton.DPadDown => gamepad.Buttons[13] == down,
+                    GamepadButton.DPadLeft => gamepad.Buttons[14] == down,
+                    GamepadButton.None => false,
                     _ => false,
                 };
             }
             return false;
-            */
+        }
+
+        /// <summary>
+        /// Gets the current value of the specified axis.
+        /// </summary>
+        /// <param name="axis">
+        /// The axis which should be queried.
+        /// </param>
+        /// <param name="gamepadIndex">
+        /// The index of the gamepad which should be queried.
+        /// </param>
+        /// <returns>
+        /// The value of the specified axis as a decimal value between 0.0
+        /// and 1.0, or 0.0 when the axis is in its default "idle" state,
+        /// the opposing axis is having a value greater than 0,
+        /// when <see cref="SupportsGamepads"/> is <c>false</c> or when
+        /// <paramref name="gamepadIndex"/> is greater than/equal to
+        /// <see cref="AvailableGamepadsCount"/>.
+        /// </returns>
+        public unsafe float GetGamepadAxis(GamepadAxis axis, int gamepadIndex)
+        {
+            if (!Window.IsFocused) return 0;
+
+            if (gamepadIndex < AvailableGamepadsCount)
+            {
+                GamepadState gamepad = gamepadStates[gamepadIndex];
+
+                var value = axis switch
+                {
+                    GamepadAxis.LeftStickRight =>
+                        Math.Max(gamepad.Axes[0], 0),
+                    GamepadAxis.LeftStickLeft =>
+                        Math.Abs(Math.Min(gamepad.Axes[0], 0)),
+                    GamepadAxis.LeftStickUp =>
+                        Math.Max(gamepad.Axes[1], 0),
+                    GamepadAxis.LeftStickDown =>
+                        Math.Abs(Math.Min(gamepad.Axes[1], 0)),
+                    GamepadAxis.RightStickRight =>
+                        Math.Max(gamepad.Axes[2], 0),
+                    GamepadAxis.RightStickLeft =>
+                        Math.Abs(Math.Min(gamepad.Axes[2], 0)),
+                    GamepadAxis.RightStickUp =>
+                        Math.Max(gamepad.Axes[3], 0),
+                    GamepadAxis.RightStickDown =>
+                        Math.Abs(Math.Min(gamepad.Axes[3], 0)),
+                    GamepadAxis.LeftTrigger =>
+                        gamepad.Axes[4],
+                    GamepadAxis.RightTrigger =>
+                        gamepad.Axes[5],
+                    GamepadAxis.None => 0,
+                    _ => 0,
+                };
+
+                return Math.Min(1.0f, Math.Max(value - 0.1f, 0) / 0.9f);
+            }
+            else return 0;
         }
 
         /// <summary>
@@ -460,59 +504,6 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         }
 
         /// <summary>
-        /// Gets the current value of the specified axis.
-        /// </summary>
-        /// <param name="axis">
-        /// The axis which should be queried.
-        /// </param>
-        /// <param name="gamepadIndex">
-        /// The index of the gamepad which should be queried.
-        /// </param>
-        /// <returns>
-        /// The value of the specified axis as a decimal value between 0.0
-        /// and 1.0, or 0.0 when the axis is in its default "idle" state,
-        /// the opposing axis is having a value greater than 0,
-        /// when <see cref="SupportsGamepads"/> is <c>false</c> or when
-        /// <paramref name="gamepadIndex"/> is greater than/equal to
-        /// <see cref="AvailableGamepadsCount"/>.
-        /// </returns>
-        public float GetGamepadAxis(GamepadAxis axis, int gamepadIndex)
-        {
-            if (!Window.IsFocused) return 0;
-
-            return 0;
-
-            /*
-            GamepadState state = GamePad.GetState(gamepadIndex);
-            if (!state.IsConnected) return 0;
-            var value = axis switch
-            {
-                GamepadAxis.LeftStickRight => 
-                Math.Max(state.ThumbSticks.Left.X, 0),
-                GamepadAxis.LeftStickLeft => 
-                Math.Abs(Math.Min(state.ThumbSticks.Left.X, 0)),
-                GamepadAxis.LeftStickUp => 
-                Math.Max(state.ThumbSticks.Left.Y, 0),
-                GamepadAxis.LeftStickDown => 
-                Math.Abs(Math.Min(state.ThumbSticks.Left.Y, 0)),
-                GamepadAxis.RightStickRight => 
-                Math.Max(state.ThumbSticks.Right.X, 0),
-                GamepadAxis.RightStickLeft => 
-                Math.Abs(Math.Min(state.ThumbSticks.Right.X, 0)),
-                GamepadAxis.RightStickUp => 
-                Math.Max(state.ThumbSticks.Right.Y, 0),
-                GamepadAxis.RightStickDown => 
-                Math.Abs(Math.Min(state.ThumbSticks.Right.Y, 0)),
-                GamepadAxis.LeftTrigger => state.Triggers.Left,
-                GamepadAxis.RightTrigger => state.Triggers.Right,
-                GamepadAxis.None => 0,
-                _ => 0,
-            };
-            return Math.Min(1.0f, Math.Max(value - 0.1f, 0) / 0.9f);
-            */
-        }
-
-        /// <summary>
         /// Gets the current accerlation of the mouse in a certain direction.
         /// </summary>
         /// <param name="axis">
@@ -529,15 +520,15 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         public float GetMouseSpeed(MouseSpeedAxis axis)
         {
             if (!Window.IsFocused) return 0;
-            
+
             var value = axis switch
             {
                 MouseSpeedAxis.Up => Math.Max(0, mouseSpeed.Y),
                 MouseSpeedAxis.Right => Math.Max(0, mouseSpeed.X),
                 MouseSpeedAxis.Down => Math.Max(0, -mouseSpeed.Y),
                 MouseSpeedAxis.Left => Math.Max(0, -mouseSpeed.X),
-                MouseSpeedAxis.WheelUp => 0,//Math.Max(0, mouseSpeed.Z),
-                MouseSpeedAxis.WheelDown => 0,//Math.Max(0, -mouseSpeed.Z),
+                MouseSpeedAxis.WheelUp => Math.Max(0, mouseWheelSpeed),
+                MouseSpeedAxis.WheelDown => Math.Min(0, -mouseWheelSpeed),
                 _ => 0,
             };
             return value;
@@ -559,7 +550,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             Vector2 relativePosition = new Vector2(
                 Window.MousePosition.X / (float)Window.Size.X,
                 Window.MousePosition.Y / (float)Window.Size.Y);
-            return relativePosition;            
+            return relativePosition;
         }
 
         /// <summary>

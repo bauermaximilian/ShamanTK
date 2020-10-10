@@ -13,11 +13,19 @@
     <NeutralLanguage>en</NeutralLanguage>
     <PackageLicenseExpression>GNU Lesser General Public License</PackageLicenseExpression>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
   
   <ItemGroup>
     <PackageReference Include="MP3Sharp" Version="1.0.5" />
-    <PackageReference Include="OpenTK" Version="4.0.0-pre9.7" />
-    <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0019" />
+    <PackageReference Include="OpenTK" Version="4.0.1" />
+    <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0020" />
     <PackageReference Include="System.Drawing.Common" Version="4.7.0" />
   </ItemGroup>
 

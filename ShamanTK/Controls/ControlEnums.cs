@@ -49,17 +49,16 @@ namespace ShamanTK.Controls
         /// Defines the default element, which - when queried - will always 
         /// return false.
         /// </summary>
-        None, 
+        None,
         Escape, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, Print,
         ScrollLock, PauseBreak,
-        Circumflex, Number1, Number2, Number3, Number4, Number5, Number6, Number7,
-        Number8, Number9, Number0, Hyphen, Equal, Backspace, Insert,
-        Home, PageUp,
+        GraveAccent, N1, N2, N3, N4, N5, N6, N7, N8, N9, N0,
+        Hyphen, Equal, Backspace, Insert, Home, PageUp,
         Tab, Q, W, E, R, T, Y, U, I, O, P, BracketLeft, BracketRight, Enter,
         Delete, End, PageDown,
-        CapsLock, A, S, D, F, J, K, L, Semicolon, Apostrophe, Tilde,
+        CapsLock, A, S, D, F, J, K, L, Semicolon, Apostrophe,
         Shift, Backslash, Z, X, C, V, B, N, M, Comma, Period, Slash, Up,
-        Control, WindowsCommand, Alt, Space, Left, Down, Right,
+        Control, Super, Alt, Space, Left, Down, Right,
         KeypadDivide, KeypadMultiply, KeypadMinus,
         Keypad7, Keypad8, Keypad9, KeypadPlus,
         Keypad4, Keypad5, Keypad6,
