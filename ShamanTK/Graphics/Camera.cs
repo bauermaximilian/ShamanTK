@@ -118,19 +118,42 @@ namespace ShamanTK.Graphics
             = new Vector3(0, 0, -4.20f);
 
         /// <summary>
-        /// Gets the position of the camera.
+        /// Gets the default rotation of the <see cref="Camera"/> 
+        /// upon initialisation.
+        /// </summary>
+        public static Vector3 DefaultOrientation { get; }
+            = new Vector3(0, 0, 0);
+
+        /// <summary>
+        /// Gets the position of the <see cref="Camera"/>.
         /// The initial value is <see cref="DefaultPosition"/>.
         /// </summary>
         public Vector3 Position { get; set; } = DefaultPosition;
 
         /// <summary>
-        /// Gets the rotation of the camera as <see cref="Quaternion"/>.
-        /// The initial value is <see cref="Quaternion.Identity"/>.
+        /// Gets or sets the orientation of the <see cref="Camera"/> as a 
+        /// <see cref="Vector3"/> of euler rotation values (in radians).
         /// </summary>
-        public Quaternion Rotation { get; set; } = Quaternion.Identity;
+        public Vector3 Orientation
+        {
+            get => orientation;
+            set
+            {
+                orientation = value;
+                OrientationQuaternion = MathHelper.CreateRotation(value);
+            }
+        }
+        private Vector3 orientation;
 
         /// <summary>
-        /// Gets or sets the projection mode of the camera.
+        /// Gets the orientation of the <see cref="Camera"/> as a 
+        /// rotation <see cref="Quaternion"/>.
+        /// </summary>
+        public Quaternion OrientationQuaternion { get; private set; }
+            = Quaternion.Identity;
+
+        /// <summary>
+        /// Gets or sets the projection mode of the <see cref="Camera"/>.
         /// The initial value is <see cref="ProjectionMode.Perspective"/>.
         /// </summary>
         public ProjectionMode ProjectionMode
@@ -196,83 +219,84 @@ namespace ShamanTK.Graphics
         /// <summary>
         /// Rotates the current <see cref="Camera"/> instance.
         /// </summary>
-        /// <param name="deltaEulerX">
+        /// <param name="rotationX">
         /// The amount of euler rotation around the X axis.
         /// </param>
-        /// <param name="deltaEulerY">
+        /// <param name="rotationY">
         /// The amount of euler rotation around the Y axis.
         /// </param>
-        public void Rotate(Angle deltaEulerX, Angle deltaEulerY)
+        public void Rotate(Angle rotationX, Angle rotationY)
         {
-            Rotate(deltaEulerX, deltaEulerY, 0);
+            Rotate(rotationX, rotationY, 0);
         }
 
         /// <summary>
         /// Rotates the current <see cref="Camera"/> instance.
         /// </summary>
-        /// <param name="deltaEulerX">
+        /// <param name="rotationX">
         /// The amount of euler rotation around the X axis.
         /// </param>
-        /// <param name="deltaEulerY">
+        /// <param name="rotationY">
         /// The amount of euler rotation around the Y axis.
         /// </param>
-        /// <param name="deltaEulerZ">
+        /// <param name="rotationZ">
         /// The amount of euler rotation around the Z axis.
         /// </param>
-        public void Rotate(Angle deltaEulerX, Angle deltaEulerY, 
-            Angle deltaEulerZ)
+        public void Rotate(Angle rotationX, Angle rotationY, 
+            Angle rotationZ)
         {
-            Rotate(new Vector3(deltaEulerX, deltaEulerY, deltaEulerZ));
+            Rotate(new Vector3(rotationX, rotationY, rotationZ));
         }
 
         /// <summary>
         /// Rotates the current <see cref="Camera"/> instance.
         /// </summary>
-        /// <param name="deltaEuler">
+        /// <param name="rotation">
         /// The amount of euler rotation around the X, Y and Z axis in radians.
         /// </param>
-        public void Rotate(Vector3 deltaEuler)
+        public void Rotate(in Vector3 rotation)
         {
-            Rotation = MathHelper.CombineRotation(Rotation, deltaEuler);
+            Orientation += rotation;
         }
 
         /// <summary>
         /// Rotates the current <see cref="Camera"/> instance.
         /// </summary>
-        /// <param name="eulerY">
-        /// The new euler rotation value of the X axis.
+        /// <param name="orientationY">
+        /// The new euler rotation value for the X axis orientation.
         /// </param>
-        /// <param name="eulerX">
-        /// The new euler rotation value of the Y axis.
+        /// <param name="orientationX">
+        /// The new euler rotation value for the Y axis orientation.
         /// </param>
-        /// <param name="eulerZ">
-        /// The new euler rotation value of the Z axis.
+        /// <param name="orientationZ">
+        /// The new euler rotation value for the Z axis orientation.
         /// </param>
-        public void RotateTo(Angle eulerX, Angle eulerY, Angle eulerZ)
+        public void RotateTo(Angle orientationX, Angle orientationY, 
+            Angle orientationZ)
         {
-            RotateTo(new Vector3(eulerX, eulerY, eulerZ));
+            RotateTo(new Vector3(orientationX, orientationY, orientationZ));
         }
 
         /// <summary>
         /// Rotates the current <see cref="Camera"/> instance.
         /// </summary>
-        /// <param name="eulerRotation">
-        /// The new euler rotation value of the X, Y and Z axis.
+        /// <param name="orientation">
+        /// The new euler rotation values for the orientation.
         /// </param>
-        public void RotateTo(Vector3 eulerRotation)
+        public void RotateTo(in Vector3 orientation)
         {
-            Rotation = MathHelper.CreateRotation(eulerRotation);
+            Orientation = orientation;
         }
 
         /// <summary>
         /// Moves the current <see cref="Camera"/>.
         /// </summary>
-        /// <param name="newPosition">
+        /// <param name="position">
         /// The new position of the camera.
         /// </param>
-        public void MoveTo(Vector3 newPosition)
+        public void MoveTo(in Vector3 position)
         {
-            Position = newPosition;
+            Position = position;
         }
 
         /// <summary>
@@ -292,64 +316,95 @@ namespace ShamanTK.Graphics
             Position = new Vector3(x, y, z);
         }
 
-#if ENABLE_EXPERIMENTAL_API
         /// <summary>
         /// Moves the current <see cref="Camera"/>.
         /// </summary>
         /// <param name="translation">
         /// The translation of the camera.
         /// </param>
-        /// <param name="translateAlongCameraAxis">
-        /// <c>true</c> to translate the camera along its current axis 
-        /// (rotated by the current <see cref="Rotation"/>),
-        /// <c>false</c> to translate the camera without considering its
-        /// current <see cref="Rotation"/>.
-        /// </param>
-        public void Move(Vector3 translation,
-            bool translateAlongCameraAxis)
+        public void Move(in Vector3 translation)
         {
-            if (translateAlongCameraAxis)
-            {
-                Vector3 transformedTranslation = Vector3.Transform(
-                    new Vector3(translation.X, 0, translation.Z), Rotation);
-
-                //TODO: Finally make that this actually works... 
-                //Ugh. I hate maths so much.
-                int signZ = translation.Z >= 0 ? 1 : -1;
-                int yFactor = transformedTranslation.Z >= 0 ? signZ : -signZ;
-
-                Position = new Vector3(Position.X + transformedTranslation.X,
-                    Position.Y + transformedTranslation.Y * yFactor
-                    + translation.Y, Position.Z +
-                    transformedTranslation.Z);
-            }
-            else Position += translation;
+            Position += translation;
         }
 
         /// <summary>
-        /// Moves the current <see cref="Camera"/>.
+        /// Moves the current <see cref="Camera"/> along its current 
+        /// <see cref="Orientation"/>.
         /// </summary>
-        /// <param name="translationX">
-        /// The X component of the camera translation vector.
+        /// <param name="translation">
+        /// The translation of the camera.
         /// </param>
-        /// <param name="translationY">
-        /// The Y component of the camera translation vector.
+        /// <param name="ignoreOrientationX">
+        /// <c>true</c> to ignore the <see cref="Vector3.X"/> component of
+        /// the current <see cref="Orientation"/> to prevent the 
+        /// <see cref="Vector3.Y"/> component of 
+        /// the <paramref name="translation"/> to be altered, 
+        /// <c>false</c> otherwise (default).
         /// </param>
-        /// <param name="translationZ">
-        /// The Z component of the camera translation vector.
+        /// <param name="ignoreOrientationY">
+        /// <c>true</c> to ignore the <see cref="Vector3.Y"/> component of
+        /// the current <see cref="Orientation"/> to prevent the 
+        /// <see cref="Vector3.X"/> and <see cref="Vector3.Z"/> component of 
+        /// the <paramref name="translation"/> to be altered, 
+        /// <c>false</c> otherwise (default).
         /// </param>
-        /// <param name="translateAlongCameraAxis">
-        /// <c>true</c> to translate the camera along its current axis 
-        /// (rotated by the current <see cref="Rotation"/>),
-        /// <c>false</c> to translate the camera without considering its
-        /// current <see cref="Rotation"/>.
-        /// </param>
-        public void Move(float translationX, float translationY, 
-            float translationZ, bool translateAlongCameraAxis)
+        /// <returns>
+        /// The aligned <paramref name="translation"/>.
+        /// </returns>
+        public Vector3 MoveAligned(in Vector3 translation, 
+            bool ignoreOrientationX = false, bool ignoreOrientationY = false)
         {
-            Move(new Vector3(translationX, translationY, translationZ),
-                translateAlongCameraAxis);
+            Vector3 alignedVector = AlignVector(translation, 
+                ignoreOrientationX, ignoreOrientationY);
+            Move(alignedVector);
+            return alignedVector;
         }
-#endif
+
+        /// <summary>
+        /// Aligns a <see cref="Vector3"/> to the <see cref="Orientation"/>
+        /// of the <see cref="Camera"/>.
+        /// </summary>
+        /// <param name="vector"></param>
+        /// <param name="ignoreOrientationX">
+        /// <c>true</c> to ignore the <see cref="Vector3.X"/> component of
+        /// the current <see cref="Orientation"/> to prevent the 
+        /// <see cref="Vector3.Y"/> component of 
+        /// the <paramref name="vector"/> to be altered, 
+        /// <c>false</c> otherwise (default).
+        /// </param>
+        /// <param name="ignoreOrientationY">
+        /// <c>true</c> to ignore the <see cref="Vector3.Y"/> component of
+        /// the current <see cref="Orientation"/> to prevent the 
+        /// <see cref="Vector3.X"/> and <see cref="Vector3.Z"/> component of 
+        /// the <paramref name="vector"/> to be altered, 
+        /// <c>false</c> otherwise (default).
+        /// </param>
+        /// <returns></returns>
+        public Vector3 AlignVector(in Vector3 vector, 
+            bool ignoreOrientationX = false, bool ignoreOrientationY = false)
+        {
+            return AlignVector(vector, Orientation, ignoreOrientationX, 
+                ignoreOrientationY);
+        }
+
+        private static Vector3 AlignVector(in Vector3 vector,
+            in Vector3 orientation, bool ignoreRotationX,
+            bool ignoreRotationY)
+        {
+            float orientationX = ignoreRotationX ? 0 : orientation.X;
+            float orientationY = ignoreRotationY ? 0 : orientation.Y;
+
+            Vector2 orientationSin = new Vector2((float)Math.Sin(orientationX),
+                (float)Math.Sin(orientationY));
+            Vector2 orientationCos = new Vector2((float)Math.Cos(orientationX),
+                (float)Math.Cos(orientationY));
+
+            return new Vector3(vector.X * orientationCos.Y +
+                vector.Z * orientationSin.Y * orientationCos.X,
+                vector.Y * (orientationCos.X >= 0 ? 1 : -1) -
+                vector.Z * orientationSin.X,
+                vector.Z * orientationCos.Y * orientationCos.X -
+                vector.X * orientationSin.Y);
+        }
     }
 }

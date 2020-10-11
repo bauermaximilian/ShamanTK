@@ -204,14 +204,14 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                         -cameraPosition.X, -cameraPosition.Y,
                         -cameraPosition.Z) *
                     Matrix4.CreateFromQuaternion(new Quaternion(
-                        -currentCamera.Rotation.X,
-                        -currentCamera.Rotation.Y,
+                        -currentCamera.OrientationQuaternion.X,
+                        -currentCamera.OrientationQuaternion.Y,
 #if FLIP_Z
-                        currentCamera.Rotation.Z,
+                        currentCamera.OrientationQuaternion.Z,
 #else
-                        -currentCamera.Rotation.Z,
+                        -currentCamera.OrientationQuaternion.Z,
 #endif
-                        currentCamera.Rotation.W)));
+                        currentCamera.OrientationQuaternion.W)));
                 Shader.ViewPosition.Set(cameraPosition);
 
                 Shader.Projection.Set(CreateProjectionMatrix(camera, 
@@ -494,14 +494,14 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                         -cameraPosition.X, -cameraPosition.Y,
                         -cameraPosition.Z) *
                     Matrix4.CreateFromQuaternion(new Quaternion(
-                        -currentCamera.Rotation.X,
-                        -currentCamera.Rotation.Y,
+                        -currentCamera.OrientationQuaternion.X,
+                        -currentCamera.OrientationQuaternion.Y,
 #if FLIP_Z
-                        currentCamera.Rotation.Z,
+                        currentCamera.OrientationQuaternion.Z,
 #else
-                        -currentCamera.Rotation.Z,
+                        -currentCamera.OrientationQuaternion.Z,
 #endif
-                        currentCamera.Rotation.W)));
+                        currentCamera.OrientationQuaternion.W)));
                 Shader.ViewPosition.Set(cameraPosition);
 
                 Shader.Projection.Set(CreateProjectionMatrix(camera,
