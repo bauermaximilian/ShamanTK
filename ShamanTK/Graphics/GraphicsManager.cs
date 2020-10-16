@@ -290,6 +290,83 @@ namespace ShamanTK.Graphics
             return Graphics.CreateRenderBuffer(size, textureFilter);
         }
 
+        /// <summary>
+        /// Creates a new <see cref="TextureBuffer"/> instance.
+        /// </summary>
+        /// <param name="size">
+        /// The size of the new <see cref="TextureBuffer"/>.
+        /// </param>
+        /// <param name="filter">
+        /// The texture interpolation method, which should be used when 
+        /// using that texture buffer to perform a drawing operation.
+        /// </param>
+        /// <returns>
+        /// A new instance of the <see cref="TextureBuffer"/> class.
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <see cref="Size.IsEmpty"/> of
+        /// <paramref name="size"/> is <c>true</c> or when 
+        /// <paramref name="filter"/> is invalid.
+        /// </exception>
+        /// <exception cref="OutOfMemoryException">
+        /// Is thrown when there's not enough graphics memory left to create 
+        /// a buffer of the specified size or when the specified buffer 
+        /// exceeded platform-specific limits.
+        /// </exception>
+        /// <remarks>
+        /// The content of the buffer is undefined and needs to be completely
+        /// populated using the methods of the returned 
+        /// <see cref="TextureBuffer"/> instance before the buffer is used to 
+        /// produce defined results.
+        /// </remarks>
+        public TextureBuffer CreateTextureBuffer(Size size,
+            TextureFilter filter)
+        {
+            return Graphics.CreateTextureBuffer(size, filter);
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="MeshBuffer"/> instance.
+        /// </summary>
+        /// <param name="vertexCount">
+        /// The amount of vertices of the new <see cref="MeshBuffer"/>.
+        /// </param>
+        /// <param name="faceCount">
+        /// The amount of faces of the new <see cref="MeshBuffer"/>.
+        /// </param>
+        /// <param name="vertexPropertyDataFormat">
+        /// The format of the <see cref="VertexPropertyData"/> in every
+        /// <see cref="Vertex"/> uploaded to the new <see cref="MeshBuffer"/>.
+        /// </param>
+        /// <returns>
+        /// A new instance of the <see cref="MeshBuffer"/> class.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Is thrown when <paramref name="vertexCount"/> is less than 1
+        /// or when <paramref name="faceCount"/> is less than 1.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="vertexPropertyDataFormat"/> is
+        /// invalid.
+        /// </exception>
+        /// <exception cref="OutOfMemoryException">
+        /// Is thrown when there's not enough graphics memory left to create 
+        /// a buffer of the specified size or when the specified buffer 
+        /// exceeded platform-specific limits.
+        /// </exception>
+        /// <remarks>
+        /// The content of the buffer is undefined and needs to be completely
+        /// populated using the methods of the returned 
+        /// <see cref="MeshBuffer"/> instance before the buffer is used to 
+        /// produce defined results.
+        /// </remarks>
+        public MeshBuffer CreateMeshBuffer(int vertexCount, int faceCount,
+            VertexPropertyDataFormat vertexPropertyDataFormat)
+        {
+            return Graphics.CreateMeshBuffer(vertexCount, faceCount,
+                vertexPropertyDataFormat);
+        }
+
         public Vector2 PointToOrthographic(Vector2 mousePosition, 
             bool proportional)
         {
