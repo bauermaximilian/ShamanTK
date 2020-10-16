@@ -279,8 +279,7 @@ namespace ShamanTK.Platforms.Common.IO
             try { charBitmap.Save(SpriteFontOutputPath); } catch { }
 #endif
 
-            TextureData spriteFontTexture =
-                new BitmapTextureData(charBitmap, false);
+            TextureData spriteFontTexture = new BitmapTextureData(charBitmap);
 
             return new SpriteFontData(spriteFontTexture, mappings, font.Size);
         }

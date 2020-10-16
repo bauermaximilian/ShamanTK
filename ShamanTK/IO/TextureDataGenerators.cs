@@ -27,85 +27,34 @@ namespace ShamanTK.IO
     /// </summary>
     internal static class TextureDataGenerators
     {
-        /*internal class TextureMixer : Texture
-        {
-            public TextureMixer(int width, int height) : base(width, height)
-            {
-            }
-
-            public override Color GetPixel(int x, int y)
-            {
-                throw new NotImplementedException();
-            }
-        }*/
-
         internal class SolidColor : TextureData
         {
             public Color Color { get; set; }
 
+            public override Pointer PixelData => null;
+
             public SolidColor(Size size) : base(size) { }
 
-            public override Color GetPixel(int x, int y)
-            {
-                return Color;
-            }
-
-            public override Color GetPixel(int index)
-            {
-                return Color;
-            }
-
-            public override Color[] GetPixels(int tx, int ty, 
+            public override Color[] GetRegion(int x, int y, 
                 int width, int height)
             {
-                ValidateTextureSection(tx, ty, width, height);
+                AssertValidTextureSection(x, y, width, height);
 
                 Color[] pixels = new Color[width * height];
                 for (int i = 0; i < pixels.Length; i++) pixels[i] = Color;
                 return pixels;
             }
 
-            public override Color[] GetPixels(int index, int count, 
-                bool throwOnCountOverflow)
-            {
-                ValidateIndexParams(index, ref count, throwOnCountOverflow);
-
-                Color[] pixels = new Color[count];
-
-                for (int i = 0; i < pixels.Length; i++) pixels[i] = Color;
-
-                return pixels;
-            }
-
             protected override void Dispose(bool disposing) { }
         }
-
-        /*
-        private class GradientTextureGenerator : Texture
-        {
-            //Support more than just 2 colors and positions
-
-            public GradientTextureGenerator(int width, int height)
-                : base(width, height)
-            {
-            }
-
-            public override Color GetPixel(int x, int y)
-            {
-                throw new NotImplementedException();
-            }
-        }*/
-        /*
-        private class PerlinNoiseGenerator : Texture
-        {
-            //http://flafla2.github.io/2014/08/09/perlinnoise.html
-        }*/
 
         internal class Checkerboard : TextureData
         {
             public Color PrimaryColor { get; set; }
 
             public Color SecondaryColor { get; set; }
+
+            public override Pointer PixelData => null;
 
             public int PatternSize
             {
@@ -116,13 +65,22 @@ namespace ShamanTK.IO
 
             public Checkerboard(Size size) : base(size) { }
 
-            public override Color GetPixel(int x, int y)
+            public override Color[] GetRegion(int x, int y,
+                int width, int height)
             {
-                bool xChecked = ((x / PatternSize) % 2) == 0;
-                bool yChecked = ((y / PatternSize) % 2) == 0;
+                AssertValidTextureSection(x, y, width, height);
 
-                if (xChecked && yChecked) return PrimaryColor;
-                else return SecondaryColor;
+                Color[] pixels = new Color[width * height];
+
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    bool xChecked = ((x / PatternSize) % 2) == 0;
+                    bool yChecked = ((y / PatternSize) % 2) == 0;
+
+                    if (xChecked && yChecked) pixels[i] = PrimaryColor;
+                    else pixels[i] = SecondaryColor;
+                }
+                return pixels;
             }
 
             protected override void Dispose(bool disposing) { }

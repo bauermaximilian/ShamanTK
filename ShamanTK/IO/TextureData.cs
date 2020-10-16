@@ -19,7 +19,11 @@
 
 using ShamanTK.Common;
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace ShamanTK.IO
 {
@@ -50,10 +54,80 @@ namespace ShamanTK.IO
     /// </summary>
     public abstract class TextureData : DisposableBase
     {
+        /// <summary>
+        /// Represents a pointer to the pixel data of a 
+        /// <see cref="TextureData"/> instance.
+        /// </summary>
+        public class Pointer
+        {
+            /// <summary>
+            /// Gets a collection of supported color types.
+            /// </summary>
+            public static IReadOnlyCollection<Type> SupportedColorTypes 
+                { get; } = new ReadOnlyCollection<Type>(new Type[]
+                {
+                    typeof(Color), typeof(Color.RGB), typeof(Color.RGB32),
+                    typeof(Color.BGR), typeof(Color.BGRA), typeof(Color.ARGB)
+                });
+
+            /// <summary>
+            /// Gets a pointer to the beginning of the pixel data in 
+            /// unmanaged memory.
+            /// </summary>
+            public IntPtr Scan0 { get; }
+
+            /// <summary>
+            /// Gets the size of a single pixel in the unmanaged memory 
+            /// in bytes.
+            /// </summary>
+            public int PixelSize { get; }
+
+            /// <summary>
+            /// Gets the type of the pixel data. The value is an element from
+            /// <see cref="SupportedColorTypes"/>.
+            /// </summary>
+            public Type ColorType { get; }
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="Pointer"/> class.
+            /// </summary>
+            /// <param name="scan0">
+            /// A pointer to the beginning of the pixel data.
+            /// </param>
+            /// <param name="size">
+            /// The size of the area in the unmanaged memory in bytes.
+            /// </param>
+            /// <param name="colorType">
+            /// The type of the pixel data.
+            /// </param>
+            /// <exception cref="ArgumentNullException">
+            /// Is thrown when <paramref name="colorType"/> is null.
+            /// </exception>
+            /// <exception cref="ArgumentException">
+            /// Is thrown when <paramref name="colorType"/> isn't contained
+            /// in <see cref="SupportedColorTypes"/>.
+            /// </exception>
+            public Pointer(IntPtr scan0, Type colorType)
+            {
+                if (colorType == null)
+                    throw new ArgumentNullException(nameof(colorType));
+                if (!SupportedColorTypes.Contains(colorType))
+                    throw new ArgumentException("The specified color type " +
+                        "is not supported.");
+
+                Scan0 = scan0;
+                ColorType = colorType;
+
+                PixelSize = Marshal.SizeOf(colorType);
+            }
+        }
+
         #region Internally used Texture implementations.
         internal class MemoryTexure : TextureData
         {
             private Color[] data;
+
+            public override Pointer PixelData => null;
 
             public MemoryTexure(Size size, Color[] pixelData) : base(size)
             {
@@ -66,60 +140,27 @@ namespace ShamanTK.IO
                 data = pixelData;
             }
 
-            public override Color GetPixel(int tx, int ty)
-            {
-                if (IsDisposed)
-                    throw new ObjectDisposedException(GetType().Name);
-
-                if (tx < 0 || tx >= Size.Width)
-                    throw new ArgumentOutOfRangeException(nameof(tx));
-                if (ty < 0 || ty >= Size.Height)
-                    throw new ArgumentOutOfRangeException(nameof(ty));
-
-                return data[ty * Size.Width + tx];
-            }
-
-            public override Color GetPixel(int index)
-            {
-                if (IsDisposed)
-                    throw new ObjectDisposedException(GetType().Name);
-
-                if (index < 0 || index >= data.Length)
-                    throw new ArgumentOutOfRangeException(nameof(index));
-                else return data[index];
-            }
-
-            public override Color[] GetPixels(int index, int count, 
-                bool throwOnCountOverflow)
-            {
-                ValidateIndexParams(index, ref count, throwOnCountOverflow);
-
-                Color[] pixels = new Color[count];
-                Array.ConstrainedCopy(data, index, pixels, 0, pixels.Length);
-                return pixels;
-            }
-
-            public override Color[] GetPixels(int tx, int ty, int width,
+            public override Color[] GetRegion(int x, int y, int width,
                 int height)
             {
                 if (IsDisposed)
                     throw new ObjectDisposedException(GetType().Name);
 
-                ValidateTextureSection(tx, ty, width, height);
+                AssertValidTextureSection(x, y, width, height);
 
                 Color[] areaData = new Color[width * height];
 
-                if (tx == 0 && width == Size.Width)
+                if (x == 0 && width == Size.Width)
                 {
-                    Array.ConstrainedCopy(data, ty * Size.Width, areaData, 0, 
+                    Array.ConstrainedCopy(data, y * Size.Width, areaData, 0, 
                         width * height);
                 }
                 else
                 {
-                    for (int y = ty; y < (tx + height); y++)
+                    for (int i = y; i < (x + height); i++)
                     {
-                        Array.ConstrainedCopy(data, y * Size.Width + tx,
-                            areaData, y * width, width);
+                        Array.ConstrainedCopy(data, i * Size.Width + x,
+                            areaData, i * width, width);
                     }
                 }
 
@@ -129,36 +170,6 @@ namespace ShamanTK.IO
             protected override void Dispose(bool disposing)
             {
                 data = null;
-            }
-        }
-
-        internal class TextureWrapper : TextureData
-        {
-            private PixelRetriever retrievePixel;
-
-            public TextureWrapper(Size size, PixelRetriever pixelRetriever) 
-                : base(size)
-            {
-                retrievePixel = pixelRetriever ??
-                    throw new ArgumentNullException(nameof(pixelRetriever));
-            }
-
-            public override Color GetPixel(int tx, int ty)
-            {
-                if (IsDisposed)
-                    throw new ObjectDisposedException(GetType().Name);
-
-                if (tx < 0 || tx >= Size.Width)
-                    throw new ArgumentOutOfRangeException(nameof(tx));
-                if (ty < 0 || ty >= Size.Height)
-                    throw new ArgumentOutOfRangeException(nameof(ty));
-
-                return retrievePixel(tx, ty);
-            }
-
-            protected override void Dispose(bool disposing)
-            {
-                retrievePixel = null;
             }
         }
         #endregion
@@ -181,13 +192,6 @@ namespace ShamanTK.IO
         public static Size MaxSize { get; } = new Size(MaxWidth, MaxHeight);
 
         /// <summary>
-        /// Gets a value indicating whether the current instance
-        /// has been disposed (<c>true</c>) or not (<c>false</c>).
-        /// </summary>
-        public override bool IsDisposed => base.IsDisposed ||
-            (PixelDataPointer != null && PixelDataPointer.IsDisposed);
-
-        /// <summary>
         /// Gets the size of the texture source.
         /// </summary>
         public Size Size { get; }
@@ -199,29 +203,11 @@ namespace ShamanTK.IO
         public int PixelCount => Size.Width * Size.Height;
 
         /// <summary>
-        /// Gets a boolean indicating whether the data of the current 
-        /// <see cref="TextureData"/> can be accessed directly through the 
-        /// <see cref="PixelDataPointer"/> property (<c>true</c>) or if 
-        /// pointers are not supported and <see cref="PixelDataPointer"/>
-        /// is null (<c>false</c>).
+        /// Gets a pointer to the pixel data in the unmanaged memory or null,
+        /// if the current instance doesn't support accessing the pixel data
+        /// from unmanaged memory.
         /// </summary>
-        public bool SupportsPointers => PixelDataPointer != null;
-
-        /// <summary>
-        /// Gets a <see cref="MemoryPointer"/> to the pixel data in unmanaged
-        /// memory with the specific color pixel layout specified by
-        /// <see cref="MemoryPointer.ElementType"/> or null, if
-        /// <see cref="SupportsPointers"/> is <c>false</c>.
-        /// Cast the value of this property to a 
-        /// <see cref="MemoryPointer{DataT}"/> instance with 
-        /// the specific color type as DataT to access the pixel data using
-        /// managed methods.
-        /// </summary>
-        /// <remarks>
-        /// If this property is not null and disposed, the current
-        /// <see cref="TextureData"/> instance is marked as disposed as well.
-        /// </remarks>
-        public virtual MemoryPointer PixelDataPointer { get; } = null;
+        public abstract Pointer PixelData { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TextureData"/>
@@ -244,68 +230,14 @@ namespace ShamanTK.IO
         }
 
         /// <summary>
-        /// Gets a single pixel from the <see cref="TextureData"/>.
-        /// </summary>
-        /// <param name="tx">
-        /// The X position of the requested pixel in texture coordinate space,
-        /// where the origin is in the top left corner and the X axis 
-        /// "points right".
-        /// </param>
-        /// <param name="ty">
-        /// The Y position of the requested pixel in texture coordinate space,
-        /// where the origin is in the top left corner and the Y axis
-        /// "points downwards".
-        /// </param>
-        /// <returns>
-        /// A new instance of the <see cref="Color"/> structure.
-        /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="tx"/> is less than 0 or greater than
-        /// or equal to <see cref="Width"/> or when <paramref name="ty"/> is 
-        /// less than 0 or greater than or equal to <see cref="Height"/>.
-        /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// Is thrown when the object data was disposed and can't be accessed
-        /// anymore.
-        /// </exception>
-        public abstract Color GetPixel(int tx, int ty);
-
-        /// <summary>
-        /// Gets a single pixel from the <see cref="TextureData"/>.
-        /// </summary>
-        /// <param name="index">
-        /// The index of the pixel.
-        /// </param>
-        /// <returns>The <see cref="Color"/> of the requested pixel.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="tx"/> is less than 0 or greater 
-        /// than/equal to <see cref="Width"/> or when <paramref name="ty"/>
-        /// is less than 0 or greater than/equal to <see cref="Height"/>.
-        /// </exception>
-        /// <remarks>
-        /// If the pixel data is stored in a two-dimensional array-like 
-        /// structure line by line, a X/Y coordinate can be converted to 
-        /// the pixel index with <c>y * Width + x</c>.
-        /// If the index is given, it can easily be converted into X/Y
-        /// coordinates by using <c>index % Width</c> for X and
-        /// <c>index / Width</c> for Y - assuming that <c>index</c> and
-        /// <c>Width</c> are both integer numbers.
-        /// </remarks>
-        public virtual Color GetPixel(int index)
-        {
-            GetPixelPosition(index, out int tx, out int ty);
-            return GetPixel(tx, ty);
-        }
-
-        /// <summary>
         /// Gets the index of a pixel at a specific position.
         /// </summary>
-        /// <param name="tx">
+        /// <param name="x">
         /// The X position of the requested pixel in texture coordinate space,
         /// where the origin is in the top left corner and the X axis 
         /// "points right".
         /// </param>
-        /// <param name="ty">
+        /// <param name="y">
         /// The Y position of the requested pixel in texture coordinate space,
         /// where the origin is in the top left corner and the Y axis
         /// "points downwards".
@@ -314,45 +246,45 @@ namespace ShamanTK.IO
         /// The index of the pixel at the specified position.
         /// </returns>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="tx"/> is less than 0 or greater 
-        /// than/equal to <see cref="Width"/> or when <paramref name="ty"/>
+        /// Is thrown when <paramref name="x"/> is less than 0 or greater 
+        /// than/equal to <see cref="Width"/> or when <paramref name="y"/>
         /// is less than 0 or greater than/equal to <see cref="Height"/>.
         /// </exception>
-        public virtual int GetPixelIndex(int tx, int ty)
+        public virtual int GetPixelIndex(int x, int y)
         {
-            if (tx < 0 || tx >= Size.Width)
-                throw new ArgumentOutOfRangeException(nameof(tx));
-            if (ty < 0 || ty >= Size.Height)
-                throw new ArgumentOutOfRangeException(nameof(ty));
+            if (x < 0 || x >= Size.Width)
+                throw new ArgumentOutOfRangeException(nameof(x));
+            if (y < 0 || y >= Size.Height)
+                throw new ArgumentOutOfRangeException(nameof(y));
 
-            return ty * Size.Width + tx;
+            return y * Size.Width + x;
         }
 
         /// <summary>
         /// Gets the position of a pixel with a specific index.
         /// </summary>
         /// <param name="index">The index of the requested pixel.</param>
-        /// <param name="tx">
+        /// <param name="x">
         /// The X position of the requested pixel in texture coordinate space,
         /// where the origin is in the top left corner and the X axis 
         /// "points right".
         /// </param>
-        /// <param name="ty">
+        /// <param name="y">
         /// The Y position of the requested pixel in texture coordinate space,
         /// where the origin is in the top left corner and the Y axis
         /// "points downwards".
         /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="tx"/> is less than 0 or greater 
-        /// than/equal to <see cref="Width"/> or when <paramref name="ty"/>
+        /// Is thrown when <paramref name="x"/> is less than 0 or greater 
+        /// than/equal to <see cref="Width"/> or when <paramref name="y"/>
         /// is less than 0 or greater than/equal to <see cref="Height"/>.
         /// </exception>
-        public virtual void GetPixelPosition(int index, out int tx, out int ty)
+        public virtual void GetPixelPosition(int index, out int x, out int y)
         {
             if (index < 0 || index >= PixelCount)
                 throw new ArgumentOutOfRangeException(nameof(index));
-            tx = index % Size.Width;
-            ty = index / Size.Width;
+            x = index % Size.Width;
+            y = index / Size.Width;
         }
 
         /// <summary>
@@ -366,12 +298,12 @@ namespace ShamanTK.IO
         /// as the base implementation retrieves the image data pixel by pixel
         /// using the <see cref="GetPixel(int, int)"/> method.
         /// </remarks>
-        /// <param name="tx">
+        /// <param name="x">
         /// The X position of the area origin in texture coordinate space,
         /// where the origin is in the top left corner and the X axis 
         /// "points right".
         /// </param>
-        /// <param name="ty">
+        /// <param name="y">
         /// The Y position of the requested pixel in texture coordinate space,
         /// where the origin is in the top left corner and the Y axis
         /// "points downwards".
@@ -393,96 +325,35 @@ namespace ShamanTK.IO
         /// Is thrown when the object data was disposed and can't be accessed
         /// anymore.
         /// </exception>
-        public virtual Color[] GetPixels(int tx, int ty, 
-            int width, int height)
-        {
-            ValidateTextureSection(tx, ty, width, height);
-
-            Color[] pixels = new Color[width * height];
-
-            try
-            {
-                int arrayIterator = 0;
-                for (int y = ty; y < height + ty; y++)
-                {
-                    for (int x = tx; x < width + tx; x++)
-                    {
-                        pixels[arrayIterator] = GetPixel(x, y);
-                        arrayIterator++;
-                    }
-                }
-            }
-            catch (ObjectDisposedException) { throw; }
-
-            return pixels;
-        }
-
-        /// <summary>
-        /// Gets pixels from the <see cref="TextureData"/> by its index.
-        /// </summary>
-        /// <param name="index">
-        /// The index of the first pixel.
-        /// </param>
-        /// <param name="count">
-        /// The amount of pixels to be retrieved.
-        /// </param>
-        /// <param name="throwOnCountOverflow">
-        /// <c>true</c> to throw an <see cref="ArgumentOutOfRangeException"/>,
-        /// if the <paramref name="index"/> plus the 
-        /// <paramref name="count"/> would exceed the
-        /// <see cref="PixelCount"/>, <c>false</c> to just return a smaller
-        /// array then.
-        /// </param>
-        /// <returns>An array of <see cref="Color"/> instances.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="index"/> is less than 0
-        /// or greater than/equal to <see cref="PixelCount"/>, or when
-        /// <paramref name="throwOnCountOverflow"/> is <c>true</c> and
-        /// <paramref name="index"/> plus <paramref name="count"/> is 
-        /// greater than/equal to <see cref="PixelCount"/>.
-        /// </exception>
-        /// <remarks>
-        /// See the remarks of <see cref="GetPixel(int)"/> for more
-        /// information about pixel indicies.
-        /// </remarks>
-        public virtual Color[] GetPixels(int index, int count,
-            bool throwOnCountOverflow)
-        {
-            ValidateIndexParams(index, ref count, throwOnCountOverflow);
-
-            Color[] pixels = new Color[count];
-            for (int i=0; i < (count + index); i++)
-                pixels[i] = GetPixel(i);
-            return pixels;
-        }
+        public abstract Color[] GetRegion(int x, int y, int width, int height);
 
         /// <summary>
         /// Validates a pixel position and throws an exception if it is
         /// outside the bounds of the current <see cref="TextureData"/>.
         /// If the parameters are valid, calling this method has no effect.
         /// </summary>
-        /// <param name="tx">
+        /// <param name="x">
         /// The X position of the pixel in texture coordinate space,
         /// where the origin is in the top left corner and the X axis 
         /// "points right".
         /// </param>
-        /// <param name="ty">
+        /// <param name="y">
         /// The Y position of the pixel in texture coordinate space,
         /// where the origin is in the top left corner and the Y axis
         /// "points downwards".
         /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
         /// Is thrown when the parameters are less than 0,
-        /// <paramref name="tx"/> is greater than/equal to <see cref="Width"/>
-        /// or when <paramref name="ty"/> is greater than/equal to
+        /// <paramref name="x"/> is greater than/equal to <see cref="Width"/>
+        /// or when <paramref name="y"/> is greater than/equal to
         /// <see cref="Height"/>.
         /// </exception>
-        protected void ValidatePixelPosition(int tx, int ty)
+        protected void AssertValidPixelPosition(int x, int y)
         {
-            if (tx < 0 || tx >= Size.Width)
-                throw new ArgumentOutOfRangeException(nameof(tx));
-            if (ty < 0 || ty >= Size.Height)
-                throw new ArgumentOutOfRangeException(nameof(ty));
+            if (x < 0 || x >= Size.Width)
+                throw new ArgumentOutOfRangeException(nameof(x));
+            if (y < 0 || y >= Size.Height)
+                throw new ArgumentOutOfRangeException(nameof(y));
         }
 
         /// <summary>
@@ -491,12 +362,12 @@ namespace ShamanTK.IO
         /// or the area is empty. If the <paramref name="section"/> is valid, 
         /// calling this method has no effect.
         /// </summary>
-        /// <param name="tx">
+        /// <param name="x">
         /// The X position of the area origin in texture coordinate space,
         /// where the origin is in the top left corner and the X axis 
         /// "points right".
         /// </param>
-        /// <param name="ty">
+        /// <param name="y">
         /// The Y position of the requested pixel in texture coordinate space,
         /// where the origin is in the top left corner and the Y axis
         /// "points downwards".
@@ -513,89 +384,17 @@ namespace ShamanTK.IO
         /// and <paramref name="height"/>) or when the area would exceed
         /// the bounds of the current instance.
         /// </exception>
-        protected void ValidateTextureSection(int tx, int ty,
+        protected void AssertValidTextureSection(int x, int y,
             int width, int height)
         {
-            if (tx < 0 || tx >= Size.Width)
-                throw new ArgumentOutOfRangeException(nameof(tx));
-            if (ty < 0 || ty >= Size.Height)
-                throw new ArgumentOutOfRangeException(nameof(ty));
-            if (width <= 0 || tx + width > Size.Width)
+            if (x < 0 || x >= Size.Width)
+                throw new ArgumentOutOfRangeException(nameof(x));
+            if (y < 0 || y >= Size.Height)
+                throw new ArgumentOutOfRangeException(nameof(y));
+            if (width <= 0 || x + width > Size.Width)
                 throw new ArgumentOutOfRangeException(nameof(width));
-            if (height <= 0 || ty + height > Size.Height)
+            if (height <= 0 || y + height > Size.Height)
                 throw new ArgumentOutOfRangeException(nameof(height));
-        }
-
-        /// <summary>
-        /// Validates the <paramref name="count"/> parameter and corrects
-        /// it, if <paramref name="throwOnCountOverflow"/> is <c>false</c>,
-        /// so that it will be in the bounds of <see cref="PixelCount"/>.
-        /// </summary>
-        /// <param name="index">
-        /// The index of the first pixel.
-        /// </param>
-        /// <param name="count">
-        /// The desired amount of pixels to be retrieved. If
-        /// <paramref name="throwOnCountOverflow"/> is <c>false</c>, this
-        /// parameter is corrected, if necessary, to fit into the bounds
-        /// of <see cref="PixelCount"/>.
-        /// </param>
-        /// <param name="throwOnCountOverflow">
-        /// <c>true</c> to throw an <see cref="ArgumentOutOfRangeException"/>,
-        /// if the <paramref name="index"/> plus the 
-        /// <paramref name="count"/> would exceed the
-        /// <see cref="PixelCount"/>, <c>false</c> to correct 
-        /// <paramref name="count"/>.
-        /// </param>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="index"/> is less than 0
-        /// or greater than/equal to <see cref="PixelCount"/>, or when
-        /// <paramref name="throwOnCountOverflow"/> is <c>true</c> and
-        /// <paramref name="index"/> plus <paramref name="count"/> is 
-        /// greater than/equal to <see cref="PixelCount"/>.
-        /// </exception>
-        protected void ValidateIndexParams(int index, ref int count,
-            bool throwOnCountOverflow)
-        {
-            if (index < 0 || index >= PixelCount)
-                throw new ArgumentOutOfRangeException(nameof(index));
-
-            if ((index + count) >= PixelCount && throwOnCountOverflow)
-                throw new ArgumentOutOfRangeException(nameof(count));
-            else count = PixelCount - index - 1;
-        }
-
-        /// <summary>
-        /// Initializes a new <see cref="TextureData"/> from existing data.
-        /// </summary>
-        /// <param name="width">
-        /// The width of the existing source image and the new texture.
-        /// </param>
-        /// <param name="height">
-        /// The height of the existing source image and the new texture.
-        /// </param>
-        /// <param name="pixelRetriever">
-        /// A method which gets the <see cref="Color"/> of a pixel in the
-        /// source image at a specific X and Y position. This method is not
-        /// used or stored beyond the scope of this method.
-        /// </param>
-        /// <returns>
-        /// A new instance of the <see cref="TextureData"/> class.
-        /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when the <paramref name="width"/> or 
-        /// <paramref name="height"/> were less than/equal to zero or 
-        /// greater than <see cref="MaxWidth"/>/<see cref="MaxWidth"/>.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when the specified <paramref name="width"/> or
-        /// <paramref name="height"/> exceeded the dimensions accessible
-        /// by the <paramref name="pixelRetriever"/>.
-        /// </exception>
-        public static TextureData Create(int width, int height,
-            PixelRetriever pixelRetriever)
-        {
-            return Create(width, height, pixelRetriever, true);
         }
 
         /// <summary>
@@ -792,93 +591,13 @@ namespace ShamanTK.IO
 
             stream.WriteUnsignedInteger((uint)Size.Width);
             stream.WriteUnsignedInteger((uint)Size.Height);
+
             for (int y = 0; y < Size.Height; y++)
-                for (int x = 0; x < Size.Width; x++)
-                    stream.Write(GetPixel(x, y));
-        }
-
-        /// <summary>
-        /// Initializes a new <see cref="TextureData"/> from existing data.
-        /// </summary>
-        /// <param name="width">
-        /// The width of the existing source image and the new texture.
-        /// </param>
-        /// <param name="height">
-        /// The height of the existing source image and the new texture.
-        /// </param>
-        /// <param name="pixelRetriever">
-        /// A method which gets the <see cref="Color"/> of a pixel in the
-        /// source image at a specific X and Y position.
-        /// </param>
-        /// <param name="bufferData">
-        /// <c>true</c> to create a complete copy of the image data and store 
-        /// it in the new <see cref="TextureData"/> instance (needs more 
-        /// memory and longer to initialize, but has a predictable, constant 
-        /// and higher GPU transfer speed and reliability), 
-        /// <c>false</c> to create a wrapper around the specified delegate
-        /// and redirect all image data requests of the new 
-        /// <see cref="TextureData"/> (<see cref="GetPixel(int, int)"/>,...)
-        /// to the specified <paramref name="pixelRetriever"/> (faster 
-        /// initialisation of the texture and less memory usage, but less 
-        /// predictability on speed during GPU transfer).
-        /// If the specified <paramref name="pixelRetriever"/> accesses the
-        /// data of an object implementing <see cref="IDisposable"/>, 
-        /// it is highly recommended to specifiy <c>true</c> as 
-        /// parameter value.
-        /// </param>
-        /// <returns>
-        /// A new instance of the <see cref="TextureData"/> class.
-        /// </returns>
-        /// <exception cref="ArgumentNullException">
-        /// Is thrown when <paramref name="pixelRetriever"/> is null.
-        /// </exception>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when the <paramref name="width"/> or 
-        /// <paramref name="height"/> were less than/equal to zero or 
-        /// greater than <see cref="MaxWidth"/>/<see cref="MaxWidth"/>.
-        /// </exception>
-        /// <exception cref="ArgumentException">
-        /// Is thrown when the specified <paramref name="width"/> or
-        /// <paramref name="height"/> exceeded the dimensions accessible
-        /// by the <paramref name="pixelRetriever"/>.
-        /// </exception>
-        internal static TextureData Create(int width, int height,
-            PixelRetriever pixelRetriever, bool bufferData)
-        {
-            if (pixelRetriever == null)
-                throw new ArgumentNullException(nameof(pixelRetriever));
-
-            if (width <= 0 || width > MaxWidth)
-                throw new ArgumentOutOfRangeException(nameof(width));
-            if (height <= 0 || height > MaxHeight)
-                throw new ArgumentOutOfRangeException(nameof(height));
-
-            if (bufferData)
             {
-                Color[] pixelData = new Color[width * height];
+                Color[] row = GetRegion(0, y, Size.Width, 1);
 
-                try
-                {
-                    int arrayIterator = 0;
-                    for (int y = 0; y < height; y++)
-                    {
-                        for (int x = 0; x < width; x++)
-                        {
-                            pixelData[arrayIterator] = pixelRetriever(x, y);
-                            arrayIterator++;
-                        }
-                    }
-                }
-                catch (ArgumentOutOfRangeException)
-                {
-                    throw new ArgumentException("The specified dimensions " +
-                        "exceeded the accessible area of the image source!");
-                }
-
-                return new MemoryTexure(new Size(width, height), pixelData);
+                for (int x = 0; x < Size.Width; x++) stream.Write(row[x]);
             }
-            else return new TextureWrapper(new Size(width, height), 
-                pixelRetriever);
         }
     }
 }

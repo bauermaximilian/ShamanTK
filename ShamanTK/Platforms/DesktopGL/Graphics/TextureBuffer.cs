@@ -55,13 +55,13 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         /// Uploads texture data to the current buffer.
         /// </summary>
         /// <param name="source">The texture data.</param>
-        /// <param name="tx">
+        /// <param name="x">
         /// The X position of the area origin in texture coordinate space
         /// to be uploaded from the <paramref name="source"/> to this buffer,
         /// where the origin is in the top left corner and the X axis 
         /// "points right".
         /// </param>
-        /// <param name="ty">
+        /// <param name="y">
         /// The Y position of the requested pixel in texture coordinate space
         /// to be uploaded from the <paramref name="source"/> to this buffer,
         /// where the origin is in the top left corner and the Y axis
@@ -83,10 +83,10 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         /// of this <see cref="ShamanTK.Graphics.TextureBuffer"/> instance.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="tx"/> or <paramref name="ty"/> are
-        /// less than 0, or when the sum of <paramref name="tx"/> and
+        /// Is thrown when <paramref name="x"/> or <paramref name="y"/> are
+        /// less than 0, or when the sum of <paramref name="x"/> and
         /// <paramref name="width"/> is greater than <see cref="Width"/>,
-        /// or when the sum of <paramref name="ty"/> and 
+        /// or when the sum of <paramref name="y"/> and 
         /// <paramref name="height"/> is greater than <see cref="Height"/>.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
@@ -96,17 +96,17 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         /// <exception cref="UnauthorizedAccessException">
         /// Is thrown when an error occurred during uploading the data.
         /// </exception>
-        public override void Upload(TextureData source, int tx, int ty, 
+        public override void Upload(TextureData source, int x, int y, 
             int width, int height)
         {
-            VerifyUploadParameters(source, tx, ty, width, height);
+            VerifyUploadParameters(source, x, y, width, height);
 
             GL.BindTexture(TextureTarget.Texture2D, Handle);
 
             bool pointerUsed = false;
-            if (source.SupportsPointers)
+            if (source.PixelData != null)
             {
-                Type colorType = source.PixelDataPointer.ElementType;
+                Type colorType = source.PixelData.ColorType;
                 PixelFormat pixelFormat = PixelFormat.Red;
 
                 if (colorType == typeof(Color))
@@ -122,20 +122,20 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                 {
                     pointerUsed = true;
 
-                    GL.TexSubImage2D(TextureTarget.Texture2D, 0, tx,
-                        ty, width, height, pixelFormat,
-                        PixelType.UnsignedByte,
-                        source.PixelDataPointer.GetElementAddress(
-                            source.GetPixelIndex(tx, ty)));
+                    GL.TexSubImage2D(TextureTarget.Texture2D, 0, x,
+                        y, width, height, pixelFormat,
+                        PixelType.UnsignedByte, source.PixelData.Scan0 + 
+                        source.PixelData.PixelSize * 
+                        (source.Size.Width * y + x));
                 }
             }
 
             if (!pointerUsed)
             {
-                Color[] pixels = source.GetPixels(tx, ty, width, height);
+                Color[] pixels = source.GetRegion(x, y, width, height);
 
-                GL.TexSubImage2D(TextureTarget.Texture2D, 0, tx,
-                    ty, width, height, PixelFormat.Rgba,
+                GL.TexSubImage2D(TextureTarget.Texture2D, 0, x,
+                    y, width, height, PixelFormat.Rgba,
                     PixelType.UnsignedByte, pixels);
             }
 

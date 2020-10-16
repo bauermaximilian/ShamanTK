@@ -30,21 +30,11 @@ namespace ShamanTK.Platforms.Common.IO
         private System.Drawing.Bitmap bitmap;
         private BitmapData bitmapData;
 
-        public override MemoryPointer PixelDataPointer
-        {
-            get
-            {
-                if (colorBgraPointer != null) return colorBgraPointer;
-                else return colorBgrPointer;
-            }
-        }
-
-        private readonly MemoryPointer<Color.BGRA> colorBgraPointer = null;
-        private readonly MemoryPointer<Color.BGR> colorBgrPointer = null;
         private readonly int paddingWidth;
 
-        public BitmapTextureData(System.Drawing.Bitmap bitmap,
-            bool preferPointer)
+        public override Pointer PixelData { get; }
+
+        public BitmapTextureData(System.Drawing.Bitmap bitmap)
             : base(new Size(bitmap != null ? bitmap.Width : 1,
                   bitmap != null ? bitmap.Height : 1))
         {
@@ -54,19 +44,15 @@ namespace ShamanTK.Platforms.Common.IO
                 Size.Width, Size.Height), ImageLockMode.ReadWrite,
                 bitmap.PixelFormat);
 
-            if (bitmap.PixelFormat == PixelFormat.Format32bppArgb &&
-                preferPointer)
+            if (bitmap.PixelFormat == PixelFormat.Format32bppArgb)
             {
-                colorBgraPointer = MemoryPointer<Color.BGRA>.Create(
-                    bitmapData.Scan0, Size.Area, true, false);
+                PixelData = new Pointer(bitmapData.Scan0, typeof(Color.BGRA));
                 paddingWidth = Math.Max(0, Math.Abs(bitmapData.Stride) / 4
                     - Size.Width);
             }
-            else if (bitmap.PixelFormat == PixelFormat.Format24bppRgb &&
-                preferPointer)
+            else if (bitmap.PixelFormat == PixelFormat.Format24bppRgb)
             {
-                colorBgrPointer = MemoryPointer<Color.BGR>.Create(
-                    bitmapData.Scan0, Size.Area, true, false);
+                PixelData = new Pointer(bitmapData.Scan0, typeof(Color.BGR));
                 paddingWidth = Math.Max(0, Math.Abs(bitmapData.Stride) / 3
                     - Size.Width);
             }
@@ -74,24 +60,6 @@ namespace ShamanTK.Platforms.Common.IO
             {
                 bitmap.UnlockBits(bitmapData);
                 bitmapData = null;
-            }
-        }
-
-        public override Color GetPixel(int tx, int ty)
-        {
-            ThrowIfDisposed();
-            ValidatePixelPosition(tx, ty);
-
-            int pixelIndex = ty * Size.Width + tx;
-
-            if (colorBgraPointer != null)
-                return (Color)colorBgraPointer.Read(pixelIndex);
-            else if (colorBgrPointer != null)
-                return (Color)colorBgrPointer.Read(pixelIndex);
-            else
-            {
-                System.Drawing.Color color = bitmap.GetPixel(tx, ty);
-                return new Color(color.R, color.G, color.B, color.A);
             }
         }
 
@@ -112,6 +80,26 @@ namespace ShamanTK.Platforms.Common.IO
                 throw new ArgumentOutOfRangeException(nameof(index));
             tx = index % (Size.Width + paddingWidth);
             ty = index / (Size.Width + paddingWidth);
+        }
+
+        public override Color[] GetRegion(int tx, int ty, int width, 
+            int height)
+        {
+            AssertValidTextureSection(tx, ty, width, height);
+            Color[] pixels = new Color[width * height];
+
+            int i = 0;
+            for (int y = ty; y < (ty + height); y++)
+            {
+                for (int x = tx; x < (tx + width); x++)
+                {
+                    var pixel = bitmap.GetPixel(x, y);
+                    pixels[i++] = 
+                        new Color(pixel.R, pixel.G, pixel.B, pixel.A);
+                }
+            }
+
+            return pixels;
         }
 
         protected override void Dispose(bool disposing)
@@ -154,9 +142,8 @@ namespace ShamanTK.Platforms.Common.IO
 
             try
             {
-                System.Drawing.Bitmap bitmap =
-                    (System.Drawing.Bitmap)System.Drawing.Image.FromStream(stream);
-                return new BitmapTextureData(bitmap, true);
+                return new BitmapTextureData((System.Drawing.Bitmap)
+                    System.Drawing.Image.FromStream(stream));
             }
             catch (Exception exc)
             {
