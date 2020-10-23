@@ -273,6 +273,24 @@ namespace ShamanTK.Common
                 * (float)Math.Pow(ratio, 2) + x;
         }
 
+        /// <summary>
+        /// Gets the sine of the current time.
+        /// </summary>
+        /// <param name="oscillationsPerSecond">
+        /// The amount of oscillations/cycles per second.
+        /// </param>
+        /// <param name="amplitude">
+        /// The peak deviation of the function from zero.
+        /// </param>
+        /// <returns>A <see cref="float"/>.</returns>
+        public static float GetTimeSine(double oscillationsPerSecond, 
+            double amplitude = 1)
+        {
+            return (float)(Math.Sin(2 * Math.PI * oscillationsPerSecond * 
+                DateTime.Now.TimeOfDay.TotalSeconds) * 
+                amplitude);
+        }
+
 #if ENABLE_EXPERIMENTAL_API
         /// <summary>
         /// Creates a new <see cref="Quaternion"/> as a result of looking at
