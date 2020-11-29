@@ -42,14 +42,15 @@ namespace ShamanTK.IO
         /// Defines the path of the default program data directory, relative
         /// to the application location.
         /// </summary>
-        public const string ProgramDataDirectory = "data";
+        public const string ProgramDataDirectory = "Assets";
 
         /// <summary>
         /// Gets the default <see cref="FileSystem"/> instance, which can be
-        /// used to read and write application resources.
+        /// used to read application resources. For saving data of the current
+        /// user, see <see cref="CreateUserDataFileSystem(string)"/>.
         /// </summary>
         public static FileSystem ProgramData { get; }
-            = new FileSystem(true, ProgramDataDirectory);
+            = new FileSystem(ProgramDataDirectory, false);
 
         /// <summary>
         /// Gets a boolean which indicates whether the current file system
@@ -72,40 +73,18 @@ namespace ShamanTK.IO
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FileSystem"/> class
-        /// with read-only access to the complete file system of the 
-        /// operating system.
-        /// </summary>
-        public FileSystem() : this(false) { }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FileSystem"/> class
-        /// with access to the complete file system of the operating system.
-        /// </summary>
-        /// <param name="isWritable">
-        /// <c>true</c> to allow modification of files and folders,
-        /// <c>false</c> to grant read-only access only.
-        /// </param>
-        public FileSystem(bool isWritable)
-        {
-            IsWritable = isWritable;
-            root = "";
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FileSystem"/> class
         /// with access to all files and folders in a specific root directory.
         /// </summary>
-        /// <param name="isWritable">
-        /// <c>true</c> to allow modification of files and folders,
-        /// <c>false</c> to grant read-only access only.
-        /// </param>
         /// <param name="rootDirectoryPath">
         /// The path to the directory, which will be used as root of the
         /// new <see cref="FileSystem"/> and all paths used in later 
         /// operations on this instance. If the specified path is not
         /// absolute, it's resolved in relation to the path of the
-        /// application executable. Specify an empty string to directly use 
-        /// the directory of the application executable.
+        /// application executable.
+        /// </param>
+        /// <param name="isWritable">
+        /// <c>true</c> to allow modification of files and folders,
+        /// <c>false</c> to grant read-only access only.
         /// </param>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="rootDirectoryPath"/> is null.
@@ -114,11 +93,12 @@ namespace ShamanTK.IO
         /// Is thrown when <paramref name="rootDirectoryPath"/> contains one 
         /// of the elements defined in <see cref="Path.GetInvalidPathChars"/>.
         /// </exception>
-        public FileSystem(bool isWritable, string rootDirectoryPath)
-            : this(isWritable)
+        public FileSystem(string rootDirectoryPath, bool isWritable)
         {
             if (rootDirectoryPath == null)
                 throw new ArgumentNullException(nameof(rootDirectoryPath));
+
+            IsWritable = isWritable;
 
             try
             {
@@ -134,6 +114,40 @@ namespace ShamanTK.IO
                 throw new ArgumentException("The specified root path " +
                     "was invalid!", exc);
             }
+        }
+
+        /// <summary>
+        /// Creates a new <see cref="FileSystem"/> instance with its root in
+        /// an application-owned folder in the application data directory of
+        /// the current user profile, which can be used to read and write 
+        /// user-specific settings, save data or likewise.
+        /// </summary>
+        /// <param name="applicationName">
+        /// The name of the application, which will be used as name for the
+        /// root folder in the application data directory.
+        /// </param>
+        /// <returns>
+        /// A new instance of the <see cref="FileSystem"/> class.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="applicationName"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when <paramref name="applicationName"/> contains one 
+        /// of the elements defined in <see cref="Path.GetInvalidPathChars"/>.
+        /// </exception>
+        public static FileSystem CreateUserDataFileSystem(
+            string applicationName)
+        {
+            if (applicationName == null)
+                throw new ArgumentNullException(nameof(applicationName));
+
+            string appDataRootPath = Environment.GetFolderPath(
+                Environment.SpecialFolder.ApplicationData);
+            string userDataRootPath = Path.Combine(appDataRootPath,
+                applicationName);
+
+            return new FileSystem(userDataRootPath, true);
         }
 
         /// <summary>
