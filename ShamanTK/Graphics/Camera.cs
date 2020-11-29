@@ -364,7 +364,9 @@ namespace ShamanTK.Graphics
         /// Aligns a <see cref="Vector3"/> to the <see cref="Orientation"/>
         /// of the <see cref="Camera"/>.
         /// </summary>
-        /// <param name="vector"></param>
+        /// <param name="vector">
+        /// The vector to align to the orientation.
+        /// </param>
         /// <param name="ignoreOrientationX">
         /// <c>true</c> to ignore the <see cref="Vector3.X"/> component of
         /// the current <see cref="Orientation"/> to prevent the 
@@ -379,32 +381,14 @@ namespace ShamanTK.Graphics
         /// the <paramref name="vector"/> to be altered, 
         /// <c>false</c> otherwise (default).
         /// </param>
-        /// <returns></returns>
+        /// <returns>
+        /// A new <see cref="Vector3"/>.
+        /// </returns>
         public Vector3 AlignVector(in Vector3 vector, 
             bool ignoreOrientationX = false, bool ignoreOrientationY = false)
         {
-            return AlignVector(vector, Orientation, ignoreOrientationX, 
-                ignoreOrientationY);
-        }
-
-        private static Vector3 AlignVector(in Vector3 vector,
-            in Vector3 orientation, bool ignoreRotationX,
-            bool ignoreRotationY)
-        {
-            float orientationX = ignoreRotationX ? 0 : orientation.X;
-            float orientationY = ignoreRotationY ? 0 : orientation.Y;
-
-            Vector2 orientationSin = new Vector2((float)Math.Sin(orientationX),
-                (float)Math.Sin(orientationY));
-            Vector2 orientationCos = new Vector2((float)Math.Cos(orientationX),
-                (float)Math.Cos(orientationY));
-
-            return new Vector3(vector.X * orientationCos.Y +
-                vector.Z * orientationSin.Y * orientationCos.X,
-                vector.Y * (orientationCos.X >= 0 ? 1 : -1) -
-                vector.Z * orientationSin.X,
-                vector.Z * orientationCos.Y * orientationCos.X -
-                vector.X * orientationSin.Y);
+            return MathHelper.AlignVector(vector, Orientation, 
+                ignoreOrientationX, ignoreOrientationY);
         }
     }
 }
