@@ -18,27 +18,28 @@
 */
 
 using System;
+using System.Diagnostics;
 using System.Numerics;
 
 namespace ShamanTK.Common
 {
     /// <summary>
-    /// Provides helper methods for various operations with vectors and
-    /// matrices.
+    /// Provides helper methods for various mathematical operations with 
+    /// vectors, quaternions and matrices.
     /// </summary>
     public static class MathHelper
     {
         /// <summary>
-        /// Defines the amount of seconds of a calculation step for the
-        /// accerlation methods.
+        /// Defines the "start of time" for time-based operations, which is 
+        /// usually the time of the first usage of the <see cref="MathHelper"/>
+        /// class.
         /// </summary>
-        internal const float StepSizeSeconds = 0.03f;
-
-        /// <summary>
-        /// Defines the default amount of friction for the
-        /// accerlation methods.
-        /// </summary>
-        internal const float DefaultFriction = 2;
+        /// <remarks>
+        /// As the <see cref="Stopwatch"/> class uses a <see cref="long"/> 
+        /// for storing its time, operations using this value could yield 
+        /// incorrect results after an application runtime of ~10675199 days.
+        /// </remarks>
+        private static readonly Stopwatch timeStart = Stopwatch.StartNew();
 
         /// <summary>
         /// Creates a transformation matrix out of a position and a scale.
@@ -274,7 +275,7 @@ namespace ShamanTK.Common
         }
 
         /// <summary>
-        /// Gets the sine of the current time.
+        /// Gets a sine of the current time.
         /// </summary>
         /// <param name="oscillationsPerSecond">
         /// The amount of oscillations/cycles per second.
@@ -283,156 +284,76 @@ namespace ShamanTK.Common
         /// The peak deviation of the function from zero.
         /// </param>
         /// <returns>A <see cref="float"/>.</returns>
-        public static float GetTimeSine(double oscillationsPerSecond, 
+        public static float CalculateTimeSine(double oscillationsPerSecond, 
             double amplitude = 1)
         {
-            return (float)(Math.Sin(2 * Math.PI * oscillationsPerSecond * 
-                DateTime.Now.TimeOfDay.TotalSeconds) * 
-                amplitude);
-        }
-
-#if ENABLE_EXPERIMENTAL_API
-        /// <summary>
-        /// Creates a new <see cref="Quaternion"/> as a result of looking at
-        /// a target.
-        /// </summary>
-        /// <param name="yaw">The yaw rotation component (X-axis).</param>
-        /// <param name="pitch">The pitch rotation component (Y-axis).</param>
-        /// <param name="roll">The roll rotation component (Z-axis).</param>
-        /// <param name="limitValues">
-        /// <c>true</c> to limit the <paramref name="yaw"/> between 
-        /// <c>-90/90</c>, the <paramref name="pitch"/> and 
-        /// <paramref name="roll"/> between <c>-180/180</c> and to flip
-        /// the <paramref name="pitch"/> if the <paramref name="yaw"/> exceeds
-        /// its limits and use these clamped values to create the new rotation
-        /// <see cref="Quaternion"/>, <c>false</c> to just create the 
-        /// rotation <see cref="Quaternion"/> out of the original values 
-        /// without modifying them.
-        /// </param>
-        /// <returns>A new <see cref="Quaternion"/> instance.</returns>
-        public static Quaternion CreateRotation(Vector3 lookAtPosition,
-                Vector3 origin)
-        {
-            //This probably doesn't work, it has never been tested.
-            lookAtPosition -= origin;
-            float r = (float)Math.Sqrt(Math.Pow(lookAtPosition.X, 2)
-                + Math.Pow(lookAtPosition.Z, 2));
-            return Quaternion.CreateFromYawPitchRoll(
-                (float)Math.Atan2(lookAtPosition.X, lookAtPosition.Z),
-                (float)Math.Atan2(lookAtPosition.Y * -1.0, r), 0);
-
-            /*
-            //Alternative implementation to try out:
-            Vector3 v = lookAtTarget - Position;
-            float r = (float)Math.Sqrt(Math.Pow(v.X, 2) + Math.Pow(v.Z, 2));
-            float yaw = (float)Math.Atan2(v.X, v.Z);
-            float pitch = (float)Math.Atan2(v.Y * -1.0, r);
-            RotateTo(yaw, pitch, 0);
-
-            //https://answers.unity.com/questions/306184/lootat-euler-angles.html
-            //https://www.gamedev.net/forums/topic/563474-lookat-functionality-for-fps-euler-angle-camera/
-            */
+            return (float)(Math.Sin(2 * Math.PI * oscillationsPerSecond *
+                timeStart.Elapsed.TotalSeconds) * amplitude);
         }
 
         /// <summary>
-        /// Calculates the advancement of a value in a given time.
+        /// Gets a cyclic value using the current time.
         /// </summary>
-        /// <param name="x">The current value.</param>
-        /// <param name="y">The target value.</param>
-        /// <param name="currentAccerlation">
-        /// The current accerlation, which will be modified by this method.
+        /// <param name="progressPerSecond">
+        /// The amount the cyclic value advances per second.
         /// </param>
-        /// <param name="delta">
-        /// The amount of time for which the accerlation should be calculated.
+        /// <param name="restartAt">
+        /// The maximum value of the cyclic value, at which the cycle starts
+        /// at zero again.
         /// </param>
-        /// <param name="friction">
-        /// The friction, which will affect how the accerlation builds up
-        /// and decreases.
-        /// </param>
-        /// <returns>A new <see cref="Vector3D"/> instance.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="friction"/> is less than 0 or when
-        /// <paramref name="delta"/> is negative.
-        /// </exception>
-        public static Vector2 Accerlate(in Vector2 x, in Vector2 y,
-            ref Vector2 currentAccerlation, TimeSpan delta,
-            float friction = DefaultFriction)
+        /// <returns>A <see cref="float"/>.</returns>
+        public static float CalculateTimeCycle(double progressPerSecond,
+            double restartAt)
         {
-            if (friction < 0)
-                throw new ArgumentOutOfRangeException(nameof(friction));
-
-            float deltaSeconds = (float)delta.TotalSeconds;
-            if (deltaSeconds < 0)
-                throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
-
-            Vector2 currentPosition = x;
-            while (deltaSeconds > 0)
-            {
-                deltaSeconds -= StepSizeSeconds;
-                float stepSeconds =
-                    Math.Max(0, Math.Min(StepSizeSeconds,
-                    deltaSeconds));
-
-                Vector2 direction = y - x;
-                if (direction.Length() > float.Epsilon)
-                {
-                    currentAccerlation = currentAccerlation * (friction + 1)
-                        + direction * (friction + 2);
-                    currentPosition += currentAccerlation * stepSeconds;
-                }
-            }
-            return currentPosition;
+            return (float)((timeStart.Elapsed.TotalSeconds * 
+                progressPerSecond) % restartAt);
         }
 
         /// <summary>
-        /// Calculates the advancement of a value in a given time.
+        /// Aligns a <see cref="Vector3"/> to a specific euler orientation.
         /// </summary>
-        /// <param name="x">The current value.</param>
-        /// <param name="y">The target value.</param>
-        /// <param name="currentAccerlation">
-        /// The current accerlation, which will be modified by this method.
+        /// <param name="vector">
+        /// The vector to align to the orientation.
         /// </param>
-        /// <param name="delta">
-        /// The amount of time for which the accerlation should be calculated.
+        /// <param name="orientationEulerRad">
+        /// The euler orientation with each component in radians.
         /// </param>
-        /// <param name="friction">
-        /// The friction, which will affect how the accerlation builds up
-        /// and decreases.
+        /// <param name="ignoreOrientationX">
+        /// <c>true</c> to ignore the <see cref="Vector3.X"/> component of
+        /// the current <see cref="Orientation"/> to prevent the 
+        /// <see cref="Vector3.Y"/> component of 
+        /// the <paramref name="vector"/> to be altered, 
+        /// <c>false</c> otherwise (default).
         /// </param>
-        /// <returns>A new <see cref="Vector3D"/> instance.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="friction"/> is less than 0 or when
-        /// <paramref name="delta"/> is negative.
-        /// </exception>
-        public static Vector3 Accerlate(in Vector3 x, in Vector3 y,
-            ref Vector3 currentAccerlation, TimeSpan delta,
-            float friction = DefaultFriction)
+        /// <param name="ignoreOrientationY">
+        /// <c>true</c> to ignore the <see cref="Vector3.Y"/> component of
+        /// the current <see cref="Orientation"/> to prevent the 
+        /// <see cref="Vector3.X"/> and <see cref="Vector3.Z"/> component of 
+        /// the <paramref name="vector"/> to be altered, 
+        /// <c>false</c> otherwise (default).
+        /// </param>
+        /// <returns>
+        /// A new <see cref="Vector3"/>.
+        /// </returns>
+        public static Vector3 AlignVector(in Vector3 vector,
+            in Vector3 orientationEulerRad,
+            bool ignoreRotationX,
+            bool ignoreRotationY)
         {
-            if (friction < 0)
-                throw new ArgumentOutOfRangeException(nameof(friction));
+            float orientationX = ignoreRotationX ? 0 : orientationEulerRad.X;
+            float orientationY = ignoreRotationY ? 0 : orientationEulerRad.Y;
 
-            float deltaSeconds = (float)delta.TotalSeconds;
-            if (deltaSeconds < 0)
-                throw new ArgumentOutOfRangeException(nameof(deltaSeconds));
+            Vector2 orientationSin = new Vector2((float)Math.Sin(orientationX),
+                (float)Math.Sin(orientationY));
+            Vector2 orientationCos = new Vector2((float)Math.Cos(orientationX),
+                (float)Math.Cos(orientationY));
 
-            Vector3 currentPosition = x;
-            while (deltaSeconds > 0)
-            {
-                deltaSeconds -= StepSizeSeconds;
-                float stepSeconds =
-                    Math.Max(0, Math.Min(StepSizeSeconds,
-                    deltaSeconds));
-
-                Vector3 direction = y - x;
-                if (direction.Length() > float.Epsilon)
-                {
-                    currentAccerlation = currentAccerlation * (friction + 1)
-                        + direction * (friction + 2);
-                    currentPosition += currentAccerlation * stepSeconds;
-                }
-            }
-            return currentPosition;
+            return new Vector3(vector.X * orientationCos.Y +
+                vector.Z * orientationSin.Y * orientationCos.X,
+                vector.Y * (orientationCos.X >= 0 ? 1 : -1) -
+                vector.Z * orientationSin.X,
+                vector.Z * orientationCos.Y * orientationCos.X -
+                vector.X * orientationSin.Y);
         }
-#endif
     }
 }
