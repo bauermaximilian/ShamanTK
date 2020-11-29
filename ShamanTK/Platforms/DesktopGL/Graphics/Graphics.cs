@@ -775,8 +775,8 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         {
             Window = new GameWindow(new GameWindowSettings()
             {
-                RenderFrequency = ShamanApplicationBase.TargetRedrawsPerSecond,
-                UpdateFrequency = ShamanApplicationBase.TargetUpdatesPerSecond
+                RenderFrequency = ShamanApp.TargetRedrawsPerSecond,
+                UpdateFrequency = ShamanApp.TargetUpdatesPerSecond
             }, new NativeWindowSettings()
             {
                 Title = "ApplicationWindow",

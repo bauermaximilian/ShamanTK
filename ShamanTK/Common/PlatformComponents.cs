@@ -28,7 +28,7 @@ namespace ShamanTK.Common
 {
     /// <summary>
     /// Provides initialized and ready unit instances for usage in 
-    /// an <see cref="ShamanApplicationBase"/> instance.
+    /// an <see cref="ShamanApp"/> instance.
     /// </summary>
     public class PlatformComponents
     {

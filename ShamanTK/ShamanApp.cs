@@ -28,11 +28,11 @@ using System.Reflection;
 namespace ShamanTK
 {
     /// <summary>
-    /// Provides the base class for multimedia applications with simple 
-    /// access to various functions for rendering graphics, playing back sound, 
-    /// handling user input and importing/exporting resources.
+    /// Provides the base class for multimedia applications with access to 
+    /// functions for rendering graphics, playing back sound, handling user 
+    /// input and loading resources.
     /// </summary>
-    public abstract class ShamanApplicationBase : IDisposable
+    public abstract class ShamanApp : IDisposable
     {
         private static readonly InvalidOperationException 
             notInitializedException = new InvalidOperationException("The " +
@@ -58,7 +58,7 @@ namespace ShamanTK
 
         /// <summary>
         /// Gets the <see cref="ResourceManager"/> of this 
-        /// <see cref="ShamanApplicationBase"/> instance, which provides 
+        /// <see cref="ShamanApp"/> instance, which provides 
         /// functionality to import and export application resources from/to a 
         /// file system and to load/buffer these resources.
         /// </summary>
@@ -80,7 +80,7 @@ namespace ShamanTK
 
         /// <summary>
         /// Gets the <see cref="ControlsManager"/> of this 
-        /// <see cref="ShamanApplicationBase"/> instance, which provides 
+        /// <see cref="ShamanApp"/> instance, which provides 
         /// access to the various available human interface devices (keyboard, 
         /// mouse, etc.).
         /// </summary>
@@ -102,7 +102,7 @@ namespace ShamanTK
 
         /// <summary>
         /// Gets the <see cref="GraphicsManager"/> of this 
-        /// <see cref="ShamanApplicationBase"/> instance, which provides access
+        /// <see cref="ShamanApp"/> instance, which provides access
         /// to the available drawing functions and properties of the graphics 
         /// window.
         /// </summary>
@@ -124,7 +124,7 @@ namespace ShamanTK
 
         /// <summary>
         /// Gets the <see cref="SoundManager"/> of this 
-        /// <see cref="ShamanApplicationBase"/> instance, which provides access
+        /// <see cref="ShamanApp"/> instance, which provides access
         /// to the available functions for playing sound.
         /// </summary>
         /// <exception cref="InvalidOperationException">
@@ -145,7 +145,7 @@ namespace ShamanTK
 
         /// <summary>
         /// Gets a value indicating whether this 
-        /// <see cref="ShamanApplicationBase"/> instance is initialized and the 
+        /// <see cref="ShamanApp"/> instance is initialized and the 
         /// <see cref="Graphics"/>, <see cref="Sound"/>, <see cref="Controls"/>
         /// and <see cref="Resources"/> properties are accessible and non-null
         /// (<c>true</c>) or if the application hasn't been started yet 
@@ -157,7 +157,7 @@ namespace ShamanTK
 
         /// <summary>
         /// Gets a value indicating whether this 
-        /// <see cref="ShamanApplicationBase"/> instance was closed/disposed 
+        /// <see cref="ShamanApp"/> instance was closed/disposed 
         /// and can no longer be used (<c>true</c>) or not (<c>false</c>).
         /// Also check the <see cref="IsInitialized"/> property - or use the
         /// <see cref="IsRunning"/> property instead.
@@ -166,7 +166,7 @@ namespace ShamanTK
 
         /// <summary>
         /// Gets a value indicating whether this 
-        /// <see cref="ShamanApplicationBase"/> instance is initialized 
+        /// <see cref="ShamanApp"/> instance is initialized 
         /// (see <see cref="IsInitialized"/>) and currently running 
         /// and regularily updating and redrawing itself (<c>true</c>) or if 
         /// it wasn't started (yet) or has been stopped already (<c>false</c>).
@@ -183,7 +183,7 @@ namespace ShamanTK
 
         /// <summary>
         /// Initializes a new instance of the 
-        /// <see cref="ShamanApplicationBase"/> class.
+        /// <see cref="ShamanApp"/> class.
         /// </summary>
         /// <remarks>
         /// Please note that the units of the application
@@ -195,7 +195,7 @@ namespace ShamanTK
         /// Any initialisation which involves these units can be done in the
         /// <see cref="Load"/> method.
         /// </remarks>
-        protected ShamanApplicationBase() { }
+        protected ShamanApp() { }
 
         /// <summary>
         /// Initializes the application after the platform components
@@ -255,7 +255,7 @@ namespace ShamanTK
         protected abstract void Unload();
 
         /// <summary>
-        /// Starts running current <see cref="ShamanApplicationBase"/> instance
+        /// Starts running current <see cref="ShamanApp"/> instance
         /// in the current thread.
         /// The <see cref="FileSystem.ProgramData"/> file system will be used.
         /// </summary>
@@ -276,7 +276,7 @@ namespace ShamanTK
         }
 
         /// <summary>
-        /// Starts running current <see cref="ShamanApplicationBase"/> instance
+        /// Starts running current <see cref="ShamanApp"/> instance
         /// in the current thread.
         /// </summary>
         /// <param name="platformProvider">

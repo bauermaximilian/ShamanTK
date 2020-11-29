@@ -29,7 +29,7 @@ namespace ShamanTK.Platforms.DesktopGL
 {
     /// <summary>
     /// Provides functionality to initialize the platform components used for
-    /// a <see cref="ShamanApplicationBase"/>.
+    /// a <see cref="ShamanApp"/>.
     /// </summary>
     public class PlatformProvider : IPlatformProvider
     {

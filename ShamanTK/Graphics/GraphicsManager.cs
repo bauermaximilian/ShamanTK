@@ -138,8 +138,8 @@ namespace ShamanTK.Graphics
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// Is thrown when this method is called outside the 
-        /// <see cref="ShamanApplicationBase.Redraw(TimeSpan)"/> method 
-        /// of the containing <see cref="ShamanApplicationBase"/> 
+        /// <see cref="ShamanApp.Redraw(TimeSpan)"/> method 
+        /// of the containing <see cref="ShamanApp"/> 
         /// or when this method is called while another render operation
         /// is in progress (e.g. when this method is called from 
         /// inside another or the provided <paramref name="renderTask"/>).
@@ -203,8 +203,8 @@ namespace ShamanTK.Graphics
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// Is thrown when this method is called outside the 
-        /// <see cref="ShamanApplicationBase.Redraw(TimeSpan)"/> method 
-        /// of the containing <see cref="ShamanApplicationBase"/> 
+        /// <see cref="ShamanApp.Redraw(TimeSpan)"/> method 
+        /// of the containing <see cref="ShamanApp"/> 
         /// or when this method is called while another render operation
         /// is in progress (e.g. when this method is called from 
         /// inside another or the provided <paramref name="renderTask"/>).

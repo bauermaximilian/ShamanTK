@@ -23,7 +23,7 @@ namespace ShamanTK
 {
     /// <summary>
     /// Provides functionality to initialize the platform components used for
-    /// a <see cref="ShamanApplicationBase"/>.
+    /// a <see cref="ShamanApp"/>.
     /// </summary>
     public interface IPlatformProvider
     {

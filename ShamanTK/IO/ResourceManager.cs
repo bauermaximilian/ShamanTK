@@ -51,7 +51,7 @@ namespace ShamanTK.IO
     /// previously loaded resource data, and then start filling the buffer
     /// step by step with the data. This process is automatically done by the
     /// <see cref="ResourceManager"/> after the 
-    /// <see cref="ShamanApplicationBase"/> finished redrawing itself. After 
+    /// <see cref="ShamanApp"/> finished redrawing itself. After 
     /// all the data was copied into the buffer, it's completely initialized 
     /// and can be used. 
     /// The state of this operation can always be checked using the
@@ -72,7 +72,7 @@ namespace ShamanTK.IO
         /// <summary>
         /// Provides the base class from which classes are derived that perform
         /// a resource loading/buffering task in a 
-        /// <see cref="ShamanApplicationBase"/> without blocking update or 
+        /// <see cref="ShamanApp"/> without blocking update or 
         /// drawing operations.
         /// </summary>
         /// <typeparam name="DataT">
@@ -89,7 +89,7 @@ namespace ShamanTK.IO
         /// <typeparamref name="DataT"/> for stage two) loads the resource of
         /// type <typeparamref name="DataT"/> in another thread. 
         /// The <see cref="SyncTaskScheduler"/>, which is managed by the 
-        /// <see cref="ShamanApplicationBase"/>, continiously initiates a 
+        /// <see cref="ShamanApp"/>, continiously initiates a 
         /// state-check in the current <see cref="SyncTask{T}"/>. If the async 
         /// <typeparamref name="DataT"/>-loader-thread is finished 
         /// successfully, the task continues with stage two - the buffering.
@@ -973,7 +973,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<MeshBuffer> LoadMesh(MeshData data)
         {
@@ -997,7 +997,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{MeshBuffer}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="dataGenerator"/> is null.
@@ -1007,7 +1007,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<MeshBuffer> LoadMesh(Func<MeshData> dataGenerator)
         {
@@ -1029,7 +1029,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{MeshBuffer}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentException">
         /// Is thrown when <paramref name="meshPath"/> is not absolute.
@@ -1039,7 +1039,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<MeshBuffer> LoadMesh(ResourcePath meshPath)
         {
@@ -1064,7 +1064,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{TextureBuffer}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="data"/> is null.
@@ -1078,7 +1078,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<TextureBuffer> LoadTexture(TextureData data,
             TextureFilter textureFilter = TextureFilter.Linear)
@@ -1106,7 +1106,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{TextureBuffer}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentException">
         /// Is thrown when <paramref name="texturePath"/> is not absolute or
@@ -1117,7 +1117,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<TextureBuffer> LoadTexture(ResourcePath texturePath,
             TextureFilter textureFilter = TextureFilter.Linear)
@@ -1139,7 +1139,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{TextureBuffer}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="dataStream"/> is null.
@@ -1149,7 +1149,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<SoundSource> LoadSound(SoundDataStream dataStream)
         {
@@ -1170,7 +1170,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{SoundSource}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentException">
         /// Is thrown when <paramref name="soundPath"/> is not absolute.
@@ -1180,7 +1180,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<SoundSource> LoadSound(ResourcePath soundPath)
         {
@@ -1214,7 +1214,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{SpriteFont}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentException">
         /// Is thrown when <paramref name="fontPath"/> is not absolute or when
@@ -1235,7 +1235,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<SpriteFont> LoadGenericFont(string fontFamily,
             TextureFilter textureFilter = TextureFilter.Linear)
@@ -1278,7 +1278,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{SpriteFont}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="rasterizationParameters"/> is null.
@@ -1302,7 +1302,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<SpriteFont> LoadGenericFont(string fontFamily,
             FontRasterizationParameters rasterizationParameters, 
@@ -1336,7 +1336,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{SpriteFont}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentException">
         /// Is thrown when <paramref name="fontPath"/> is not absolute or when
@@ -1347,7 +1347,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<SpriteFont> LoadGenericFont(FileSystemPath fontPath,
             TextureFilter textureFilter = TextureFilter.Linear)
@@ -1383,7 +1383,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{SpriteFont}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="rasterizationParameters"/> is null.
@@ -1397,7 +1397,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<SpriteFont> LoadGenericFont(FileSystemPath fontPath,
             FontRasterizationParameters rasterizationParameters, 
@@ -1430,7 +1430,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{SpriteFont}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentException">
         /// Is thrown when <paramref name="fontPath"/> is not absolute or when
@@ -1441,7 +1441,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<SpriteFont> LoadSpriteFont(ResourcePath fontPath,
             TextureFilter textureFilter = TextureFilter.Linear)
@@ -1467,7 +1467,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{SpriteFont}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         /// Is thrown when <paramref name="data"/> is null.
@@ -1481,7 +1481,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// </remarks>
         public SyncTask<SpriteFont> LoadSpriteFont(SpriteFontData data,
             TextureFilter textureFilter = TextureFilter.Linear)
@@ -1502,7 +1502,7 @@ namespace ShamanTK.IO
         /// of the current <see cref="Update"/> cycle (after the 
         /// <see cref="Starting"/> event). All of the <see cref="SyncTask{T}"/>
         /// events and property changes occur in the same thread as the
-        /// events of this <see cref="ShamanApplicationBase"/>.
+        /// events of this <see cref="ShamanApp"/>.
         /// Requires the current platform to have a 
         /// <see cref="IO.ResourceManager"/>.
         /// </summary>
@@ -1511,7 +1511,7 @@ namespace ShamanTK.IO
         /// </param>
         /// <returns>
         /// A new <see cref="SyncTask{Scene}"/> instance, which is 
-        /// managed by the current <see cref="ShamanApplicationBase"/>.
+        /// managed by the current <see cref="ShamanApp"/>.
         /// </returns>
         /// <exception cref="ArgumentException">
         /// Is thrown when <paramref name="scenePath"/> is not absolute.

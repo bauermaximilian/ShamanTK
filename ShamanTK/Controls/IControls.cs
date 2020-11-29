@@ -35,7 +35,7 @@ namespace ShamanTK.Controls
     /// (like <see cref="IsPressed(KeyboardKey)"/>, <see cref="GetMouseSpeed"/>
     /// or <see cref="GetTypedCharacters"/>) reflect the state at the 
     /// beginning of the update cycle of the <see cref="Graphics.IGraphics"/>
-    /// unit in the same <see cref="ShamanApplicationBase"/> and don't change while the
+    /// unit in the same <see cref="ShamanApp"/> and don't change while the
     /// update event is still in progress. This expectation is important
     /// especially for <see cref="GetTypedCharacters"/>.
     /// Changes in the <see cref="MouseMode"/> musn't have an influence on the
