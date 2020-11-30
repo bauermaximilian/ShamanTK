@@ -57,6 +57,12 @@ namespace ShamanTK.Controls
 #endif
 
         /// <summary>
+        /// Gets the default <see cref="ControlMapping"/> instance that 
+        /// doesn't have any user input controls associated to it.
+        /// </summary>
+        public static ControlMapping Empty { get; } = new ControlMapping();
+
+        /// <summary>
         /// Gets the original value of the current 
         /// <see cref="ControlMapping"/>.
         /// </summary>
@@ -306,7 +312,10 @@ namespace ShamanTK.Controls
         /// Initializes a new instance of the <see cref="ControlMapping"/>
         /// class.
         /// </summary>
-        internal ControlMapping() { }
+        internal ControlMapping()
+        {
+            LastValueChange = DateTime.Now;
+        }
 
         /// <summary>
         /// Updates the state of this <see cref="ControlMapping"/> instance.
