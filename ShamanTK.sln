@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29728.190
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ShamanTK", "ShamanTK\ShamanTK.csproj", "{93166442-6A8A-49B2-A997-EFEEECC4DA84}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A8FA7161-4C60-40AF-9F21-DFE57A3BD5BF}"
+	ProjectSection(SolutionItems) = preProject
+		ABOUT.txt = ABOUT.txt
+		LICENSE.txt = LICENSE.txt
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{93166442-6A8A-49B2-A997-EFEEECC4DA84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93166442-6A8A-49B2-A997-EFEEECC4DA84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93166442-6A8A-49B2-A997-EFEEECC4DA84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93166442-6A8A-49B2-A997-EFEEECC4DA84}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BBAA67BC-AA72-4D43-BFB2-2F3DED8A5347}
+	EndGlobalSection
+EndGlobal
