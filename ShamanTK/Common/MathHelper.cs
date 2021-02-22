@@ -20,6 +20,7 @@
 using System;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace ShamanTK.Common
 {
@@ -354,6 +355,122 @@ namespace ShamanTK.Common
                 vector.Z * orientationSin.X,
                 vector.Z * orientationCos.Y * orientationCos.X -
                 vector.X * orientationSin.Y);
+        }
+
+        /// <summary>
+        /// Calculates the orientation around the Y-axis from a direction.
+        /// </summary>
+        /// <param name="source">
+        /// The source position, which is used for calculating the direction.
+        /// </param>
+        /// <param name="target">
+        /// The target position, which is used for calculating the direction.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="Angle"/> or 0, if <paramref name="source"/> and
+        /// <paramref name="target"/> are equal.
+        /// of 0.
+        /// </returns>
+        public static Angle CreateOrientationY(Vector3 source,
+            Vector3 target)
+        {
+            return CreateOrientationY(target - source);
+        }
+
+        /// <summary>
+        /// Calculates the orientation around the Y-axis from a direction.
+        /// </summary>
+        /// <param name="direction">
+        /// The direction <see cref="Vector3"/>.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="Angle"/> or 0, if the specified 
+        /// <paramref name="direction"/> has a <see cref="Vector3.Length"/>
+        /// of 0.
+        /// </returns>
+        public static Angle CreateOrientationY(Vector3 direction)
+        {
+            if (direction.Length() < float.Epsilon) return 0;
+            else return Angle.Rad((float)Math.Atan2(direction.X, direction.Z));
+        }
+
+        /// <summary>
+        /// Calculates the normalized difference between two orientations on 
+        /// the same axis.
+        /// </summary>
+        /// <param name="firstOrientation">
+        /// The first orientation.
+        /// </param>
+        /// <param name="secondOrientation">
+        /// The second orientation.
+        /// </param>
+        /// <param name="makeAbsolute">
+        /// <c>true</c> to return a positive <see cref="Angle"/> no matter in
+        /// what "direction" the orientation difference would go, 
+        /// <c>false</c> to return an <see cref="Angle"/> where the sign
+        /// defines the "direction" of the difference.
+        /// </param>
+        /// <returns>
+        /// The difference between the specified orientations.
+        /// </returns>
+        /// <remarks>
+        /// It is not enforced, but (for most cases) recommended to provide 
+        /// normalized values for both the <paramref name="firstOrientation"/> 
+        /// and <paramref name="secondOrientation"/>.
+        /// </remarks>
+        public static Angle CalculateOrientationDifference(
+            Angle firstOrientation, Angle secondOrientation, bool makeAbsolute)
+        {
+            Angle offset = Angle.Rad(firstOrientation.Radians -
+                secondOrientation.Radians + Angle.Pi.Radians, true) - Angle.Pi;
+            if (makeAbsolute) return Angle.Rad(Math.Abs(offset.Radians));
+            else return offset;
+        }
+
+        /// <summary>
+        /// Brings a value into a range between zero and a defined 
+        /// <paramref name="maximum"/>.
+        /// </summary>
+        /// <param name="value">The value for the operation.</param>
+        /// <param name="maximum">The maximum of the range.</param>
+        /// <returns>
+        /// A <see cref="int"/> between 0 and <paramref name="maximum"/>.
+        /// </returns>
+        /// <remarks>
+        /// For a positive <paramref name="value"/>, this algorithm behaves 
+        /// like a <see cref="int"/> modulo operation. For a negative 
+        /// <paramref name="value"/>, the operation performs the modulo 
+        /// operation "backwards" from the specified 
+        /// <paramref name="maximum"/> 
+        /// (e.g. <c>BringToRange(-7, 10)</c> would return <c>3</c>).
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int BringToRange(int value, int maximum)
+        {
+            return (maximum + (value % maximum)) % maximum;
+        }
+
+        /// <summary>
+        /// Brings a value into a range between zero and a defined 
+        /// <paramref name="maximum"/>.
+        /// </summary>
+        /// <param name="value">The value for the operation.</param>
+        /// <param name="maximum">The maximum of the range.</param>
+        /// <returns>
+        /// A <see cref="float"/> between 0 and <paramref name="maximum"/>.
+        /// </returns>
+        /// <remarks>
+        /// For a positive <paramref name="value"/>, this algorithm behaves 
+        /// like a <see cref="float"/> modulo operation. For a negative 
+        /// <paramref name="value"/>, the operation performs the modulo 
+        /// operation "backwards" from the specified 
+        /// <paramref name="maximum"/> 
+        /// (e.g. <c>BringToRange(-7, 10)</c> would return <c>3</c>).
+        /// </remarks>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float BringToRange(float value, float maximum)
+        {
+            return (maximum + (value % maximum)) % maximum;
         }
     }
 }

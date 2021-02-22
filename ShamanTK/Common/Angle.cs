@@ -28,9 +28,24 @@ namespace ShamanTK.Common
     public readonly struct Angle : IEquatable<Angle>
     {
         /// <summary>
-        /// Gets a <see cref="Angle"/> with a value of 0.
+        /// Gets an <see cref="Angle"/> with a value of 0.
         /// </summary>
-        public static Angle Zero { get; } = new Angle(0, false);
+        public static Angle Zero { get; } = new Angle(0, 0);
+
+        /// <summary>
+        /// Gets an <see cref="Angle"/> with a value of <see cref="Math.PI"/>,
+        /// which is half a turn (180°).
+        /// </summary>
+        public static Angle Pi { get; } = new Angle((float)Math.PI, 0);
+
+        /// <summary>
+        /// Gets an <see cref="Angle"/> with a value of a full turn (360° or
+        /// 2 * <see cref="Math.PI"/>), which is used as maximum for 
+        /// normalizing angles (and thus never reached, but the turn starts
+        /// again at <see cref="Zero"/>).
+        /// </summary>
+        public static Angle MaximumNormalized { get; } = 
+            new Angle((float)Math.PI * 2, 0);
 
         /// <summary>
         /// Defines the factor which can be multiplied with an angle in degrees
@@ -56,10 +71,11 @@ namespace ShamanTK.Common
 
         /// <summary>
         /// Gets a value indicating whether the current instance is normalized
-        /// so that the angle value is positive and doesn't exceed a full
-        /// rotation.
+        /// so that the angle value is greater or equal to <see cref="Zero"/>
+        /// and less than <see cref="MaximumNormalized"/>.
         /// </summary>
-        public bool IsNormalized => Radians < Math.PI && Radians >= 0;
+        public bool IsNormalized => Radians < MaximumNormalized.Radians &&
+            Radians > Zero.Radians;
 
         /// <summary>
         /// Gets the value of the current <see cref="Angle"/> as multiple of
@@ -67,17 +83,12 @@ namespace ShamanTK.Common
         /// </summary>
         public float PiRadians => (float)(Radians / Math.PI);
 
-        private Angle(float radians, bool normalize)
+        private Angle(float radians, float maximum)
         {
-            if (normalize) Radians = NormalizeRad(radians);
-            else Radians = radians;
-        }
+            Radians = radians;
 
-        private static float NormalizeRad(float radians)
-        {
-            radians = (float)(radians % Math.PI);
-            if (radians < 0) return (float)(Math.PI + radians);
-            else return radians;
+            if (maximum != 0) 
+                Radians = MathHelper.BringToRange(radians, maximum);
         }
 
         /// <summary>
@@ -87,114 +98,7 @@ namespace ShamanTK.Common
         /// <returns>A new <see cref="Angle"/> instance.</returns>
         public Angle ToNormalized()
         {
-            return new Angle(Radians, true);
-        }
-
-        /// <summary>
-        /// Limits the current <see cref="Angle"/> instance value to a specific
-        /// range (where values exceeding the maximum will start either at 0
-        /// or -<paramref name="maximum"/> again and vice versa) and returns 
-        /// the result as new <see cref="Angle"/> instance.
-        /// </summary>
-        /// <param name="maximum">
-        /// The maximum value of the range the returned <see cref="Angle"/> 
-        /// should be in.
-        /// </param>
-        /// <param name="allowNegative">
-        /// <c>true</c> to limit the value to a range between 
-        /// -<paramref name="maximum"/> and <paramref name="maximum"/>,
-        /// <c>false</c> to limit the value to a range between 0 and
-        /// <paramref name="maximum"/>.
-        /// </param>
-        /// <param name="turns">
-        /// The amount of turns of the limited <see cref="Angle"/> value to
-        /// be in the limited range. This value can be positive or negative.
-        /// </param>
-        /// <returns>A new <see cref="Angle"/> instance.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="maximum"/> is negative or 0.
-        /// </exception>
-        public Angle TurnToRange(Angle maximum, bool allowNegative)
-        {
-            return TurnToRange(maximum, allowNegative, out _);
-        }
-
-        /// <summary>
-        /// Limits the current <see cref="Angle"/> instance value to a specific
-        /// range (where values exceeding the maximum will start either at 0
-        /// or -<paramref name="maximum"/> again and vice versa) and returns 
-        /// the result as new <see cref="Angle"/> instance.
-        /// </summary>
-        /// <param name="maximum">
-        /// The maximum value of the range the returned <see cref="Angle"/> 
-        /// should be in.
-        /// </param>
-        /// <param name="allowNegative">
-        /// <c>true</c> to limit the value to a range between 
-        /// -<paramref name="maximum"/> and <paramref name="maximum"/>,
-        /// <c>false</c> to limit the value to a range between 0 and
-        /// <paramref name="maximum"/>.
-        /// </param>
-        /// <param name="turns">
-        /// The amount of turns of the limited <see cref="Angle"/> value to
-        /// be in the limited range. This value can be positive or negative.
-        /// </param>
-        /// <returns>A new <see cref="Angle"/> instance.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Is thrown when <paramref name="maximum"/> is negative or 0.
-        /// </exception>
-        public Angle TurnToRange(Angle maximum, bool allowNegative, 
-            out float turns)
-        {
-            if (maximum.Radians <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maximum));
-
-            //Doubles for more precision - and it's a nice relief, right? 
-            double valueInRange = Radians;
-            double range = maximum;
-            turns = Radians / maximum;
-
-            //The idea behind these two clauses (this one and the one below)
-            //is to "move" the range between -maximum and +maximum to 
-            //0 and 2*maximum, so that the algorithm below can be used for this
-            //case as well without any modifications.
-            if (allowNegative)
-            {
-                valueInRange += maximum;
-                range *= 2;
-            }
-
-            //The amount of turns specifies how many times the "range" between
-            //0 and the maximum was "left" (exceeded) on the "right" side and
-            //re-entered on the left side.
-            double rangeTurns = valueInRange / range;
-            double turn;
-            if (rangeTurns != 0 && rangeTurns - (int)rangeTurns == 0)
-                turn = (valueInRange < 0 ? -1 : 1);
-            else turn = rangeTurns % 1;
-
-            //The previously calculated amount of turns is used here to create
-            //a value which is in the specified limits. Mind that the behaviour
-            //of this algorithm is different to a "normal" modulo as the 
-            //maximum is included in the range - which means a value of
-            //90° will be returned as 90° even if the maximum is 90°.
-            //In the different use cases of this method, results with that 
-            //rule did make more sense to me. But I'm not a mathematican, so...
-            double limitedValue;
-            if (rangeTurns < 0 && turn != -1)
-                limitedValue = range - (Math.Abs(turn) * range);
-            else limitedValue = Math.Abs(turn) * range;
-
-            //This might not be the best way to solve this problem, but I am
-            //terrible at maths and am glad I came up with that algorithm...
-            //and I suppose I won't know how I did that two weeks from now.
-            if (allowNegative)
-            {
-                limitedValue -= maximum;
-                //rangeTurns = Radians / maximum;
-            }
-
-            return (float)limitedValue;
+            return new Angle(Radians, MaximumNormalized.Radians);
         }
 
         /// <summary>
@@ -211,7 +115,8 @@ namespace ShamanTK.Common
         /// </param>
         public static Angle Deg(float degrees, bool normalize = false)
         {
-            return new Angle(degrees * DegToRad, normalize);
+            return new Angle(degrees * DegToRad, 
+                normalize ? MaximumNormalized.Radians : 0);
         }
 
         /// <summary>
@@ -228,7 +133,8 @@ namespace ShamanTK.Common
         /// </param>
         public static Angle Rad(float radians, bool normalize = false)
         {
-            return new Angle(radians, normalize);
+            return new Angle(radians, 
+                normalize ? MaximumNormalized.Radians : 0);
         }
 
         /// <summary>
@@ -245,7 +151,8 @@ namespace ShamanTK.Common
         /// </param>
         public static Angle PiRad(float piRadians, bool normalize = false)
         {
-            return new Angle((float)(Math.PI * piRadians), normalize);
+            return new Angle((float)(Math.PI * piRadians),
+                normalize ? MaximumNormalized.Radians : 0);
         }
 
         /// <summary>
@@ -312,47 +219,47 @@ namespace ShamanTK.Common
 
         public static Angle operator +(Angle angle1, Angle angle2)
         {
-            return new Angle(angle1.Radians + angle2.Radians, false);
+            return new Angle(angle1.Radians + angle2.Radians, 0);
         }
 
         public static Angle operator -(Angle angle1, Angle angle2)
         {
-            return new Angle(angle1.Radians - angle2.Radians, false);
+            return new Angle(angle1.Radians - angle2.Radians, 0);
         }
 
         public static Angle operator *(float scalar, Angle angle)
         {
-            return new Angle(angle.Radians * scalar, false);
+            return new Angle(angle.Radians * scalar, 0);
         }
 
         public static Angle operator *(double scalar, Angle angle)
         {
-            return new Angle(angle.Radians * (float)scalar, false);
+            return new Angle(angle.Radians * (float)scalar, 0);
         }
 
         public static Angle operator *(Angle angle, float scalar)
         {
-            return new Angle(angle.Radians * scalar, false);
+            return new Angle(angle.Radians * scalar, 0);
         }
 
         public static Angle operator *(Angle angle, double scalar)
         {
-            return new Angle(angle.Radians * (float)scalar, false);
+            return new Angle(angle.Radians * (float)scalar, 0);
         }
 
         public static Angle operator /(Angle angle, float divisor)
         {
-            return new Angle(angle.Radians / divisor, false);
+            return new Angle(angle.Radians / divisor, 0);
         }
 
         public static Angle operator /(Angle angle, double divisor)
         {
-            return new Angle(angle.Radians / (float)divisor, false);
+            return new Angle(angle.Radians / (float)divisor, 0);
         }
 
         public static implicit operator Angle(float radians)
         {
-            return new Angle(radians, false);
+            return new Angle(radians, 0);
         }
 
         public static implicit operator float(Angle angle)
