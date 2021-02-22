@@ -26,10 +26,20 @@ namespace ShamanTK.Common
     /// <summary>
     /// Provides the base class from which classes that can produce a fluent,
     /// controllable animation using the data from a 
-    /// <see cref="sourceTimeline"/> are derived.
+    /// <see cref="Timeline"/> are derived.
     /// </summary>
     public class Animation : IEnumerable<AnimationLayer>
     {
+        /// <summary>
+        /// Gets or sets the distance, which is subtracted from the 
+        /// <see cref="PlaybackLength"/> when it's assigned using
+        /// <see cref="SetPlaybackRange(string, bool)"/>. This value is also
+        /// used in the same way to limit the playback to the maximum 
+        /// <see cref="Timeline.Length"/>.
+        /// </summary>
+        public static TimeSpan PlaybackMargin { get; set; } = 
+            TimeSpan.FromSeconds(1 / 25.0);
+
         /// <summary>
         /// Gets or sets a value indicating whether the animation is currently 
         /// being played back and the <see cref="Position"/> is updated when 
@@ -47,7 +57,7 @@ namespace ShamanTK.Common
             set
             {
                 position = value;
-                resetPositionToStartOnPlaybackStart = false;
+                
             }
         }
         private TimeSpan position;
@@ -55,77 +65,42 @@ namespace ShamanTK.Common
         /// <summary>
         /// Gets a sorted list of all markers.
         /// </summary>
-        public ICollection<Marker> Markers => sourceTimeline.Markers;
+        public ICollection<Marker> Markers => Timeline.Markers;
 
         /// <summary>
-        /// Gets or sets the start of the playback.
+        /// Gets or sets a value indicating whether the current playback loops
+        /// between <see cref="PlaybackStart"/> and 
+        /// <see cref="PlaybackRangeEnd"/> (<c>true</c>) or whether the 
+        /// playback stops after it reached the <see cref="PlaybackRangeEnd"/>
+        /// (<c>false</c>).
+        /// </summary>
+        public bool LoopPlayback { get; set; }
+
+        /// <summary>
+        /// Gets or sets the start of the playback range, from which the 
+        /// playback starts initially, after being stopped or during a looped 
+        /// playback.
+        /// By default, this is equal to the <see cref="Timeline.Start"/>.
         /// </summary>
         public TimeSpan PlaybackStart { get; set; }
 
         /// <summary>
-        /// Gets or sets the marker identifier, which defines the end of the 
-        /// playback, or null.
-        /// Setting this property with an existing, non-null marker identifier
-        /// will update <see cref="PlaybackStart"/> with the position of the
-        /// specified marker. Setting this value to null or a non-existing
-        /// marker identifier will have no effect.
+        /// Gets or sets the length of the playback (starting from
+        /// <see cref="PlaybackStart"/>), after which the playback stops,
+        /// or rewinds to <see cref="PlaybackStart"/> during a looped
+        /// playback.
+        /// By default, this is equal to the <see cref="Timeline.Length"/>.
         /// </summary>
-        public string PlaybackStartMarker
-        {
-            get => playbackStartMarker;
-            set
-            {
-                if (value != null && sourceTimeline.TryGetMarker(value, 
-                    out Marker marker)) PlaybackStart = marker.Position;
-
-                playbackStartMarker = value;
-            }
-        }
-        private string playbackStartMarker = null;
-
-        /// <summary>
-        /// Gets or sets the end of the playback.
-        /// </summary>
-        public TimeSpan PlaybackEnd { get; set; }
-
-        /// <summary>
-        /// Gets or sets the marker identifier, which defines the end of the 
-        /// playback, or null.
-        /// Setting this property with an existing, non-null marker identifier
-        /// will update <see cref="PlaybackEnd"/> with the position of the
-        /// specified marker minus the time specified by
-        /// <see cref="Timeline.MarkerBreak"/>.
-        /// Setting this value to null or a non-existing marker identifier 
-        /// will have no effect.
-        /// </summary>
-        public string PlaybackEndMarker
-        {
-            get => playbackEndMarker;
-            set
-            {
-                if (value != null && sourceTimeline.TryGetMarker(value,
-                    out Marker marker)) 
-                    PlaybackEnd = marker.Position - Timeline.MarkerBreak;
-                playbackEndMarker = value;
-            }
-        }
-        private string playbackEndMarker = null;
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the playback should be
-        /// restarted at <see cref="PlaybackStart"/> after the 
-        /// <see cref="Position"/> has reached <see cref="PlaybackEnd"/>
-        /// (<c>true</c>) or if the playback should just be stopped at
-        /// <see cref="PlaybackEnd"/> (<c>false</c>).
-        /// </summary>
-        public bool PlaybackLoop { get; set; }
+        public TimeSpan PlaybackLength { get; set; }
 
         private readonly Dictionary<string, AnimationLayer> layers = 
             new Dictionary<string, AnimationLayer>();
 
-        private bool resetPositionToStartOnPlaybackStart = true;
-
-        private readonly Timeline sourceTimeline;
+        /// <summary>
+        /// Gets the <see cref="Timeline"/> which provides the data for the
+        /// current <see cref="Animation"/>.
+        /// </summary>
+        public Timeline Timeline { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Animation"/> 
@@ -139,15 +114,15 @@ namespace ShamanTK.Common
         /// </exception>
         public Animation(Timeline sourceTimeline)
         {
-            this.sourceTimeline = sourceTimeline ?? 
+            Timeline = sourceTimeline ?? 
                 throw new ArgumentNullException(nameof(sourceTimeline));
-            position = PlaybackStart = this.sourceTimeline.Start;
-            PlaybackEnd = this.sourceTimeline.End;
 
-            //It is assumed that the timeline.Layers collection has no
-            //duplicates (due to the constructor of the TimelineLayer
-            //class, which would throw an exception in case layers with 
-            //duplicate identifiers were found).
+            ResetPlaybackRange();
+
+            // It is assumed that the timeline.Layers collection has no
+            // duplicates (as the constructor of the TimelineLayer would 
+            // throw an exception in case layers with duplicate identifiers 
+            // were found).
             foreach (TimelineLayer sourceLayer in sourceTimeline)
                 layers[sourceLayer.Identifier] =
                     new AnimationLayer(this, sourceLayer);
@@ -159,23 +134,7 @@ namespace ShamanTK.Common
         /// </summary>
         public void Play()
         {
-            if (resetPositionToStartOnPlaybackStart) Position = PlaybackStart;
             IsPlaying = true;
-        }
-
-        /// <summary>
-        /// Starts the animation playback.
-        /// </summary>
-        /// <param name="rewind">
-        /// <c>true</c> to rewind to <see cref="PlaybackStart"/> and start
-        /// the playback from there, <c>false</c> to just continue the
-        /// playback at the current <see cref="Position"/> (or do nothing
-        /// if the animation is playing already).
-        /// </param>
-        public void Play(bool rewind)
-        {
-            resetPositionToStartOnPlaybackStart = rewind;
-            Play();
         }
 
         /// <summary>
@@ -192,8 +151,83 @@ namespace ShamanTK.Common
         /// </summary>
         public void Stop()
         {
-            Position = sourceTimeline.Start;
+            Position = PlaybackStart;
             IsPlaying = false;
+        }
+
+        /// <summary>
+        /// Resets the <see cref="PlaybackStart"/> and 
+        /// <see cref="PlaybackLength"/> to their default values.
+        /// </summary>
+        public void ResetPlaybackRange()
+        {
+            PlaybackStart = position = Timeline.Start;
+            PlaybackLength = Timeline.Length;
+        }
+
+        /// <summary>
+        /// Updates the <see cref="PlaybackStart"/> and 
+        /// <see cref="PlaybackLength"/> using <see cref="Marker"/>s and
+        /// resets the <see cref="Position"/> to the new 
+        /// <see cref="PlaybackStart"/>.
+        /// </summary>
+        /// <param name="startMarkerIdentifier">
+        /// The identifier of the <see cref="Marker"/> that should be used for
+        /// the <see cref="PlaybackStart"/>.
+        /// </param>
+        /// <param name="untilNextMarker">
+        /// <c>true</c> to set the <see cref="PlaybackLength"/> using the
+        /// position of the <see cref="Marker"/> after the specified
+        /// <paramref name="startMarkerIdentifier"/> so that the playback will
+        /// stop or loop right before the next <see cref="Marker"/>, 
+        /// <c>false</c> to set the <see cref="PlaybackLength"/> so that the 
+        /// playback will run until the end of the whole animation.
+        /// If there is no <see cref="Marker"/> after the specified 
+        /// <paramref name="startMarkerIdentifier"/>, this parameter has no
+        /// effect.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> when a <see cref="Marker"/> with the specified
+        /// <paramref name="startMarkerIdentifier"/> was found and the
+        /// <see cref="PlaybackStart"/>, <see cref="PlaybackLength"/> and
+        /// <see cref="Position"/> were updated, <c>false</c> when no 
+        /// <see cref="Marker"/> with that 
+        /// <paramref name="startMarkerIdentifier"/> was found and no changes
+        /// to <see cref="PlaybackStart"/>, <see cref="PlaybackLength"/> and
+        /// <see cref="Position"/> were made.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown when <paramref name="startMarkerIdentifier"/> is null.
+        /// </exception>
+        public bool SetPlaybackRange(string startMarkerIdentifier, 
+            bool untilNextMarker)
+        {
+            if (startMarkerIdentifier == null)
+                throw new ArgumentNullException(nameof(startMarkerIdentifier));
+
+            if (Timeline.TryGetMarkerIndex(startMarkerIdentifier, 
+                out int startMarkerIndex))
+            {
+                Marker startMarker = Timeline.GetMarker(startMarkerIndex);
+                PlaybackStart = startMarker.Position;                
+
+                if (untilNextMarker && Timeline.TryGetMarker(
+                    startMarkerIndex + 1, out Marker nextMarker))
+                {
+                    PlaybackLength = nextMarker.Position -
+                        startMarker.Position - PlaybackMargin;
+                }
+                else
+                {
+                    PlaybackLength = Timeline.End - startMarker.Position
+                        - PlaybackMargin;
+                }
+
+                Position = PlaybackStart + PlaybackMargin;
+
+                return true;
+            }
+            else return false;
         }
 
         /// <summary>
@@ -212,18 +246,31 @@ namespace ShamanTK.Common
                 throw new ArgumentException("A negative value for time " +
                     "delta is not supported.");
 
-            if (PlaybackEnd < PlaybackStart) IsPlaying = false;
+            TimeSpan playbackEndMaximum = 
+                (Timeline.Length - PlaybackMargin);
+            TimeSpan playbackEnd = PlaybackStart + PlaybackLength;
+
+            if (playbackEnd > playbackEndMaximum)
+            {
+                playbackEnd = playbackEndMaximum;
+            }
 
             if (IsPlaying)
             {                
                 TimeSpan newPosition = Position + delta;
-                if (newPosition > PlaybackEnd)
+                if (newPosition > playbackEnd)
                 {
-                    if (PlaybackLoop)
-                        Position = PlaybackStart + (newPosition - PlaybackEnd);
+                    if (LoopPlayback)
+                    {
+                        TimeSpan offsetFromStart = new TimeSpan(
+                            ((newPosition - playbackEnd).Ticks %
+                            PlaybackLength.Ticks));
+
+                        Position = PlaybackStart + offsetFromStart;
+                    }
                     else
                     {
-                        Position = PlaybackEnd;
+                        Position = playbackEnd;
                         IsPlaying = false;
                     }
                 }
@@ -305,7 +352,7 @@ namespace ShamanTK.Common
         /// </remarks>
         public Marker GetMarker(string identifier)
         {
-            return sourceTimeline.GetMarker(identifier);
+            return Timeline.GetMarker(identifier);
         }
 
         /// <summary>
@@ -333,7 +380,7 @@ namespace ShamanTK.Common
         /// </remarks>
         public bool TryGetMarker(string identifier, out Marker marker)
         {
-            return sourceTimeline.TryGetMarker(identifier, out marker);
+            return Timeline.TryGetMarker(identifier, out marker);
         }
 
         /// <summary>

@@ -337,6 +337,54 @@ namespace ShamanTK.Common
         }
 
         /// <summary>
+        /// Gets a marker via its index.
+        /// </summary>
+        /// <param name="index">
+        /// The index of the marker.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Marker"/> instance with the specified identifier.
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// Is thrown when no marker with the specified 
+        /// <paramref name="index"/> was found.
+        /// </exception>
+        public Marker GetMarker(int index)
+        {
+            if (index < markerPositions.Count && index >= 0)
+                return markerPositions.Values[index];
+            else throw new ArgumentException("No marker with the specified " +
+                "index was found.");
+        }
+
+        /// <summary>
+        /// Attempts to get a marker via its index.
+        /// </summary>
+        /// <param name="index">
+        /// The index of the marker.
+        /// </param>
+        /// <param name="marker">
+        /// The requested marker or null, if the method returns <c>false</c>.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if a marker with the specified 
+        /// <paramref name="index"/> was found, <c>false</c> otherwise.
+        /// </returns>
+        public bool TryGetMarker(int index, out Marker marker)
+        {
+            if (index < markerPositions.Count && index >= 0)
+            {
+                marker = markerPositions.Values[index];
+                return true;
+            }
+            else
+            {
+                marker = null;
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Attempts to get a marker via its identifier.
         /// </summary>
         /// <param name="identifier">
