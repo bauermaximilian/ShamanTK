@@ -700,7 +700,7 @@ namespace ShamanTK.IO
             List<Face> faces = new List<Face>();
 
             CreatePlane(bottomLeft, topLeft, bottomRight, out _,
-                Vector2.Zero, Vector2.One, false, vertices, faces);
+                Vector2.Zero, Vector2.One, flipNormals, vertices, faces);
 
             return new MemoryMesh(vertices.ToArray(), faces.ToArray(),
                 VertexPropertyDataFormat.None, null);

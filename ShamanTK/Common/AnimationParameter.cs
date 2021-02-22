@@ -18,6 +18,7 @@
 */
 
 using System;
+using System.Reflection;
 
 namespace ShamanTK.Common
 {
@@ -65,8 +66,16 @@ namespace ShamanTK.Common
             if (sourceParameter == null)
                 throw new ArgumentNullException(nameof(sourceParameter));
 
-            return (AnimationParameter)Activator.CreateInstance(
-                typeof(AnimationParameter), parentAnimation, sourceParameter);
+            Type animationParameterType = 
+                typeof(AnimationParameter<>).MakeGenericType(
+                    sourceParameter.ValueType);
+
+            ConstructorInfo constructor =
+                animationParameterType.GetConstructor(new Type[] { 
+                    typeof(Animation), sourceParameter.GetType() });
+
+            return (AnimationParameter)constructor.Invoke(new object[] {
+                parentAnimation, sourceParameter});
         }
     }
 
@@ -136,7 +145,7 @@ namespace ShamanTK.Common
         /// Is thrown when <paramref name="parentAnimation"/> or
         /// <paramref name="sourceParameter"/> are null.
         /// </exception>
-        internal AnimationParameter(Animation parentAnimation,
+        public AnimationParameter(Animation parentAnimation,
             TimelineParameter<T> sourceParameter)
         {
             this.parentAnimation = parentAnimation ??

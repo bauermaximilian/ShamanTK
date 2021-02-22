@@ -35,7 +35,7 @@ namespace ShamanTK.Common
         /// </summary>
         public string Identifier { get; }
 
-        private Dictionary<string, AnimationParameter> parameters =
+        private readonly Dictionary<string, AnimationParameter> parameters =
             new Dictionary<string, AnimationParameter>();
 
         /// <summary>
@@ -64,7 +64,8 @@ namespace ShamanTK.Common
 
             foreach (TimelineParameter sourceParameter in sourceLayer)
                 parameters[sourceParameter.Identifier.Name] =
-                    AnimationParameter.Create(parentAnimation, sourceParameter);
+                    AnimationParameter.Create(parentAnimation, 
+                    sourceParameter);
         }
 
         /// <summary>
@@ -124,8 +125,8 @@ namespace ShamanTK.Common
         /// <returns>
         /// <c>true</c> if the specified <paramref name="identifier"/> could be
         /// resolved into an existing <see cref="AnimationParameter{T}"/> which
-        /// matches the <see cref="ParameterIdentifier.ValueTypeConstraint"/> and
-        /// has the value type specified in <typeparamref name="T"/>,
+        /// matches the <see cref="ParameterIdentifier.ValueTypeConstraint"/> 
+        /// and has the value type specified in <typeparamref name="T"/>,
         /// <c>false</c> otherwise.
         /// </returns>
         /// <exception cref="ArgumentNullException">
@@ -191,8 +192,8 @@ namespace ShamanTK.Common
                     "specified identifier was found, but didn't match " +
                     "the identifiers type constraint.");
             }
-            else throw new ArgumentException("A parameter with the specified " +
-                "identifier couldn't be found.");
+            else throw new ArgumentException("A parameter with the " +
+                "specified identifier couldn't be found.");
         }
 
         /// <summary>
@@ -200,7 +201,8 @@ namespace ShamanTK.Common
         /// <see cref="AnimationLayer"/> instance.
         /// </summary>
         /// <typeparam name="T">
-        /// The value type of the requested <see cref="AnimationParameter{T}"/>.
+        /// The value type of the requested 
+        /// <see cref="AnimationParameter{T}"/>.
         /// </typeparam>
         /// <param name="identifier">
         /// The identifier of the <see cref="AnimationParameter{T}"/>.
@@ -241,8 +243,8 @@ namespace ShamanTK.Common
                     "type then what was requested or didn't match the " +
                     "identifier type constraint.");
             }
-            else throw new ArgumentException("A parameter with the specified " +
-                "identifier couldn't be found.");
+            else throw new ArgumentException("A parameter with the " +
+                "specified identifier couldn't be found.");
         }
 
         /// <summary>

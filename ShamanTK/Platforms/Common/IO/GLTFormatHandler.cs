@@ -21,6 +21,7 @@ using ShamanTK.Common;
 using ShamanTK.IO;
 using SharpGLTF.Animations;
 using SharpGLTF.IO;
+using SharpGLTF.Memory;
 using SharpGLTF.Schema2;
 using SharpGLTF.Transforms;
 using System;
@@ -93,8 +94,9 @@ namespace ShamanTK.Platforms.Common.IO
             ModelRoot root;
             try
             {
-                ReadContext readContext = CreateReadContext(manager);
-                using Stream stream = readContext.OpenFile(path);
+                using Stream stream = manager.OpenFile(path);
+                FileSystemPath pathRoot = path.Path.GetParentDirectory();
+                ReadContext readContext = CreateReadContext(manager, pathRoot);
                 try { root = readContext.ReadSchema2(stream); }
                 catch (Exception exc)
                 {
@@ -619,13 +621,15 @@ namespace ShamanTK.Platforms.Common.IO
             // into Vertex instances.
             List<Vertex> vertices = new List<Vertex>();
 
-            MemoryStream getVertexData(string attributeName, out int stride)
+            MemoryStream getVertexData(string attributeName, out int stride,
+                out AttributeFormat format)
             {
                 Accessor accessor = meshPrimitive.GetVertexAccessor(
                     attributeName);
                 if (accessor != null)
                 {
                     stride = accessor.SourceBufferView.ByteStride;
+                    format = accessor.Format;
                     return new MemoryStream(
                         accessor.SourceBufferView.Content.Array,
                         accessor.SourceBufferView.Content.Offset,
@@ -634,12 +638,13 @@ namespace ShamanTK.Platforms.Common.IO
                 else
                 {
                     stride = 0;
+                    format = default;
                     return null;
                 }
             }
 
             MemoryStream positions = getVertexData(VertexAttributePosition,
-                out int positionStride);
+                out int positionStride, out AttributeFormat positionFormat);
             if (positions == null)
                 throw new ArgumentException("The mesh " +
                     $"'{meshPrimitive.LogicalParent.Name}' doesn't contain " +
@@ -647,16 +652,16 @@ namespace ShamanTK.Platforms.Common.IO
                     "imported.");
 
             MemoryStream normals = getVertexData(VertexAttributeNormal,
-                out int normalStride);
+                out int normalStride, out AttributeFormat normalFormat);
             MemoryStream texcoords = getVertexData(VertexAttributeTexcoord,
-                out int texcoordsStride);
+                out int texcoordsStride, out AttributeFormat texCoordsFormat);
 
             MemoryStream joints = getVertexData(VertexAttributeJoints,
-                out int jointsStride);
+                out int jointsStride, out AttributeFormat jointsFormat);
             MemoryStream weights = getVertexData(VertexAttributeWeights,
-                out int weightsStride);
+                out int weightsStride, out AttributeFormat weightsFormat);
             MemoryStream colors = getVertexData(VertexAttributeColor,
-                out int colorsStride);
+                out int colorsStride, out AttributeFormat colorsFormat);
 
             // Currently, the vertex property data can either store bone
             // attachments (joints and weights) or colors - but not both.
@@ -680,42 +685,68 @@ namespace ShamanTK.Platforms.Common.IO
                 vertexFormat = VertexPropertyDataFormat.ColorLight;
             else vertexFormat = VertexPropertyDataFormat.None;
 
+            Vertex readNextVertex()
+            {
+                Vector3 position = positions.Read<Vector3>();
+                positions?.Seek(positionStride, SeekOrigin.Current);
+
+                Vector3 normal = normals?.Read<Vector3>() ?? default;
+                normals?.Seek(normalStride, SeekOrigin.Current);
+
+                Vector2 texcoord = texcoords?.Read<Vector2>() ?? default;
+                texcoord.Y = 1 - texcoord.Y;
+                texcoords?.Seek(texcoordsStride, SeekOrigin.Current);
+
+                (uint, uint, uint, uint) joint = default;
+                if (joints != null)
+                {
+                    joint = jointsFormat.Encoding switch
+                    {
+                        EncodingType.UNSIGNED_BYTE => 
+                            joints.Read<byte, byte, byte, byte>(),
+                        EncodingType.UNSIGNED_SHORT =>
+                            joints.Read<ushort, ushort, ushort, ushort>(),
+                        EncodingType.UNSIGNED_INT =>
+                            joints.Read<uint, uint, uint, uint>(),
+                        _ => default,
+                    };
+                }
+
+                joints?.Seek(jointsStride, SeekOrigin.Current);
+
+                (float, float, float, float) weight = weights?
+                    .Read<float, float, float, float>() ?? default;
+                weights?.Seek(weightsStride, SeekOrigin.Current);
+
+                Color color = colors?.Read<Color>() ?? Color.Black;
+                colors?.Seek(colorsStride, SeekOrigin.Current);
+
+                VertexPropertyData vertexPropertyData;
+                if (joints != null && weights != null)
+                {
+                    vertexPropertyData = VertexPropertyData
+                        .CreateAsDeformerAttachment(joint, weight);
+                }
+                else if (colors != null)
+                {
+                    vertexPropertyData = VertexPropertyData
+                        .CreateAsColorLight(color, Color.Black);
+                }
+                else vertexPropertyData = default;
+
+                return new Vertex(position, normal, texcoord,
+                    vertexPropertyData);
+            }
+
             try
             {
                 while (positions.Position < positions.Length)
-                {
-                    Vector3 position = positions.Read<Vector3>();
-                    positions?.Seek(positionStride, SeekOrigin.Current);
-
-                    Vector3 normal = normals?.Read<Vector3>() ?? default;
-                    normals?.Seek(normalStride, SeekOrigin.Current);
-
-                    Vector2 texcoord = texcoords?.Read<Vector2>() ?? default;
-                    texcoords?.Seek(texcoordsStride, SeekOrigin.Current);
-
-                    (ushort, ushort, ushort, ushort) joint = joints?
-                        .Read<ushort, ushort, ushort, ushort>() ?? default;
-                    joints?.Seek(jointsStride, SeekOrigin.Current);
-
-                    (float, float, float, float) weight = weights?
-                        .Read<float, float, float, float>() ?? default;
-                    weights?.Seek(weightsStride, SeekOrigin.Current);
-
-                    Color color = colors?.Read<Color>() ?? Color.Black;
-                    colors?.Seek(colorsStride, SeekOrigin.Current);
-
-                    VertexPropertyData vertexPropertyData;
-                    if (joints != null && weights != null)
-                        vertexPropertyData = VertexPropertyData
-                            .CreateAsDeformerAttachment(joint, weight);
-                    else if (colors != null)
-                        vertexPropertyData = VertexPropertyData
-                            .CreateAsColorLight(color, Color.Black);
-                    else vertexPropertyData = default;
-
-                    vertices.Add(new Vertex(position, normal, texcoord,
-                        vertexPropertyData));
-                }
+                    vertices.Add(readNextVertex());
+            }
+            catch (Exception exc)
+            {
+                throw new FormatException("The mesh import failed after " +
+                    $"vertex #{vertices.Count}.", exc);
             }
             finally
             {
@@ -811,14 +842,25 @@ namespace ShamanTK.Platforms.Common.IO
             else return skeleton;
         }
 
-        static ReadContext CreateReadContext(ResourceManager manager)
+        static ReadContext CreateReadContext(ResourceManager manager,
+            FileSystemPath contextRootDirectory)
         {
+            if (!contextRootDirectory.IsAbsolute)
+                throw new ArgumentException("The specified path isn't " +
+                    "absolute and can't be used as context root.");
+            if (!contextRootDirectory.IsDirectoryPath)
+                throw new ArgumentException("The specified path isn't " +
+                    "a valid directory path.");
+
             ArraySegment<byte> ReadFileSystemFile(string pathString)
             {
                 FileSystemPath path;
                 try { path = new FileSystemPath(pathString); }
                 catch (ArgumentNullException) { throw; }
                 catch (ArgumentException) { throw; }
+
+                if (!path.IsAbsolute)
+                    path = FileSystemPath.Combine(contextRootDirectory, path);
 
                 MemoryStream memoryBuffer = new MemoryStream();
                 try

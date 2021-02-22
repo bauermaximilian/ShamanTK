@@ -139,7 +139,10 @@ namespace ShamanTK.Graphics
             get => orientation;
             set
             {
-                orientation = value;
+                orientation = new Vector3(
+                    Angle.Rad(value.X, true),
+                    Angle.Rad(value.Y, true),
+                    Angle.Rad(value.Z, true));
                 OrientationQuaternion = MathHelper.CreateRotation(value);
             }
         }
