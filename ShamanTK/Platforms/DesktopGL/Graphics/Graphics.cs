@@ -780,7 +780,8 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
             }, new NativeWindowSettings()
             {
                 Title = "ApplicationWindow",
-                WindowBorder = WindowBorder.Resizable
+                WindowBorder = WindowBorder.Resizable,
+                NumberOfSamples = 4
             });
 
             Window.UpdateFrame += OnUpdate;
@@ -813,6 +814,8 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                 Log.Warning("The current platform might not support " +
                     "render texture buffers.");
             */
+
+            GL.Enable(EnableCap.Multisample);
 
             try
             {
