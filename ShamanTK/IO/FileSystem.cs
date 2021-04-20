@@ -53,6 +53,15 @@ namespace ShamanTK.IO
             = new FileSystem(ProgramDataDirectory, false);
 
         /// <summary>
+        /// Gets the default <see cref="FileSystem"/> instance, which can be
+        /// used to read and write application resources. For saving data of 
+        /// the current user, see 
+        /// <see cref="CreateUserDataFileSystem(string)"/>.
+        /// </summary>
+        public static FileSystem ProgramDataWritable { get; }
+            = new FileSystem(ProgramDataDirectory, true);
+
+        /// <summary>
         /// Gets a boolean which indicates whether the current file system
         /// supports creating, modifying or removing files or directories 
         /// (<c>true</c>) or not (<c>false</c>). Regardless of this properties 
@@ -546,9 +555,8 @@ namespace ShamanTK.IO
             {
                 int psIndex = convertedPath.IndexOf(
                     Path.DirectorySeparatorChar, 1);
-                string pathVolume = convertedPath.Substring(1, psIndex - 1);
-                string pathTail = convertedPath.Substring(psIndex,
-                    convertedPath.Length - psIndex);
+                string pathVolume = convertedPath[1..psIndex];
+                string pathTail = convertedPath[psIndex..];
                 return pathVolume + Path.VolumeSeparatorChar + pathTail;
             }
             else return Path.Combine(root, convertedPath);
