@@ -97,7 +97,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
         private MouseMode mouseMode;
         private Vector2 mouseSpeed;
         private float mouseWheelSpeed;
-        private bool mouseModeChanged = true;
+        private int mouseSpeedUpdateSkips = 8;
 
         private readonly GamepadState[] gamepadStates;
 
@@ -126,11 +126,20 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             graphics.PreUpdate += FramePreUpdate;
             graphics.PostUpdate += FramePostUpdate;
 
+            graphics.Window.FocusedChanged += e => InvalidateMouseSpeed();
+            graphics.Window.Move += e => InvalidateMouseSpeed();
+            graphics.Window.Resize += e => InvalidateMouseSpeed();
+
             gamepadStates = new GamepadState[Window.JoystickStates.Count];
 
             // Perform an initial state update to ensure the properties of
             // the implementeted IControls interface return valid values.
             FramePreUpdate(this, EventArgs.Empty);
+        }
+
+        private void InvalidateMouseSpeed()
+        {
+            mouseSpeedUpdateSkips = 32;
         }
 
         private void MouseWheelMoved(MouseWheelEventArgs obj)
@@ -179,9 +188,10 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
                 Window.Cursor = MouseCursor.Default;
             }
 
-            // Prevent that the moving of the mouse to the center position
-            // gets misinterpreted as rapid movement and returned as speed.
-            if (mouseModeChanged ||
+            // HACK: Prevents rapid mouse movement due to changes of mouse
+            // mode, window or screen size changes or after the window is
+            // shown for the first time.
+            if (mouseSpeedUpdateSkips > 0 ||
                 // Fixes an issue which returns a high speed for touch screens
                 // when they are touched the first time (and this touch is used
                 // as trigger to get the current speed).
@@ -189,7 +199,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
                 Window.MouseState.IsButtonDown(GlfwMouseButton.Left)))
             {
                 mouseSpeed = Vector2.Zero;
-                mouseModeChanged = false;
+                mouseSpeedUpdateSkips--;
             }
             else
             {
@@ -613,7 +623,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
             if (mouseMode != mode)
             {
                 mouseMode = mode;
-                mouseModeChanged = true;
+                mouseSpeedUpdateSkips = 1;
             }
         }
     }
