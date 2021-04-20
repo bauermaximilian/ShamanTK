@@ -368,6 +368,43 @@ namespace ShamanTK
 
         /// <summary>
         /// Adds a new message with the <see cref="MessageLevel"/>
+        /// <see cref="MessageLevel.Warning"/> to the log.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be logged before the <paramref name="exception"/>.
+        /// </param>
+        /// <param name="exception">
+        /// The exception to be logged after the <paramref name="exception"/>. 
+        /// All inner exceptions will be included in the log.
+        /// </param>
+        /// <param name="source">
+        /// The (short) name of the instance which issued the log message.
+        /// Can be null.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Is thrown whe <paramref name="exception"/> or 
+        /// <paramref name="message"/> is null.
+        /// </exception>
+        public static void Warning(string message, Exception exception,
+            string source = null)
+        {
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+            if (exception == null)
+                throw new ArgumentNullException(nameof(exception));
+
+            StringBuilder messageBuilder = new StringBuilder();
+
+            messageBuilder.AppendLine(message);
+
+            ExceptionToString(exception, messageBuilder, 0);
+
+            AddToLog(new EventArgs(MessageLevel.Warning,
+                messageBuilder.ToString(), source));
+        }
+
+        /// <summary>
+        /// Adds a new message with the <see cref="MessageLevel"/>
         /// <see cref="MessageLevel.Error"/> to the log.
         /// </summary>
         /// <param name="message">The message to be logged.</param>
