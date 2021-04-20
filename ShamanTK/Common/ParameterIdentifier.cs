@@ -391,12 +391,7 @@ namespace ShamanTK.Common
         /// <returns>A hash code for the current object.</returns>
         public override int GetHashCode()
         {
-            int hashCode = -2075048185;
-            hashCode = hashCode * -1521134295 + 
-                EqualityComparer<string>.Default.GetHashCode(Name);
-            hashCode = hashCode * -1521134295 + 
-                EqualityComparer<Type>.Default.GetHashCode(ValueTypeConstraint);
-            return hashCode;
+            return HashCode.Combine(Name, ValueTypeConstraint);
         }
 
         public static bool operator ==(ParameterIdentifier left, 

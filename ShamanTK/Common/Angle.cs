@@ -168,7 +168,7 @@ namespace ShamanTK.Common
         /// </returns>
         public override bool Equals(object obj)
         {
-            return obj is Angle && Equals((Angle)obj);
+            return obj is Angle angle && Equals(angle);
         }
 
         /// <summary>

@@ -669,7 +669,7 @@ namespace ShamanTK.Platforms.Common.IO
             // ignored in such cases.
             if (joints != null && weights != null && colors != null)
             {
-                Log.Warning($"The mesh '{meshPrimitive.LogicalParent.Name}' " +
+                Log.Trace($"The mesh '{meshPrimitive.LogicalParent.Name}' " +
                     "contains vertices with both bone attachments and a " +
                     "color, which is currently not supported - the color " +
                     "channel is ignored in that case.", 
