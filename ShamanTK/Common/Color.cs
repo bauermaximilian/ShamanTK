@@ -470,6 +470,44 @@ namespace ShamanTK.Common
             : this(r, g, b, 255) { }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="Color"/> struct
+        /// with 100% alpha.
+        /// </summary>
+        /// <param name="color">The source color.</param>
+        public Color(Color color)
+            : this(color.R, color.G, color.B, color.Alpha) { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Color"/> struct
+        /// with 100% alpha.
+        /// </summary>
+        /// <param name="color">The source color.</param>
+        /// <param name="alpha">
+        /// The <see cref="Alpha"/> value of the new color.
+        /// </param>
+        public Color(Color color, byte alpha)
+            : this(color.R, color.G, color.B, alpha) { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Color"/> struct
+        /// with 100% alpha.
+        /// </summary>
+        /// <param name="color">The source color.</param>
+        /// <param name="alpha">
+        /// The <see cref="Alpha"/> value of the new color as a value between
+        /// 1.0 and 0.0, which will be converted to the nearest 
+        /// <see cref="byte"/> equivalent.
+        /// </param>
+        public Color(Color color, float alpha)
+            : this(color.R, color.G, color.B, FloatToByte(alpha)) { }
+
+        private static byte FloatToByte(float colorValue)
+        {
+            return (byte)Math.Min(byte.MaxValue, Math.Max(byte.MinValue,
+                Math.Round(colorValue * byte.MaxValue)));
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Color"/> struct.
         /// </summary>
         /// <param name="r">The red color component.</param>
@@ -548,6 +586,56 @@ namespace ShamanTK.Common
                 throw new ArgumentException("The specified hex string was " +
                     "invalid!");
             }
+        }
+
+        /// <summary>
+        /// Creates a new color with the current color information, but
+        /// a different value for <see cref="Alpha"/>.
+        /// </summary>
+        /// <param name="opacity">
+        /// The new <see cref="Alpha"/> value.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="Color"/>.
+        /// </returns>
+        public Color WithAlpha(byte alpha)
+        {
+            return new Color(R, G, B, alpha);
+        }
+
+        /// <summary>
+        /// Creates a new color with the current color information, but
+        /// a different value for <see cref="Alpha"/>.
+        /// </summary>
+        /// <param name="opacity">
+        /// The alpha value as a decimal number betwen 0.0 and 1.0, which will
+        /// be converted to the according <see cref="Alpha"/> value.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="Color"/>.
+        /// </returns>
+        public Color WithAlpha(float opacity)
+        {
+            return new Color(R, G, B, (byte)(byte.MaxValue *
+                Math.Max(Math.Min(opacity, 1), 0)));
+        }
+
+        /// <summary>
+        /// Calculates the linear interpolation of two colors.
+        /// </summary>
+        /// <param name="a">The first color.</param>
+        /// <param name="b">The second color.</param>
+        /// <param name="ratio">
+        /// The influence of color <paramref name="b"/>.
+        /// </param>
+        /// <returns>A new <see cref="Color"/>.</returns>
+        public static Color Lerp(Color a, Color b, float ratio)
+        {
+            ratio = Math.Max(Math.Min(ratio, 1), 0);
+            return new Color((byte)(a.R * (1 - ratio) + b.R * ratio),
+                (byte)(a.G * (1 - ratio) + b.G * ratio),
+                (byte)(a.B * (1 - ratio) + b.B * ratio),
+                (byte)(a.Alpha * (1 - ratio) + b.Alpha * ratio));
         }
 
         /// <summary>
