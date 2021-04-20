@@ -199,6 +199,27 @@ namespace ShamanTK.Common
         }
 
         /// <summary>
+        /// Rotates a directional vector around an axis.
+        /// </summary>
+        /// <param name="direction">
+        /// The vector representing the direction to be rotated.
+        /// </param>
+        /// <param name="upVector">
+        /// The up vector of the axis, around which the 
+        /// <paramref name="direction"/> should be rotated.
+        /// </param>
+        /// <param name="angle">
+        /// The rotation angle.
+        /// </param>
+        /// <returns>A new <see cref="Vector3"/> instance.</returns>
+        public static Vector3 RotateDirection(Vector3 direction,
+            Vector3 upVector, Angle angle)
+        {
+            return RotateDirection(direction,
+                Quaternion.CreateFromAxisAngle(upVector, angle));
+        }
+
+        /// <summary>
         /// Calculates a cubic interpolation of two values.
         /// </summary>
         /// <param name="beforeX">The value before the first value.</param>
