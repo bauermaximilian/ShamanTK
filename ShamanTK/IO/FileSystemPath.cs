@@ -137,9 +137,9 @@ namespace ShamanTK.IO
         /// directory, but isn't recognized as such by the file system
         /// if that final character is omitted.
         /// </remarks>
-        public bool IsDirectoryPath => (PathString.Length > 0 ?
-            (PathString[PathString.Length - 1] == SeparatorPathElement)
-            : false) || PathString.EndsWith(DirectoryReferenceCurrent)
+        public bool IsDirectoryPath => (PathString.Length > 0 && 
+            (PathString[^1] == SeparatorPathElement)) || 
+            PathString.EndsWith(DirectoryReferenceCurrent)
             || PathString.EndsWith(DirectoryReferenceParent);
 
         /// <summary>
@@ -478,26 +478,25 @@ namespace ShamanTK.IO
                 throw new ArgumentException("At least 2 elements must be " +
                     "specified!");
 
-            using (StringWriter writer = new StringWriter())
+            using StringWriter writer = new StringWriter();
+            
+            for (int i = 0; i < pathElements.Length; i++)
             {
-                for (int i = 0; i < pathElements.Length; i++)
-                {
-                    FileSystemPath pathElement = pathElements[i];
-                    if (pathElement.IsEmpty) continue;
-                    if (pathElement.IsAbsolute && i > 0)
-                        throw new ArgumentException("Path element #" + i +
-                            " was absolute - only the first element can be " +
-                            "absolute.");
-                    if (!pathElement.IsDirectoryPath
-                        && i != (pathElements.Length - 1))
-                        throw new ArgumentException("Path element #" + i +
-                            " was no directory path - only the last element " +
-                            "is allowed to be a file path!");
-                    writer.Write(pathElement.PathString);
-                }
-
-                return new FileSystemPath(writer.ToString());
+                FileSystemPath pathElement = pathElements[i];
+                if (pathElement.IsEmpty) continue;
+                if (pathElement.IsAbsolute && i > 0)
+                    throw new ArgumentException("Path element #" + i +
+                        " was absolute - only the first element can be " +
+                        "absolute.");
+                if (!pathElement.IsDirectoryPath
+                    && i != (pathElements.Length - 1))
+                    throw new ArgumentException("Path element #" + i +
+                        " was no directory path - only the last element " +
+                        "is allowed to be a file path!");
+                writer.Write(pathElement.PathString);
             }
+
+            return new FileSystemPath(writer.ToString());
         }
 
         /// <summary>
@@ -707,7 +706,7 @@ namespace ShamanTK.IO
         /// </returns>
         public override bool Equals(object obj)
         {
-            return obj is FileSystemPath && Equals((FileSystemPath)obj);
+            return obj is FileSystemPath path && Equals(path);
         }
 
         /// <summary>

@@ -277,8 +277,7 @@ namespace ShamanTK.IO
         /// </returns>
         public override bool Equals(object obj)
         {
-            return obj is ResourcePath 
-                && Equals((ResourcePath)obj);
+            return obj is ResourcePath path && Equals(path);
         }
 
         /// <summary>
@@ -318,6 +317,11 @@ namespace ShamanTK.IO
         public static implicit operator string(ResourcePath path)
         {
             return path.PathString;
+        }
+
+        public static implicit operator ResourcePath(FileSystemPath path)
+        {
+            return new ResourcePath(path);
         }
 
         public static implicit operator ResourcePath(string path)

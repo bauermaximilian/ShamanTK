@@ -56,11 +56,11 @@ namespace ShamanTK.IO
     /// and can be used. 
     /// The state of this operation can always be checked using the
     /// <see cref="SyncTask"/> instance, which was returned upon the start
-    /// of the resource loading - adding a so-called "task finalizer" with 
-    /// <see cref="SyncTask{T}.AddFinalizer(Action{T}, Action{Exception})"/>
-    /// ensures the parts of your application "waiting" for the usable buffer
-    /// (or an error) will get notified of the completion of the process.
-    /// Additionally to that, the <see cref="LoadingTaskCompleted"/> event
+    /// of the resource loading - subscribing to the task (using the methods
+    /// with the same name) ensures the parts of your application "waiting" 
+    /// for the usable buffer (or an error) will get notified of the completion
+    /// of the process.
+    /// Additionally to that, the <see cref="LoadingTasksCompleted"/> event
     /// could be used to get notified upon completion of all loading tasks.
     /// Of course, creating a data structure and putting it into a buffer can
     /// be done manually too - it just should be ensured that the buffer was 
