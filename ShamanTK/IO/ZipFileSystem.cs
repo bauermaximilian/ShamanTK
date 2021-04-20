@@ -23,13 +23,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Text;
 
 namespace ShamanTK.IO
 {
     /// <summary>
     /// Provides functionality to read and modify files in a ZIP archive.
     /// </summary>
+    /// <remarks>
+    /// This file system is not thread safe - attempting to read or 
+    /// especially write files simultaneously from different threads can
+    /// corrupt the file system.
+    /// </remarks>
     public class ZipFileSystem : DisposableBase, IFileSystem
     {
         /// <summary>
@@ -40,6 +44,7 @@ namespace ShamanTK.IO
         public bool IsWritable { get; }
 
         private readonly ZipArchive baseArchive;
+        private readonly Stream baseArchiveStream;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ZipFileSystem"/>
@@ -77,8 +82,8 @@ namespace ShamanTK.IO
 
             try
             {
-                baseArchive = new ZipArchive(fileStream, archiveMode, false,
-                    Encoding.Unicode);
+                baseArchive = new ZipArchive(fileStream, archiveMode, false);
+                baseArchiveStream = fileStream;
             }
             catch (Exception exc)
             {
@@ -152,14 +157,14 @@ namespace ShamanTK.IO
         private static string GetConvertedPath(FileSystemPath path,
             bool requestDirectory)
         {
-            return GetConvertedPath(path, true, false);
+            return GetConvertedPath(path, requestDirectory, !requestDirectory);
         }
 
         private static string GetConvertedPath(FileSystemPath path,
             bool allowDirectory, bool allowFile)
         {
             path.Verify(allowDirectory, allowFile);
-            return path.PathString.Substring(1, path.PathString.Length - 1);
+            return path.PathString[1..];
         }
 
         /// <summary>
@@ -271,8 +276,13 @@ namespace ShamanTK.IO
         public bool ExistsDirectory(FileSystemPath directoryPath)
         {
             string path = GetConvertedPath(directoryPath, true);
-            try { return baseArchive.GetEntry(path) != null; }
-            catch { return false; }
+
+            if (path.Length == 0) return true;
+            else
+            {
+                try { return baseArchive.GetEntry(path) != null; }
+                catch { return false; }
+            }
         }
 
         /// <summary>
@@ -304,13 +314,13 @@ namespace ShamanTK.IO
         {
             directoryPath.Verify(true);
             return baseArchive.Entries
-                .Select(e => ParseOrEmpty("/" + e.FullName, true))
+                .Select(e => ParseOrEmpty("/" + e.FullName))
                 .Where(e => !e.IsEmpty && directoryPath.IsParentOf(e, false));
         }
 
-        private static FileSystemPath ParseOrEmpty(string path, bool encode)
+        private static FileSystemPath ParseOrEmpty(string path)
         {
-            try { return new FileSystemPath(path, encode); }
+            try { return new FileSystemPath(path, false); }
             catch { return FileSystemPath.Empty; }
         }
 
@@ -414,7 +424,7 @@ namespace ShamanTK.IO
                 }
 
                 ZipArchiveEntry newEntry = baseArchive.CreateEntry(path);
-                return newEntry.Open();                
+                return newEntry.Open();
             }
             catch (InvalidOperationException) { throw; }
             catch (Exception exc)
@@ -511,6 +521,7 @@ namespace ShamanTK.IO
         /// </param>
         protected override void Dispose(bool disposing)
         {
+            baseArchiveStream.Flush();
             if (disposing) baseArchive.Dispose();
         }
     }
