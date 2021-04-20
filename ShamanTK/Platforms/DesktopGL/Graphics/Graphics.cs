@@ -244,6 +244,7 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                 parentGraphics.shaderRenderStage;
 
             private static readonly Color clearColor = Color.Transparent;
+            private static readonly TimeSpan fullDay = TimeSpan.FromDays(1);
 
             private readonly ShaderEffectStage shaderPostProcessing;
             private readonly Camera postProcessingCamera = new Camera()
@@ -426,8 +427,8 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                     //HACK: Without this, everything rendered to texture will
                     //have flipped faces.
                     if (finalRenderTarget != null)
-                        GL.FrontFace(FrontFaceDirection.Ccw);
-                    else GL.FrontFace(FrontFaceDirection.Cw);
+                        GL.FrontFace(FrontFaceDirection.Cw);
+                    else GL.FrontFace(FrontFaceDirection.Ccw);
                 }
                 else GL.Disable(EnableCap.CullFace);
 
@@ -550,6 +551,18 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
                         postProcessingCamera, GraphicsResolution));
                     shaderPostProcessing.FlipTextureY.Set(false);
                 }
+
+                TimeSpan elapsed = DateTime.Now - parentGraphics.StartTime;
+                double elapsedSeconds =
+                    elapsed.TotalSeconds % fullDay.TotalSeconds;
+
+                shaderPostProcessing.Time.Set((float)elapsedSeconds);
+                shaderPostProcessing.ScanlineEffectEnabled.Set(
+                    parameters.Filters.ScanlineEffectEnabled);
+
+                if (!parameters.BackfaceCullingEnabled)
+                    GL.Enable(EnableCap.CullFace);
+                else GL.Disable(EnableCap.CullFace);
 
                 //Draw each of the render targets for post processing to 
                 //the screen with the post processing shader using the
@@ -674,6 +687,11 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
         }
 
         /// <summary>
+        /// Gets the time when this instance was created.
+        /// </summary>
+        internal DateTime StartTime { get; }
+
+        /// <summary>
         /// Gets a value indicating whether the current graphics interface
         /// is running and invoking the <see cref="Redraw"/>/
         /// <see cref="Update"/> events (<c>true</c>) or if its
@@ -789,6 +807,8 @@ namespace ShamanTK.Platforms.DesktopGL.Graphics
             Window.Resize += OnResize;
             Window.Closing += OnClosing;
             Window.Load += OnInitialized;
+
+            StartTime = DateTime.Now;
 
             size = new Size(Window.Size.X, Window.Size.Y);
         }

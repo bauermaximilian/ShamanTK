@@ -53,15 +53,32 @@ void main()
             FragmentShaderVersionPrefix +
 @"in vec2 vertexTextureCoordinate;
 
+uniform bool scanlines_enabled;
+uniform float time;
 uniform sampler2D texture_color;
 uniform vec3 color_resolution = vec3(255, 255, 255);
 
+const float SCANLINE_INTENSITY = 0.1;
+const float SCANLINE_THICCNESS = 5;
+
 void main()
 {
+    float scanline = 1.0;
+    
+    if (scanlines_enabled) 
+    {
+        // Use the following to move the scanlines instead:
+        // scanline = 1.0 - SCANLINE_INTENSITY * 
+        //   mod((gl_FragCoord.y + time * 15)/SCANLINE_THICCNESS, 1.0);
+        scanline = 1.0 - SCANLINE_INTENSITY * 
+            mod((gl_FragCoord.y)/SCANLINE_THICCNESS, 1.0);
+    }
+
     vec4 color = texture(texture_color, vertexTextureCoordinate);
     vec3 color_reduced = floor(color.rgb * (color_resolution - 1.0) + 0.5) / 
         (color_resolution - 1.0);
-    color = vec4(min(color_reduced, 1.0), color.a);
+    color = vec4(min(color_reduced, 1.0), color.a) * scanline;
+
     gl_FragColor = color;
 }
 ";
@@ -94,6 +111,18 @@ void main()
         /// </summary>
         public Uniform<Vector3> ColorResolution { get; }
 
+        /// <summary>
+        /// Gets the shader uniform value accessor for a time value, which
+        /// defines the amount of seconds elapsed since [TODO].
+        /// </summary>
+        public Uniform<float> Time { get; }
+
+        /// <summary>
+        /// Gets the shader uniform value accessor for a boolean flag, which
+        /// defines whether the scanline effect is enabled or not.
+        /// </summary>
+        public Uniform<bool> ScanlineEffectEnabled { get; }
+
         private ShaderEffectStage(int programHandle) : base(programHandle)
         {
             Model = new UniformMatrix4x4(programHandle, "model");
@@ -101,6 +130,9 @@ void main()
             ColorResolution = new UniformVector3(programHandle, 
                 "color_resolution", false);
             FlipTextureY = new UniformBool(programHandle, "flip_texture_y");
+            Time = new UniformFloat(programHandle, "time");
+            ScanlineEffectEnabled = new UniformBool(programHandle,
+                "scanlines_enabled");
         }
 
         /// <summary>

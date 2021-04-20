@@ -208,6 +208,12 @@ namespace ShamanTK.Graphics
                 }
             }
             private Vector3 colorShades = ColorShadesFull;
+
+            /// <summary>
+            /// Gets or sets a value indicating whether the scanline effect
+            /// is enabled (<c>true</c>) or not (<c>false</c>).
+            /// </summary>
+            public bool ScanlineEffectEnabled { get; set; } = false;
         }
 
         /// <summary>
