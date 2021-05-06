@@ -679,7 +679,7 @@ vec4 blend(vec4 primaryColor, vec4 secondaryColor, int blendingMode)
 
 float getFogIntensity() 
 {
-    if (fog.onsetDistance == 0 && fog.falloffLength == 0) return 0;
+    if (fog.onsetDistance == 0 && fog.falloffLength == 0) return 0.0;
 
     float fragmentDistance;
 
