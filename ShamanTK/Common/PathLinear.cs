@@ -84,7 +84,11 @@ namespace ShamanTK.Common
             if (closePath && pathSegments.Count > 0)
             {
                 Length += (firstPathPoint - previousPathPoint).Length();
-                pathSegments.Add(Length, firstPathPoint);
+                // If the path is specified to be closed, but the first and 
+                // last point are the exact same, adding the first path point
+                // again at the same "length" would fail.
+                if (!pathSegments.ContainsKey(Length))
+                    pathSegments.Add(Length, firstPathPoint);
             }
 
             if (pathSegments.Count < 2)
@@ -131,11 +135,17 @@ namespace ShamanTK.Common
 
             for (int i = startSegmentIndex; (i + 1) < pathSegments.Count; i++)
             {
+                float segmentOffset = pathSegments.Keys[i] - startOffset;
                 Vector3 segmentStart = pathSegments.Values[i];
                 Vector3 segmentEnd = pathSegments.Values[i + 1];
 
                 (float distance, float ratio) = GetDistanceToSegment(
                     position, segmentStart, segmentEnd);
+
+                // The segments closer to the given start offset should be
+                // weighed higher than the ones with a higher offset, but a 
+                // closer distance.
+                distance += Math.Max(0, segmentOffset) / 10;
 
                 if (distance < lastDistanceToPath)
                 {
