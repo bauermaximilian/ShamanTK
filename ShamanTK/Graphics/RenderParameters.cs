@@ -275,5 +275,21 @@ namespace ShamanTK.Graphics
         /// class.
         /// </summary>
         public RenderParameters() { }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RenderParameters"/>
+        /// class.
+        /// </summary>
+        /// <param name="initializers">
+        /// The actions to be invoked on the new <see cref="RenderParameters"/>
+        /// instance.
+        /// </param>
+        public RenderParameters(params Action<RenderParameters>[] initializers)
+        {
+            foreach (Action<RenderParameters> initializer in initializers)
+            {
+                initializer?.Invoke(this);
+            }
+        }
     }
 }
