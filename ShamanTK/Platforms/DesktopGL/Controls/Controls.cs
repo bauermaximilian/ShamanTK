@@ -538,7 +538,7 @@ namespace ShamanTK.Platforms.DesktopGL.Controls
                 MouseSpeedAxis.Down => Math.Max(0, -mouseSpeed.Y),
                 MouseSpeedAxis.Left => Math.Max(0, -mouseSpeed.X),
                 MouseSpeedAxis.WheelUp => Math.Max(0, mouseWheelSpeed),
-                MouseSpeedAxis.WheelDown => Math.Min(0, -mouseWheelSpeed),
+                MouseSpeedAxis.WheelDown => Math.Max(0, -mouseWheelSpeed),
                 _ => 0,
             };
             return value;
