@@ -44,7 +44,7 @@ namespace ShamanTK.Graphics
         /// their size.
         /// Suitable for drawing two-dimensional/isometric scenes.
         /// In this mode, a vertex with the position 
-        /// <see cref="Vector3.UnitZ"/> would be displayed at the bottom
+        /// <see cref="Vector3.Zero"/> would be displayed at the bottom
         /// left corner of the render target (window, screen or
         /// <see cref="RenderTextureBuffer"/>).
         /// <see cref="Vector3.UnitY"/> is equal to the complete height of the 
@@ -60,8 +60,8 @@ namespace ShamanTK.Graphics
         /// their size.
         /// Suitable for drawing two-dimensional/isometric scenes.
         /// In this mode, a vertex with the position 
-        /// <see cref="Vector3.UnitZ"/> would be displayed at the bottom
-        /// left corner of the render target (window, screen or
+        /// <see cref="Vector3.Zero"/> would be displayed at the bottom
+        /// (somewhat) left corner of the render target (window, screen or
         /// <see cref="RenderTextureBuffer"/>).
         /// <see cref="Vector3.UnitY"/> and <see cref="Vector3.UnitX"/> are 
         /// both equal to the smaller side of the render target, the longer 
