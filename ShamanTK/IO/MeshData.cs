@@ -96,6 +96,15 @@ namespace ShamanTK.IO
             Vector3.UnitY, Vector3.UnitX);
 
         /// <summary>
+        /// Gets a single-quad plane on the XY-axis with a width and height of
+        /// 1, it's pivot in the center of the left side of the plane and 
+        /// -<see cref="Vector3.UnitZ"/> as normal.
+        /// </summary>
+        public static MeshData LineQuad { get; } = CreatePlane(
+            new Vector3(0, -0.5f, 0), new Vector3(0, 0.5f, 0),
+            new Vector3(1, -0.5f, 0));
+
+        /// <summary>
         /// Gets a three-dimensional cube with a width, height and depth of 1,
         /// its pivot in the center of the box and an UV layout with that any 
         /// assigned texture will be displayed completely on each side of 
