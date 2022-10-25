@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <Authors>Maximilian Bauer</Authors>
     <Company />
     <Product>Shaman Toolkit</Product>
@@ -24,9 +24,9 @@
   
   <ItemGroup>
     <PackageReference Include="MP3Sharp" Version="1.0.5" />
-    <PackageReference Include="OpenTK" Version="4.6.3" />
+    <PackageReference Include="OpenTK" Version="4.6.7" />
     <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0020" />
-    <PackageReference Include="System.Drawing.Common" Version="4.7.0" />
+    <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
   </ItemGroup>
 
 </Project>
